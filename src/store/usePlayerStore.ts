@@ -23,6 +23,15 @@ let lastSeekSent = 0;
 // Gapless: which queue index we've already armed the next track for (avoid re-enqueuing
 // every poll). Reset on a fresh session and after each gapless advance.
 let enqueuedFor: number | null = null;
+// Seek convergence: after a seek/click, hold the optimistic position until the engine's
+// reported time catches up — otherwise a stale status poll snaps the thumb back to the old
+// spot for a frame. Cleared on convergence or when the guard window lapses.
+let seekTarget: number | null = null;
+let seekGuardUntil = 0;
+function markSeek(sec: number) {
+  seekTarget = sec;
+  seekGuardUntil = Date.now() + 1000;
+}
 function stopNativePoll() {
   if (posTimer) {
     clearInterval(posTimer);
@@ -49,8 +58,16 @@ function startNativePoll() {
     }
 
     const ended = st.durMs > 0 && st.posMs >= st.durMs - 350 && !st.playing;
+    // Hold the clicked/seeked position until the engine's reported time converges to it, so a
+    // stale poll never snaps the thumb back. The guard lapses after ~1s as a safety net.
+    const engTime = st.posMs / 1000;
+    let acceptTime = true;
+    if (seekTarget != null && Date.now() < seekGuardUntil) {
+      if (Math.abs(engTime - seekTarget) < 0.4) seekTarget = null;
+      else acceptTime = false;
+    }
     usePlayerStore.setState({
-      currentTime: st.posMs / 1000,
+      ...(acceptTime ? { currentTime: engTime } : {}),
       duration: st.durMs / 1000,
       isPlaying: st.playing,
     });
@@ -103,7 +120,7 @@ function startNativePoll() {
       stopNativePoll();
       void usePlayerStore.getState().next();
     }
-  }, 250);
+  }, 120);
 }
 
 interface PlayerState {
@@ -457,6 +474,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   },
 
   seek: (seconds) => {
+    markSeek(seconds);
     void nativeEngine.seek(seconds);
     set({ currentTime: seconds });
   },
@@ -467,17 +485,20 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   // --- Seek-bar scrubbing: move the thumb optimistically, throttle the real seek ---
   beginScrub: () => {
     scrubbing = true;
+    lastSeekSent = 0; // the first move (a click) seeks immediately, not throttled
   },
   scrubMove: (seconds) => {
     set({ currentTime: seconds });
     const now = Date.now();
     if (now - lastSeekSent > 80) {
       lastSeekSent = now;
+      markSeek(seconds);
       void nativeEngine.seek(seconds);
     }
   },
   endScrub: (seconds) => {
     scrubbing = false;
+    markSeek(seconds);
     set({ currentTime: seconds });
     void nativeEngine.seek(seconds);
   },

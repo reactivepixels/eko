@@ -1237,6 +1237,16 @@ body {
   position: relative;
   cursor: pointer;
 }
+/* Expand the vertical click/drag hit area beyond the slim 8px bar (transparent, visual
+   unchanged) so clicks just above/below still register precisely. */
+.track::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -9px;
+  bottom: -9px;
+}
 .track .fill {
   position: absolute;
   left: 0;
