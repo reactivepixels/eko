@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 200" width="560" height="200">
+  <!-- Horizontal logo lockup: the E-bars mark + the EKO wordmark.
+       Ink is `currentColor` (set it on the <svg> or a parent: dark ink on light,
+       light ink on dark); the top bar stays accent orange in both. -->
+  <g color="#2c2b27">
+    <!-- mark tile -->
+    <g transform="translate(20,40)">
+      <rect width="120" height="120" rx="27" fill="currentColor" fill-opacity="0.06"
+        stroke="currentColor" stroke-opacity="0.12" stroke-width="1" />
+      <g transform="translate(0,0) scale(1.2)">
+        <rect x="26" y="24" width="48" height="11" rx="5.5" fill="#ef6a1e" />
+        <rect x="26" y="44.5" width="38" height="11" rx="5.5" fill="currentColor" />
+        <rect x="26" y="65" width="48" height="11" rx="5.5" fill="currentColor" />
+      </g>
+    </g>
+    <!-- wordmark -->
+    <text x="168" y="128" fill="currentColor" font-size="96" font-weight="700"
+      letter-spacing="4"
+      font-family="Helvetica Neue, Inter, -apple-system, sans-serif">EKO</text>
+  </g>
+</svg>

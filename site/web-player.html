@@ -1,0 +1,308 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>EKO Web — embeddable lossless player</title>
+<!--
+  EKO Web Lite — a self-contained, embeddable lossless web player.
+  Honest about the browser ceiling: lossless decode + real DSP, but the OS mixer
+  resamples to the system rate (no bit-perfect on the web — that's the native app).
+
+  Embed it:
+    <iframe src="web-player.html?src=track.flac&title=Half-Light&artist=Kessler&embed=1"
+            style="width:100%;height:420px;border:0" loading="lazy"></iframe>
+
+  URL params: src, title, artist, cover (image url), theme=light|dark, accent=%23ef6a1e,
+              loop=1, embed=1 (tight, transparent for iframes).
+  No src → generates an ambient bed so the demo always works.
+-->
+<style>
+  :root{
+    --bg:#e9e7e0; --light:#ffffff; --dark:#c3c1b8;
+    --ink:#2c2b27; --ink-2:#6f6e67; --ink-3:#9b9a92;
+    --accent:#ef6a1e; --accent-ink:#fffaf6; --line:rgba(0,0,0,.06);
+    --out-sm:4px 4px 9px var(--dark), -4px -4px 9px var(--light);
+    --out-xs:2px 2px 5px var(--dark), -2px -2px 5px var(--light);
+    --in:inset 4px 4px 9px var(--dark), inset -4px -4px 9px var(--light);
+    --bevel:inset 1px 1px 1.5px rgba(255,255,255,.65), inset -1px -1px 1.5px rgba(0,0,0,.05);
+    --lift:0 8px 20px rgba(0,0,0,.14),0 1px 3px rgba(0,0,0,.1);
+    --art:#d8d6cd; --spec:64,59,52; --ec:cubic-bezier(.34,.01,.2,1);
+    --font:"Helvetica Neue","Inter",-apple-system,Helvetica,Arial,sans-serif;
+    --mono:"SF Mono",ui-monospace,"Roboto Mono",Menlo,monospace;
+  }
+  [data-theme="dark"]{
+    --bg:#23262c; --light:#2f333b; --dark:#141519;
+    --ink:#eceef0; --ink-2:#a3a6ad; --ink-3:#70737a; --line:rgba(255,255,255,.055);
+    --out-sm:3px 3px 7px var(--dark), -2px -2px 6px var(--light);
+    --out-xs:2px 2px 5px var(--dark), -2px -2px 4px var(--light);
+    --in:inset 4px 4px 9px var(--dark), inset -3px -3px 8px var(--light);
+    --bevel:inset 1px 1px 1px rgba(255,255,255,.05), inset -1px -1px 1px rgba(0,0,0,.3);
+    --lift:0 10px 24px rgba(0,0,0,.55),0 2px 5px rgba(0,0,0,.4);
+    --art:#2f3137; --spec:230,233,236;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:var(--font);background:#d7d5cd;color:var(--ink);display:grid;place-items:center;min-height:100vh;padding:30px;transition:.3s}
+  [data-theme="dark"] body{background:#16181c}
+  body.embed{background:transparent;padding:0;min-height:auto;display:block}
+  [data-theme="dark"] body.embed{background:transparent}
+
+  .eko-web{width:100%;max-width:680px;background:var(--bg);box-shadow:var(--lift);border-radius:22px;padding:22px;position:relative}
+  body.embed .eko-web{max-width:none;box-shadow:none;border-radius:0}
+  .ew-head{display:flex;align-items:center;gap:14px;margin-bottom:16px}
+  .ew-cover{width:64px;height:64px;border-radius:14px;flex:0 0 auto;background:radial-gradient(120% 120% at 25% 20%,var(--light),transparent 60%),var(--art);box-shadow:var(--out-sm),var(--bevel);background-size:cover;background-position:center}
+  .ew-meta{flex:1;min-width:0}
+  .ew-lab{font:700 8.5px var(--mono);letter-spacing:2px;color:var(--ink-3);display:flex;align-items:center;gap:8px}
+  .ew-eqg{display:flex;align-items:flex-end;gap:2px;height:10px}
+  .ew-eqg i{width:2.5px;height:10px;background:var(--accent);border-radius:1px;transform-origin:bottom;animation:bar 1.1s var(--ec) infinite;opacity:0;transition:opacity .3s}
+  .playing .ew-eqg i{opacity:1}
+  .ew-eqg i:nth-child(2){animation-delay:.2s}.ew-eqg i:nth-child(3){animation-delay:.45s}.ew-eqg i:nth-child(4){animation-delay:.7s}
+  @keyframes bar{0%,100%{transform:scaleY(.3)}50%{transform:scaleY(1)}}
+  .ew-title{font-size:18px;font-weight:600;margin-top:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ew-sub{font-size:12px;color:var(--ink-3);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ew-badge{font:700 8px var(--mono);letter-spacing:1.5px;color:var(--accent);background:var(--bg);box-shadow:var(--in);border-radius:999px;padding:7px 12px;flex:0 0 auto}
+  .ew-theme{width:34px;height:34px;border-radius:50%;background:var(--bg);box-shadow:var(--out-xs),var(--bevel);border:none;color:var(--ink-2);display:grid;place-items:center;cursor:pointer;flex:0 0 auto}
+  .ew-theme svg{width:15px;height:15px}
+
+  .ew-spec{height:96px;background:var(--bg);box-shadow:var(--in);border-radius:14px;overflow:hidden;margin-bottom:14px}
+  .ew-spec canvas{display:block;width:100%;height:100%}
+
+  .ew-sig{display:flex;align-items:center;gap:18px;background:var(--bg);box-shadow:var(--in);border-radius:13px;padding:12px 18px;margin-bottom:16px}
+  .ew-sig .node{display:flex;flex-direction:column;gap:4px;min-width:0}
+  .ew-sig .node.o{text-align:right}
+  .ew-sig .k{font:700 8px var(--mono);letter-spacing:1.4px;color:var(--ink-3)}
+  .ew-sig .v{font-size:11.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ew-sig .link{flex:1;height:4px;border-radius:4px;background:var(--bg);box-shadow:inset 1px 1px 2px var(--dark),inset -1px -1px 2px var(--light);-webkit-mask-image:linear-gradient(90deg,transparent,#000 18%,#000 82%,transparent);mask-image:linear-gradient(90deg,transparent,#000 18%,#000 82%,transparent)}
+  .ew-sig .seal{display:flex;flex-direction:column;align-items:center;gap:5px;padding-left:18px;border-left:1px solid var(--line);flex:0 0 auto}
+  .ew-sig .ring{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;box-shadow:var(--in);color:var(--ink-3)}
+  .ew-sig .ring svg{width:15px;height:15px}
+  .ew-sig .sl{font:700 8px var(--mono);letter-spacing:1px;color:var(--ink-3)}
+
+  .ew-ctrls{display:flex;align-items:center;gap:15px;margin-bottom:14px}
+  .ew-play{width:54px;height:54px;border-radius:50%;background:var(--accent);color:var(--accent-ink);box-shadow:var(--out-sm);border:none;display:grid;place-items:center;cursor:pointer;flex:0 0 auto}
+  .ew-play svg{width:22px;height:22px}
+  .ew-scrub{flex:1;display:flex;align-items:center;gap:12px}
+  .ew-scrub .t{font:600 11px var(--mono);color:var(--ink-3);min-width:38px}
+  .ew-scrub .t.r{text-align:right}
+  .ew-track{flex:1;height:6px;border-radius:6px;background:var(--bg);box-shadow:var(--in);position:relative;cursor:pointer}
+  .ew-track .fill{position:absolute;left:0;top:0;bottom:0;border-radius:6px;background:var(--accent);width:0}
+  .ew-track .knob{position:absolute;top:50%;left:0;width:14px;height:14px;border-radius:50%;background:var(--bg);box-shadow:var(--out-xs),var(--bevel);transform:translate(-50%,-50%)}
+  .ew-live{font:700 9px var(--mono);letter-spacing:1.5px;color:var(--accent);display:flex;align-items:center;gap:7px}
+  .ew-live::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--accent);box-shadow:0 0 6px var(--accent)}
+
+  .ew-ctrls2{display:flex;align-items:center;gap:14px;margin-bottom:16px}
+  .ew-vol{display:flex;align-items:center;gap:10px;width:170px;flex:0 0 auto}
+  .ew-vol .vk{font:700 8px var(--mono);letter-spacing:1px;color:var(--ink-3)}
+  .ew-presets{display:flex;gap:8px;margin-left:auto;flex-wrap:wrap}
+  .ew-presets b{font:600 11px var(--font);color:var(--ink-3);background:var(--bg);box-shadow:var(--out-xs),var(--bevel);border-radius:999px;padding:8px 13px;cursor:pointer}
+  .ew-presets b.on{color:var(--accent);box-shadow:var(--in)}
+
+  .ew-foot{display:flex;align-items:center;gap:12px;border-top:1px solid var(--line);padding-top:14px}
+  .ew-note{font-size:11.5px;color:var(--ink-3);line-height:1.5;flex:1}
+  .ew-note b{color:var(--ink-2)}
+  .ew-dl{flex:0 0 auto;display:inline-flex;align-items:center;gap:7px;font-size:12px;font-weight:600;color:var(--accent-ink);background:var(--accent);box-shadow:var(--out-sm);border-radius:999px;padding:10px 16px;cursor:pointer;border:none;text-decoration:none}
+  .ew-dl svg{width:14px;height:14px}
+  .caption{margin-top:20px;font-size:12px;color:var(--ink-3);text-align:center;max-width:680px;line-height:1.6}
+  .caption b{color:var(--ink-2)} .caption code{font-family:var(--mono);font-size:11px;background:rgba(0,0,0,.05);padding:2px 6px;border-radius:5px}
+  .hidden{display:none!important}
+  @media (max-width:560px){.ew-ctrls2{flex-wrap:wrap}.ew-vol{width:100%}.ew-presets{margin-left:0}}
+</style>
+</head>
+<body>
+  <div class="eko-web" id="player">
+    <div class="ew-head">
+      <div class="ew-cover" id="ewCover"></div>
+      <div class="ew-meta">
+        <div class="ew-lab">NOW PLAYING <span class="ew-eqg" aria-hidden="true"><i></i><i></i><i></i><i></i></span></div>
+        <div class="ew-title" id="ewTitle">Resonance</div>
+        <div class="ew-sub" id="ewSub">EKO · generated ambient</div>
+      </div>
+      <span class="ew-badge">EKO&nbsp;WEB</span>
+      <button class="ew-theme" id="ewThemeBtn" aria-label="Toggle theme"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3a6.4 6.4 0 0 0 9 9 9 9 0 1 1-9-9z"/></svg></button>
+    </div>
+
+    <div class="ew-spec"><canvas id="ewSpec"></canvas></div>
+
+    <div class="ew-sig">
+      <div class="node"><span class="k">SOURCE</span><span class="v" id="ewSrc">—</span></div>
+      <span class="link"></span>
+      <div class="node"><span class="k">ENGINE</span><span class="v" id="ewEng">Web Audio · 32-bit float</span></div>
+      <span class="link"></span>
+      <div class="node o"><span class="k">OUTPUT</span><span class="v" id="ewOut">System mixer</span></div>
+      <div class="seal" id="ewSeal" title="Lossless decode + real DSP — but the browser resamples to the system rate. Install EKO for true bit-perfect, native-rate output.">
+        <span class="ring"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h3l2-5 4 10 2-5h7"/></svg></span>
+        <span class="sl">LOSSLESS</span>
+      </div>
+    </div>
+
+    <div class="ew-ctrls">
+      <button class="ew-play" id="ewPlay" aria-label="Play"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></button>
+      <div class="ew-scrub" id="ewScrubWrap">
+        <span class="t" id="ewCur">0:00</span>
+        <div class="ew-track" id="ewProg"><div class="fill"></div><div class="knob"></div></div>
+        <span class="t r" id="ewRem">0:00</span>
+      </div>
+      <span class="ew-live hidden" id="ewLive">LIVE</span>
+    </div>
+
+    <div class="ew-ctrls2">
+      <div class="ew-vol">
+        <span class="vk">VOL</span>
+        <div class="ew-track" id="ewVol"><div class="fill" style="width:85%"></div><div class="knob" style="left:85%"></div></div>
+      </div>
+      <div class="ew-presets" id="ewPresets">
+        <b class="on" data-eq="flat">Flat</b><b data-eq="warm">Warm</b><b data-eq="bright">Bright</b><b data-eq="bass">Bass</b>
+      </div>
+    </div>
+
+    <div class="ew-foot">
+      <div class="ew-note">Lossless decode + a <b>real biquad EQ</b> + live spectrum, in the browser. But the browser <b>resamples to your system rate</b> — it can't go bit-perfect.</div>
+      <a class="ew-dl" id="ewDl" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v13M7 11l5 5 5-5M5 21h14"/></svg>Get EKO for bit-perfect</a>
+    </div>
+  </div>
+
+  <p class="caption" id="caption"><b>EKO Web Lite</b> — embeddable, self-contained, no dependencies. Press play; the EQ presets really change the sound and the spectrum is driven by a real <code>AnalyserNode</code>. Pass a track with <code>?src=…&title=…&artist=…</code>; with no src it generates an ambient bed.</p>
+
+<script>
+(function(){
+  "use strict";
+  const P=new URLSearchParams(location.search);
+  const SRC=P.get('src')||'assets/eko-loop.flac';
+  const TITLE=P.get('title'), ARTIST=P.get('artist'), COVER=P.get('cover');
+  const LOOP=P.get('loop')!=='0', EMBED=P.get('embed')==='1';
+  const DL=P.get('dl')||'https://github.com/reactivepixels/eko';
+  if(P.get('theme'))document.documentElement.dataset.theme=P.get('theme')==='dark'?'dark':'light';
+  if(P.get('accent'))document.documentElement.style.setProperty('--accent',P.get('accent'));
+  if(EMBED){document.body.classList.add('embed');document.getElementById('caption').classList.add('hidden');}
+  const $=id=>document.getElementById(id);
+  $('ewDl').href=DL;
+  // cover: explicit param wins, else theme-aware default (porcelain / graphite)
+  function applyCover(){const bg=COVER||(document.documentElement.dataset.theme==='dark'?'assets/cover-dark.webp':'assets/cover-light.webp');$('ewCover').style.backgroundImage='url("'+bg.replace(/"/g,'')+'")';}
+  $('ewThemeBtn').onclick=()=>{document.documentElement.dataset.theme=document.documentElement.dataset.theme==='dark'?'light':'dark';applyCover();};
+  applyCover();
+  // when embedded, let the host page (e.g. the docs) drive the theme
+  window.addEventListener('message',e=>{if(e.data&&e.data.type==='eko-theme'){document.documentElement.dataset.theme=e.data.theme==='dark'?'dark':'light';applyCover();}});
+  if(TITLE)$('ewTitle').textContent=TITLE;
+  if(ARTIST)$('ewSub').textContent=ARTIST;
+
+  const fmtTime=s=>{s=Math.max(0,Math.floor(s||0));return Math.floor(s/60)+':'+String(s%60).padStart(2,'0');};
+  const sealEl=document.querySelector('#ewSeal .sl');
+
+  // ---------- segmented spectrum (matches the app's Spectrum.tsx), real analyser ----------
+  function spectrum(canvas, getBands){
+    const ctx=canvas.getContext('2d');const bands=40;const lvl=new Float32Array(bands),peak=new Float32Array(bands);
+    const resize=()=>{const dpr=Math.min(2,window.devicePixelRatio||1);canvas.width=Math.max(1,Math.round(canvas.clientWidth*dpr));canvas.height=Math.max(1,Math.round(canvas.clientHeight*dpr));ctx.setTransform(dpr,0,0,dpr,0,0);};
+    resize();new ResizeObserver(resize).observe(canvas);
+    const rgb=()=>getComputedStyle(canvas).getPropertyValue('--spec').trim()||'64,59,52';
+    const draw=()=>{
+      const w=canvas.clientWidth,h=canvas.clientHeight;ctx.clearRect(0,0,w,h);
+      const data=getBands();const padX=Math.max(8,w*0.02),padY=Math.max(6,h*0.12);const iw=w-padX*2,ih=h-padY*2;
+      const bw=(iw-2*(bands-1))/bands;const segs=Math.max(4,Math.round(ih/5));const vgap=ih<60?0.7:1;const segH=(ih-vgap*(segs-1))/segs;const rad=Math.min(1.6,segH/2);const col=rgb();
+      for(let b=0;b<bands;b++){
+        const tgt=data?data[b]:0;lvl[b]=tgt>lvl[b]?tgt:lvl[b]*0.82+tgt*0.18;
+        if(lvl[b]>=peak[b])peak[b]=lvl[b];else peak[b]=Math.max(lvl[b],peak[b]-0.012);
+        const x=padX+b*(bw+2);const lit=Math.round(lvl[b]*segs);const pk=Math.min(segs-1,Math.round(peak[b]*segs));
+        for(let s=0;s<segs;s++){const y=padY+ih-(s+1)*segH-s*vgap;const f=(s+1)/segs;
+          if(s===pk&&peak[b]>0.02)ctx.fillStyle='rgba('+col+',0.9)';
+          else if(s<lit)ctx.fillStyle='rgba('+col+','+(0.24+0.5*f).toFixed(3)+')';
+          else ctx.fillStyle='rgba('+col+',0.07)';
+          ctx.beginPath();ctx.roundRect(x,y,bw,segH,rad);ctx.fill();}
+      }
+      requestAnimationFrame(draw);
+    };requestAnimationFrame(draw);
+  }
+
+  // ---------- Web Audio engine ----------
+  const FREQS=[60,170,310,600,1000,3000,6000,12000,14000,16000];
+  const PRESETS={flat:[0,0,0,0,0,0,0,0,0,0],warm:[4,3,1,0,-1,-2,-3,-4,-4,-5],bright:[-2,-1,0,0,1,2,4,5,6,6],bass:[7,6,4,2,0,-1,-1,0,0,0]};
+  let ctx,analyser,preGain,master,eq=[],fft,audioEl=null,isSynth=false,built=false,playing=false;
+
+  async function build(){
+    if(built)return; built=true;
+    ctx=new (window.AudioContext||window.webkitAudioContext)();
+    preGain=ctx.createGain();
+    let node=preGain;
+    eq=FREQS.map(f=>{const b=ctx.createBiquadFilter();b.type='peaking';b.frequency.value=f;b.Q.value=1;b.gain.value=0;node.connect(b);node=b;return b;});
+    analyser=ctx.createAnalyser();analyser.fftSize=2048;analyser.smoothingTimeConstant=0.82;fft=new Uint8Array(analyser.frequencyBinCount);
+    master=ctx.createGain();master.gain.value=0.85;
+    node.connect(analyser);analyser.connect(master);master.connect(ctx.destination);
+
+    if(SRC){
+      audioEl=new Audio();if(/^https?:/i.test(SRC))audioEl.crossOrigin='anonymous';audioEl.loop=LOOP;audioEl.preload='auto';audioEl.src=SRC;
+      ctx.createMediaElementSource(audioEl).connect(preGain);
+      const ext=(SRC.split('?')[0].split('.').pop()||'').toLowerCase();
+      const lossless=['flac','wav','alac','aiff','aif'].includes(ext);
+      $('ewSrc').textContent=(ext?ext.toUpperCase():'AUDIO')+(lossless?' · lossless':' · lossy');
+      sealEl.textContent=lossless?'LOSSLESS':'LOSSY';
+      audioEl.addEventListener('timeupdate',updateProg);
+      audioEl.addEventListener('loadedmetadata',updateProg);
+      audioEl.addEventListener('ended',()=>{if(!LOOP)setPlaying(false);});
+      audioEl.addEventListener('error',()=>{if(isSynth)return;isSynth=true;synth();$('ewSrc').textContent='Generated · '+(ctx.sampleRate/1000)+' kHz';sealEl.textContent='GENERATED';$('ewScrubWrap').classList.add('hidden');$('ewLive').classList.remove('hidden');});
+    } else {
+      isSynth=true; synth();
+      $('ewSrc').textContent='Generated · '+(ctx.sampleRate/1000)+' kHz';
+      sealEl.textContent='GENERATED';
+      $('ewScrubWrap').classList.add('hidden'); $('ewLive').classList.remove('hidden');
+    }
+    $('ewOut').textContent='System mixer · '+(ctx.sampleRate/1000)+' kHz';
+  }
+
+  function synth(){
+    [110,164.81,220,329.63].forEach((f,i)=>{const o=ctx.createOscillator();o.type=i%2?'triangle':'sine';o.frequency.value=f;o.detune.value=(i-1.5)*5;const g=ctx.createGain();g.gain.value=0.11/(i+1);o.connect(g);g.connect(preGain);o.start();});
+    const lfo=ctx.createOscillator();lfo.frequency.value=0.07;const lg=ctx.createGain();lg.gain.value=0.05;lfo.connect(lg);lg.connect(preGain.gain);lfo.start();
+    const nb=ctx.createBuffer(1,ctx.sampleRate*2,ctx.sampleRate);const d=nb.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;
+    const ns=ctx.createBufferSource();ns.buffer=nb;ns.loop=true;const nf=ctx.createBiquadFilter();nf.type='bandpass';nf.frequency.value=700;nf.Q.value=0.6;const ng=ctx.createGain();ng.gain.value=0.05;ns.connect(nf);nf.connect(ng);ng.connect(preGain);ns.start();
+    const nlfo=ctx.createOscillator();nlfo.frequency.value=0.05;const nlg=ctx.createGain();nlg.gain.value=500;nlfo.connect(nlg);nlg.connect(nf.frequency);nlfo.start();
+  }
+
+  function updateProg(){
+    if(!audioEl||!audioEl.duration)return;
+    const p=audioEl.currentTime/audioEl.duration;
+    $('ewProg').querySelector('.fill').style.width=(p*100)+'%';
+    $('ewProg').querySelector('.knob').style.left=(p*100)+'%';
+    $('ewCur').textContent=fmtTime(audioEl.currentTime);
+    $('ewRem').textContent='-'+fmtTime(audioEl.duration-audioEl.currentTime);
+  }
+
+  const getBands=()=>{
+    if(!analyser||!playing)return null;
+    analyser.getByteFrequencyData(fft);const bands=40,out=new Array(bands),max=Math.floor(fft.length*0.7);
+    for(let b=0;b<bands;b++){const lo=Math.floor(Math.pow(max,b/bands)),hi=Math.max(lo+1,Math.floor(Math.pow(max,(b+1)/bands)));let s=0;for(let i=lo;i<hi;i++)s+=fft[i];const avg=s/(hi-lo)/255;out[b]=Math.min(1,Math.pow(avg,0.92)*(0.8+0.5*b/bands));}
+    return out;
+  };
+  spectrum($('ewSpec'),getBands);
+
+  const PLAY='<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>';
+  const PAUSE='<svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z"/></svg>';
+  const playBtn=$('ewPlay'), player=$('player');
+  function setPlaying(on){playing=on;playBtn.innerHTML=on?PAUSE:PLAY;playBtn.setAttribute('aria-label',on?'Pause':'Play');player.classList.toggle('playing',on);}
+  async function toggle(){
+    await build();
+    if(playing){ if(audioEl)audioEl.pause(); else await ctx.suspend(); setPlaying(false); }
+    else { await ctx.resume(); if(audioEl)await audioEl.play().catch(()=>{}); setPlaying(true); }
+  }
+  playBtn.onclick=toggle;
+  document.addEventListener('keydown',e=>{if(e.code==='Space'&&e.target===document.body){e.preventDefault();toggle();}});
+
+  // seek
+  const prog=$('ewProg');
+  prog.addEventListener('pointerdown',e=>{if(!audioEl||!audioEl.duration)return;
+    const seek=cx=>{const r=prog.getBoundingClientRect();const p=Math.max(0,Math.min(1,(cx-r.left)/r.width));audioEl.currentTime=p*audioEl.duration;updateProg();};
+    seek(e.clientX);const mv=ev=>seek(ev.clientX);const up=()=>{removeEventListener('pointermove',mv);removeEventListener('pointerup',up);};addEventListener('pointermove',mv);addEventListener('pointerup',up);});
+
+  // volume
+  const vol=$('ewVol'),vf=vol.querySelector('.fill'),vk=vol.querySelector('.knob');
+  const setVol=cx=>{const r=vol.getBoundingClientRect();const p=Math.max(0,Math.min(1,(cx-r.left)/r.width));vf.style.width=(p*100)+'%';vk.style.left=(p*100)+'%';if(master)master.gain.value=p;};
+  vol.addEventListener('pointerdown',e=>{setVol(e.clientX);const mv=ev=>setVol(ev.clientX);const up=()=>{removeEventListener('pointermove',mv);removeEventListener('pointerup',up);};addEventListener('pointermove',mv);addEventListener('pointerup',up);});
+
+  // EQ presets (real DSP)
+  document.querySelectorAll('#ewPresets b').forEach(btn=>btn.onclick=()=>{
+    document.querySelectorAll('#ewPresets b').forEach(b=>b.classList.remove('on'));btn.classList.add('on');
+    const g=PRESETS[btn.dataset.eq],active=btn.dataset.eq!=='flat';
+    $('ewEng').textContent=active?'Web Audio · 32-bit float · EQ':'Web Audio · 32-bit float';
+    if(eq.length)eq.forEach((b,i)=>{try{b.gain.setTargetAtTime(g[i],ctx.currentTime,0.05);}catch(_){b.gain.value=g[i];}});
+  });
+})();
+</script>
+</body>
+</html>

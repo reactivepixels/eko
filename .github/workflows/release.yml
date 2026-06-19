@@ -1,0 +1,114 @@
+# EKO Release Workflow
+#
+# Triggers on any tag matching v* (e.g. v0.1.0, v1.0.0).
+# Builds a signed + notarized macOS DMG via tauri-action, then creates
+# a GitHub Release with the DMG and .app.zip attached.
+#
+# PREREQUISITE SECRETS — set these in the repo's Settings → Secrets → Actions:
+#
+#   APPLE_CERTIFICATE            Base64-encoded "Developer ID Application" .p12
+#                                (export from Keychain, then: base64 -i cert.p12 | pbcopy)
+#   APPLE_CERTIFICATE_PASSWORD   Password you set when exporting the .p12
+#   APPLE_SIGNING_IDENTITY       The cert's Common Name, e.g.
+#                                "Developer ID Application: Reactive Pixels (XXXXXXXXXX)"
+#   APPLE_ID                     Apple ID email used for notarization
+#   APPLE_PASSWORD               App-specific password for that Apple ID
+#                                (generate at appleid.apple.com → Sign-in and Security)
+#   APPLE_TEAM_ID                10-character team ID (visible in developer.apple.com → Account)
+#   TAURI_SIGNING_PRIVATE_KEY    The private key from `npm run tauri signer generate`
+#                                (the entire PEM block including headers)
+#   TAURI_SIGNING_PRIVATE_KEY_PASSWORD  Password chosen when generating the Tauri key
+#                                       (leave empty / set to "" if you used no password)
+#   GITHUB_TOKEN                 Automatically provided by GitHub Actions — no setup needed.
+
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+# Only one release per tag at a time.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release-macos:
+    name: Build · Sign · Notarize · Release (macOS)
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ── Node ────────────────────────────────────────────────────────────────
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # ── Rust ────────────────────────────────────────────────────────────────
+      - name: Setup Rust (stable)
+        uses: dtolnay/rust-toolchain@stable
+
+      # Cache the Cargo registry + build artifacts across runs.
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      # ── Dependencies ────────────────────────────────────────────────────────
+      - name: Install Node dependencies
+        run: npm ci
+
+      # ── tauri-action: build + sign + notarize + publish release ─────────────
+      #
+      # tauri-action v0 wraps `tauri build`, handles code signing via the
+      # APPLE_* env vars, submits to Apple notarization, staples, and then
+      # calls `gh release create` (or updates an existing draft) with the
+      # produced artifacts attached.
+      #
+      # Universal binary note:
+      #   To produce a single "universal" (arm64 + x86_64) DMG, add:
+      #     args: --target universal-apple-darwin
+      #   and add the universal target to the runner first:
+      #     run: rustup target add aarch64-apple-darwin x86_64-apple-darwin
+      #   For now we build for the runner's native arch (arm64 on macos-latest)
+      #   which is the fastest path to a working release. Add universal when
+      #   the signing + notarization flow is confirmed working.
+      - name: Build, sign, notarize, and create GitHub Release
+        uses: tauri-apps/tauri-action@v0
+        env:
+          # GitHub release creation
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+          # Apple code signing
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+
+          # Apple notarization (notarytool)
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+
+          # Tauri updater — signs the update artifact so the auto-updater
+          # can verify downloads. Generated with: npm run tauri signer generate
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          # Use the tag (e.g. v0.1.0) as the release name and tag.
+          tagName: ${{ github.ref_name }}
+          releaseName: "EKO ${{ github.ref_name }}"
+          # Pull the body from the repo's CHANGELOG.md entry for this version,
+          # or leave as a placeholder for manual editing after the release draft.
+          releaseBody: |
+            See [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md) for what's new in this release.
+          # Start as a draft so you can review artifacts before publishing.
+          releaseDraft: true
+          prerelease: false
+          # Bundle targets are already set to "all" in tauri.conf.json,
+          # which on macOS produces .dmg + .app.tar.gz (updater artifact).
+          # No args override needed.

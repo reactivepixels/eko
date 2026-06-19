@@ -1,0 +1,51 @@
+name: Bug report
+description: Something isn't working right in EKO
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: Thanks for helping make EKO better. Please fill in what you can — detail helps a lot.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What went wrong, and what did you expect instead?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open EKO
+        2. Play a 96 kHz FLAC
+        3. …
+    validations:
+      required: true
+  - type: input
+    id: source
+    attributes:
+      label: Source format (if audio-related)
+      placeholder: "e.g. FLAC 96 kHz / 24-bit, local file or Navidrome"
+  - type: input
+    id: output
+    attributes:
+      label: Output device
+      placeholder: "e.g. Chord Mojo 2 (USB), or MacBook Pro Speakers"
+  - type: input
+    id: seal
+    attributes:
+      label: What did the signal-path seal show?
+      placeholder: "BIT-PERFECT / RESAMPLED / EQ / VOLUME"
+  - type: input
+    id: versions
+    attributes:
+      label: EKO version + macOS version
+      placeholder: "EKO 0.x.x, macOS 15.x, Apple Silicon / Intel"
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / screenshots
+      description: Anything from the console or a screenshot, if relevant.

@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>EKO · iOS concepts</title>
+<style>
+  :root{
+    --bg:#e9e7e0; --bg2:#eeece5; --light:#fbf9f2; --dark:#cbc9c2;
+    --ink:#2c2b27; --ink-2:#6f6e67; --ink-3:#9b9a92;
+    --accent:#ef6a1e; --accent-ink:#fffaf6; --line:rgba(0,0,0,.06);
+    --out-sm:4px 4px 9px var(--dark), -4px -4px 9px var(--light);
+    --out-xs:2px 2px 5px var(--dark), -2px -2px 5px var(--light);
+    --bevel:inset 1px 1px 1.5px rgba(255,255,255,.65), inset -1px -1px 1.5px rgba(0,0,0,.05);
+    --in:inset 4px 4px 9px var(--dark), inset -4px -4px 9px var(--light);
+    --in-deep:inset 6px 6px 13px var(--dark), inset -5px -5px 12px var(--light);
+    --lift:0 8px 20px rgba(0,0,0,.15),0 1px 3px rgba(0,0,0,.1);
+    --spec:64,59,52; --ec:cubic-bezier(.34,.01,.2,1);
+    --font:-apple-system,BlinkMacSystemFont,"Inter","Segoe UI",sans-serif;
+    --mono:ui-monospace,Menlo,monospace;
+  }
+  [data-theme="dark"]{
+    --bg:#23262c; --bg2:#272a31; --light:#2c3037; --dark:#15171b;
+    --ink:#eceef0; --ink-2:#a3a6ad; --ink-3:#70737a; --line:rgba(255,255,255,.06);
+    --out-sm:3px 3px 7px var(--dark), -2px -2px 6px var(--light);
+    --out-xs:2px 2px 5px var(--dark), -2px -2px 4px var(--light);
+    --bevel:inset 1px 1px 1px rgba(255,255,255,.05), inset -1px -1px 1px rgba(0,0,0,.3);
+    --in:inset 4px 4px 9px var(--dark), inset -3px -3px 8px var(--light);
+    --in-deep:inset 6px 6px 13px var(--dark), inset -4px -4px 10px var(--light);
+    --lift:0 10px 24px rgba(0,0,0,.55),0 2px 5px rgba(0,0,0,.4);
+    --spec:230,233,236;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-font-smoothing:antialiased}
+  body{background:#d7d5cd;font-family:var(--font);padding:40px;transition:.3s}
+  [data-theme="dark"] body{background:#16181c}
+  .head{display:flex;align-items:baseline;gap:14px;margin-bottom:28px}
+  .head h1{font-size:20px;color:var(--ink)}
+  .head .sub{font-size:13px;color:var(--ink-3)}
+  .toggle{margin-left:auto;font:600 12px var(--font);color:var(--ink-2);background:var(--bg);box-shadow:var(--out-sm),var(--bevel);border:none;border-radius:999px;padding:9px 18px;cursor:pointer}
+  .rail{display:flex;gap:46px;align-items:flex-start;overflow-x:auto;padding-bottom:30px}
+  .col{display:flex;flex-direction:column;align-items:center;gap:14px;flex:0 0 auto}
+  .cap{font:600 12px var(--font);color:var(--ink-2)}
+  .cap span{color:var(--ink-3);font-weight:400}
+
+  /* iPhone frame */
+  .phone{width:300px;height:640px;border-radius:46px;background:var(--bg);box-shadow:var(--lift),0 0 0 11px #0d0e10,0 0 0 12px #2a2c30;position:relative;overflow:hidden;color:var(--ink)}
+  .island{position:absolute;top:11px;left:50%;transform:translateX(-50%);width:88px;height:26px;background:#0d0e10;border-radius:999px;z-index:50}
+  .screen{position:absolute;inset:0;display:flex;flex-direction:column}
+  .status{height:44px;flex:0 0 auto;display:flex;align-items:flex-end;justify-content:space-between;padding:0 26px 4px;font-size:12px;font-weight:600;color:var(--ink-2)}
+  .body{flex:1;min-height:0;overflow:hidden;position:relative}
+
+  /* top bar */
+  .tb{display:flex;align-items:center;gap:10px;padding:6px 18px 12px}
+  .tb .wm{font-weight:700;letter-spacing:3px;font-size:16px;color:var(--ink)}
+  .tb .wm em{color:var(--accent);font-size:8px;letter-spacing:2px;font-style:normal;font-weight:700;vertical-align:top}
+  .tb .ic{margin-left:auto;width:34px;height:34px;border-radius:50%;background:var(--bg);box-shadow:var(--out-xs),var(--bevel);display:grid;place-items:center;color:var(--ink-2)}
+  .tb .ic svg{width:15px;height:15px}
+  .search{margin:0 18px 14px;height:38px;border-radius:999px;background:var(--bg);box-shadow:var(--in);display:flex;align-items:center;gap:9px;padding:0 15px;color:var(--ink-3);font-size:13px}
+  .search svg{width:14px;height:14px}
+  .seg{display:flex;margin:0 18px 16px;background:var(--bg);box-shadow:var(--in);border-radius:999px;padding:3px}
+  .seg b{flex:1;text-align:center;font-size:11px;font-weight:700;letter-spacing:1px;color:var(--ink-3);padding:7px 0;border-radius:999px}
+  .seg b.on{background:var(--bg);box-shadow:var(--out-xs),var(--bevel);color:var(--accent)}
+
+  /* album grid */
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;padding:4px 18px 16px;overflow-y:auto;flex:1;min-height:0}
+  .card .cv{width:100%;aspect-ratio:1;border-radius:15px;box-shadow:var(--lift);background:linear-gradient(135deg,#cdcbc3,#bdbbb2);overflow:hidden}
+  [data-theme="dark"] .card .cv{background:linear-gradient(135deg,#34373d,#26282d)}
+  .card .ct{font-size:12.5px;font-weight:600;margin-top:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .card .ca{font-size:11px;color:var(--ink-3);margin-top:1px}
+
+  /* mini player bar */
+  .mini{position:absolute;left:10px;right:10px;bottom:64px;height:58px;border-radius:16px;background:var(--bg);box-shadow:var(--out-sm),var(--bevel);display:flex;align-items:center;gap:11px;padding:9px 12px;z-index:30}
+  .mini .mc{width:40px;height:40px;border-radius:10px;background:linear-gradient(135deg,#cdcbc3,#bdbbb2);box-shadow:var(--out-xs);flex:0 0 auto}
+  [data-theme="dark"] .mini .mc{background:linear-gradient(135deg,#34373d,#26282d)}
+  .mini .mt{font-size:12.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .mini .ma{font-size:10.5px;color:var(--ink-3)}
+  .mini .pp{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;color:var(--accent);flex:0 0 auto}
+  .mini .pp svg{width:18px;height:18px}
+
+  /* tab bar */
+  .tabs{position:absolute;left:0;right:0;bottom:0;height:64px;display:flex;background:var(--bg2);border-top:1px solid var(--line);padding-bottom:8px;z-index:40}
+  .tab{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:var(--ink-3);font-size:9px;font-weight:600;letter-spacing:.3px}
+  .tab.on{color:var(--accent)}
+  .tab svg{width:21px;height:21px}
+
+  /* now playing */
+  .np{display:flex;flex-direction:column;height:100%;padding:4px 24px 22px}
+  .np .grab{width:40px;height:5px;border-radius:5px;background:rgba(var(--spec),.2);margin:6px auto 14px}
+  .np .cov{width:100%;aspect-ratio:1;border-radius:22px;box-shadow:var(--lift);background:linear-gradient(135deg,#d0cec6,#b9b7ae);margin-bottom:20px}
+  [data-theme="dark"] .np .cov{background:linear-gradient(135deg,#34373d,#24262b)}
+  .np h2{font-size:20px;font-weight:700;letter-spacing:.2px}
+  .np .art{font-size:14px;color:var(--ink-3);margin-top:3px}
+  .np .scrub{margin:20px 0 6px;height:6px;border-radius:6px;background:var(--bg);box-shadow:var(--in);position:relative}
+  .np .scrub i{position:absolute;left:0;top:0;bottom:0;width:42%;border-radius:6px;background:var(--accent)}
+  .np .scrub b{position:absolute;left:42%;top:50%;width:14px;height:14px;border-radius:50%;background:var(--bg);box-shadow:var(--out-xs),var(--bevel);transform:translate(-50%,-50%)}
+  .np .times{display:flex;justify-content:space-between;font-size:10.5px;color:var(--ink-3);font-variant-numeric:tabular-nums}
+  .np .tr{display:flex;align-items:center;justify-content:space-between;margin:22px 4px 0}
+  .np .tr .b{color:var(--ink-2)}.np .tr .b svg{width:26px;height:26px}
+  .np .tr .sm svg{width:19px;height:19px;color:var(--ink-3)}
+  .np .play{width:66px;height:66px;border-radius:50%;background:var(--bg);box-shadow:var(--out-sm),var(--bevel);display:grid;place-items:center;color:var(--accent)}
+  .np .play svg{width:28px;height:28px}
+  .np .foot{margin-top:auto;display:flex;gap:10px;padding-top:20px}
+  .np .chip{flex:1;height:44px;border-radius:13px;background:var(--bg);box-shadow:var(--out-xs),var(--bevel);display:flex;align-items:center;justify-content:center;gap:7px;font-size:11px;font-weight:600;letter-spacing:.5px;color:var(--ink-2)}
+  .np .chip svg{width:15px;height:15px}
+  .np .chip.on{color:var(--accent)}
+
+  /* signal path row (mobile, compact) */
+  .sigrow{display:flex;align-items:center;gap:11px;margin-top:16px;padding:11px 15px;border-radius:13px;background:var(--bg);box-shadow:var(--in)}
+  .sigrow .seal{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;box-shadow:var(--out-xs),var(--bevel);color:var(--accent);flex:0 0 auto}
+  .sigrow .seal svg{width:15px;height:15px}
+  .sigrow .txt{min-width:0}
+  .sigrow .k{font:700 8px var(--mono);letter-spacing:1.4px;color:var(--accent)}
+  .sigrow .v{font-size:12px;font-weight:600;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}
+  .sigrow .chev{margin-left:auto;color:var(--ink-3)}
+
+  /* EQ sheet */
+  .sheet{position:absolute;left:0;right:0;bottom:0;height:58%;background:var(--bg2);border-radius:26px 26px 0 0;box-shadow:0 -16px 50px rgba(0,0,0,.3);padding:10px 22px 26px;display:flex;flex-direction:column;z-index:60}
+  .sheet .grab{width:40px;height:5px;border-radius:5px;background:rgba(var(--spec),.2);margin:4px auto 16px}
+  .sheet h3{font-size:15px;font-weight:700;margin-bottom:4px}
+  .sheet .presets{display:flex;gap:8px;overflow-x:auto;margin:14px 0 22px;padding-bottom:2px}
+  .sheet .pp{flex:0 0 auto;font-size:11px;font-weight:600;letter-spacing:.4px;color:var(--ink-3);background:var(--bg);box-shadow:var(--out-xs),var(--bevel);border-radius:999px;padding:8px 15px}
+  .sheet .pp.on{color:var(--accent)}
+  .faders{flex:1;display:flex;align-items:stretch;justify-content:space-between;gap:4px;padding:6px 0}
+  .fader{display:flex;flex-direction:column;align-items:center;gap:9px;flex:1}
+  .fader .rail{flex:1;width:8px;border-radius:8px;background:var(--bg);box-shadow:var(--in);position:relative}
+  .fader .rail i{position:absolute;left:50%;width:16px;height:16px;border-radius:50%;background:var(--bg);box-shadow:var(--out-xs),var(--bevel);transform:translateX(-50%)}
+  .fader .rail i::after{content:"";position:absolute;inset:5px;border-radius:50%;background:var(--accent)}
+  .fader .fl{font-size:8.5px;color:var(--ink-3);font-weight:600}
+  .sheet .pre{display:flex;align-items:center;justify-content:space-between;margin-top:16px;font-size:11px;color:var(--ink-3)}
+  .sheet .pre b{color:var(--ink-2)}
+</style>
+</head>
+<body>
+  <div class="head">
+    <h1>EKO · iOS</h1>
+    <span class="sub">how the player adapts to a phone — Library · Now Playing · EQ sheet</span>
+    <button class="toggle" onclick="document.documentElement.dataset.theme=document.documentElement.dataset.theme==='dark'?'light':'dark'">◐ Theme</button>
+  </div>
+
+  <div class="rail">
+
+    <!-- ============ LIBRARY ============ -->
+    <div class="col">
+      <div class="phone"><div class="island"></div><div class="screen">
+        <div class="status"><span>9:41</span><span>􀙇 􀛨 100%</span></div>
+        <div class="body" style="padding-bottom:130px;display:flex;flex-direction:column">
+          <div class="tb"><span class="wm">EKO<em> PRO</em></span>
+            <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6.4 6.4 0 0 0 9 9 9 9 0 1 1-9-9z"/></svg></div>
+          </div>
+          <div class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>Search albums, artists…</div>
+          <div class="seg"><b class="on">LOCAL</b><b>SERVER</b></div>
+          <div class="grid">
+            <div class="card"><div class="cv"></div><div class="ct">Half-Light</div><div class="ca">Kessler</div></div>
+            <div class="card"><div class="cv"></div><div class="ct">Umbra</div><div class="ca">Lowtide Index</div></div>
+            <div class="card"><div class="cv"></div><div class="ct">Quiet Machines</div><div class="ca">Atelier 9</div></div>
+            <div class="card"><div class="cv"></div><div class="ct">Aether</div><div class="ca">Lowtide Index</div></div>
+            <div class="card"><div class="cv"></div><div class="ct">Still Frame</div><div class="ca">Cyan Field</div></div>
+            <div class="card"><div class="cv"></div><div class="ct">Blue</div><div class="ca">Joni Mitchell</div></div>
+          </div>
+        </div>
+        <div class="mini">
+          <div class="mc"></div>
+          <div style="min-width:0;flex:1"><div class="mt">Half-Light</div><div class="ma">Kessler</div></div>
+          <div class="pp"><svg viewBox="0 0 24 24"><path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z"/></svg></div>
+        </div>
+        <div class="tabs">
+          <div class="tab on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>Library</div>
+          <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>Search</div>
+          <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="2.4"/></svg>Playing</div>
+          <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 13.5a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-2.9 1.2v.1a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-2.9-1.2l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0-1.2-2.9H.4a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.2-2.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3"/></svg>Settings</div>
+        </div>
+      </div></div>
+      <div class="cap">Library <span>· grid + mini-bar + tabs</span></div>
+    </div>
+
+    <!-- ============ NOW PLAYING ============ -->
+    <div class="col">
+      <div class="phone"><div class="island"></div><div class="screen">
+        <div class="status"><span>9:41</span><span>􀙇 􀛨 100%</span></div>
+        <div class="body"><div class="np">
+          <div class="grab"></div>
+          <div class="cov"></div>
+          <h2>Half-Light</h2>
+          <div class="art">Kessler · Slow Aperture</div>
+          <div class="scrub"><i></i><b></b></div>
+          <div class="times"><span>2:34</span><span>-3:18</span></div>
+          <div class="tr">
+            <span class="b sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7h4l9 10h5M16 7h5v5M3 17h4l3-3.4"/></svg></span>
+            <span class="b"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 6h2v12H7zM19 6v12l-9-6z"/></svg></span>
+            <span class="play"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z"/></svg></span>
+            <span class="b"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M15 6h2v12h-2zM5 6l9 6-9 6z"/></svg></span>
+            <span class="b sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 9a4 4 0 0 1 4-4h9M17 5l-2-2M17 5l-2 2M20 15a4 4 0 0 1-4 4H7M7 19l2-2M7 19l2 2"/></svg></span>
+          </div>
+          <div class="sigrow">
+            <span class="seal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"/></svg></span>
+            <div class="txt"><div class="k">BIT-PERFECT</div><div class="v">FLAC 44.1/16 → Chord Mojo 2</div></div>
+            <span class="chev">›</span>
+          </div>
+          <div class="foot">
+            <div class="chip on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></svg>EQ</div>
+            <div class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h11M4 12h11M4 17h7M16 13v7l5-3.5z" fill="currentColor" stroke="none"/></svg>Queue</div>
+            <div class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 5L6 9H2v6h4l5 4zM19 12a7 7 0 0 0-3-5.7"/></svg>Output</div>
+          </div>
+        </div></div>
+      </div></div>
+      <div class="cap">Now Playing <span>· full-screen, signal path inline</span></div>
+    </div>
+
+    <!-- ============ EQ SHEET ============ -->
+    <div class="col">
+      <div class="phone"><div class="island"></div><div class="screen">
+        <div class="status"><span>9:41</span><span>􀙇 􀛨 100%</span></div>
+        <div class="body" style="filter:brightness(.82)"><div class="np">
+          <div class="grab"></div><div class="cov" style="height:120px;aspect-ratio:auto"></div>
+          <h2 style="font-size:16px">Half-Light</h2><div class="art">Kessler</div>
+        </div></div>
+        <div class="sheet">
+          <div class="grab"></div>
+          <h3>Equalizer</h3>
+          <div class="presets"><span class="pp on">Flat</span><span class="pp">Rock</span><span class="pp">Jazz</span><span class="pp">Bass</span><span class="pp">Vocal</span></div>
+          <div class="faders">
+            <div class="fader"><div class="rail"><i style="top:42%"></i></div><div class="fl">60</div></div>
+            <div class="fader"><div class="rail"><i style="top:30%"></i></div><div class="fl">170</div></div>
+            <div class="fader"><div class="rail"><i style="top:50%"></i></div><div class="fl">310</div></div>
+            <div class="fader"><div class="rail"><i style="top:58%"></i></div><div class="fl">600</div></div>
+            <div class="fader"><div class="rail"><i style="top:46%"></i></div><div class="fl">1k</div></div>
+            <div class="fader"><div class="rail"><i style="top:38%"></i></div><div class="fl">3k</div></div>
+            <div class="fader"><div class="rail"><i style="top:52%"></i></div><div class="fl">6k</div></div>
+            <div class="fader"><div class="rail"><i style="top:34%"></i></div><div class="fl">12k</div></div>
+            <div class="fader"><div class="rail"><i style="top:44%"></i></div><div class="fl">14k</div></div>
+            <div class="fader"><div class="rail"><i style="top:40%"></i></div><div class="fl">16k</div></div>
+          </div>
+          <div class="pre"><span>PREAMP <b>0 dB</b></span><span style="color:var(--accent);font-weight:600">EQ ON</span></div>
+        </div>
+      </div></div>
+      <div class="cap">Equalizer <span>· bottom sheet over Now Playing</span></div>
+    </div>
+
+  </div>
+</body>
+</html>

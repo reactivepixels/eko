@@ -1,0 +1,38 @@
+name: Feature request
+description: Suggest an idea for EKO
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What's the problem or need?
+      description: What are you trying to do that EKO doesn't support today?
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: Proposed solution
+      description: What would the ideal behaviour look like?
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Audio engine / fidelity
+        - Library / browsing
+        - Playback / queue
+        - EQ / DSP
+        - Output / devices
+        - UI / design
+        - Navidrome / Subsonic
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: Anything else?
+      description: Alternatives you considered, prior art (Roon/Audirvana/etc.), mockups.

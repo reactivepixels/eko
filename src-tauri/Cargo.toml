@@ -1,0 +1,37 @@
+[package]
+name = "eko"
+version = "0.1.0"
+description = "Bit-perfect audiophile music player for macOS"
+authors = ["Reactive Pixels"]
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+# The `_lib` suffix may seem redundant but it is necessary
+# to make the lib name unique and wouldn't conflict with the bin name.
+# This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
+name = "eko_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["macos-private-api", "protocol-asset"] }
+tauri-plugin-opener = "2"
+tauri-plugin-dialog = "2"
+tauri-plugin-fs = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+lofty = "0.22"
+zip = { version = "2", default-features = false, features = ["deflate"] }
+image = { version = "0.25", default-features = false, features = ["bmp", "png", "jpeg", "webp"] }
+base64 = "0.22"
+tauri-plugin-http = "2.5.9"
+reqwest = { version = "0.12", features = ["blocking"] }
+url = "2"
+cpal = "0.15"
+symphonia = { version = "0.5", features = ["all"] }
+rustfft = "6"
+
