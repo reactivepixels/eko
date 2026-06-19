@@ -28,6 +28,16 @@ const ST0: EngineStatus = {
   seg: 0,
 };
 
+/** The light/dark mode is shared across windows via localStorage (the engine's NowPlaying
+ *  theme is only set once a track plays, so the mini can't rely on it). */
+function readTheme(): "light" | "dark" {
+  try {
+    return localStorage.getItem("eko.theme") === "dark" ? "dark" : "light";
+  } catch {
+    return "light";
+  }
+}
+
 /**
  * Frameless always-on-top mini player. Reads playback state DIRECTLY from the Rust
  * engine (so it stays live even when the main window is hidden and its JS timers are
@@ -37,6 +47,7 @@ const ST0: EngineStatus = {
 export function MiniWindow() {
   const [np, setNp] = useState<NowPlaying>(NP0);
   const [st, setSt] = useState<EngineStatus>(ST0);
+  const [theme, setTheme] = useState<"light" | "dark">(readTheme);
   // Optimistic scrub position so the bar tracks the drag without the poll fighting it.
   const [scrub, setScrub] = useState<number | null>(null);
 
@@ -50,12 +61,16 @@ export function MiniWindow() {
       if (!alive) return;
       if (s) setSt(s);
       if (n) setNp(n);
+      setTheme(readTheme()); // keep the mini's mode in sync with the main window
     };
     void poll();
     const t = setInterval(poll, 300);
+    const onStorage = () => setTheme(readTheme());
+    window.addEventListener("storage", onStorage);
     return () => {
       alive = false;
       clearInterval(t);
+      window.removeEventListener("storage", onStorage);
     };
   }, []);
 
@@ -100,7 +115,7 @@ export function MiniWindow() {
   const hasTrack = np.index >= 0;
 
   return (
-    <div className="capp mini-rounded" data-theme={np.theme === "dark" ? "dark" : "light"}>
+    <div className="capp mini-rounded" data-theme={theme}>
       <div className="cbar nolights" data-tauri-drag-region>
         <div className="cart" data-tauri-drag-region>
           {np.coverUrl ? (

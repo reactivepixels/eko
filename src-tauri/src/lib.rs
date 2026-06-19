@@ -5,7 +5,7 @@ mod metadata;
 mod stream;
 
 use std::sync::Mutex;
-use tauri::menu::{MenuBuilder, PredefinedMenuItem, SubmenuBuilder};
+use tauri::menu::{AboutMetadata, MenuBuilder, PredefinedMenuItem, SubmenuBuilder};
 use tauri::Manager;
 
 /// The configured Navidrome origin the `stream://` proxy is allowed to fetch (SSRF guard).
@@ -77,8 +77,25 @@ pub fn run() {
         .setup(|app| {
             let h = app.handle();
 
-            // Standard macOS app submenu (Hide / Quit).
+            // Native macOS "About EKO" panel — version + standard info.
+            let about = AboutMetadata {
+                name: Some("EKO".into()),
+                version: Some(app.package_info().version.to_string()),
+                copyright: Some("© 2026 Reactive Pixels".into()),
+                comments: Some("A bit-perfect audiophile music player for macOS.".into()),
+                website: Some("https://github.com/reactivepixels/eko".into()),
+                website_label: Some("GitHub".into()),
+                ..Default::default()
+            };
+
+            // Standard macOS app submenu (About / Hide / Quit).
             let app_menu = SubmenuBuilder::new(h, "EKO")
+                .item(&PredefinedMenuItem::about(
+                    h,
+                    Some("About EKO"),
+                    Some(about),
+                )?)
+                .separator()
                 .item(&PredefinedMenuItem::hide(h, None)?)
                 .separator()
                 .item(&PredefinedMenuItem::quit(h, None)?)
