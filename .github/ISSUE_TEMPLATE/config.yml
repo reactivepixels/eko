@@ -1,8 +1,8 @@
 blank_issues_enabled: false
 contact_links:
   - name: Questions & ideas
-    url: https://github.com/you/eko/discussions
+    url: https://github.com/reactivepixels/eko/discussions
     about: Ask questions, share setups, and discuss ideas in Discussions.
   - name: Security issue
-    url: https://github.com/you/eko/security/policy
+    url: https://github.com/reactivepixels/eko/security/policy
     about: Please report vulnerabilities privately — see our Security Policy.

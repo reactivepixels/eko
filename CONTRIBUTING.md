@@ -17,8 +17,8 @@ that protect and raise that bar are very welcome.
 
 ## Quick start
 ```bash
-# prerequisites: Rust (stable), Node 18+, macOS, Xcode command-line tools
-git clone https://github.com/<you>/eko.git && cd eko
+# prerequisites: Rust (stable), Node 22+, macOS, Xcode command-line tools
+git clone https://github.com/reactivepixels/eko.git && cd eko
 npm install
 npm run tauri dev      # run with hot reload
 npm run tauri build    # produce a .app
