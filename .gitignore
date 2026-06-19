@@ -23,6 +23,5 @@ dist-ssr
 *.sln
 *.sw?
 
-# Local-only strategy / working notes + AI context (never push — contain private notes)
+# Local-only working notes (never push)
 docs/internal/
-CLAUDE.md
