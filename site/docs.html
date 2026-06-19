@@ -214,7 +214,7 @@ file / Navidrome stream
 
       <h2 id="web">EKO Web</h2>
       <p>EKO also ships a self-contained, embeddable <b>browser player</b> — "EKO Web Lite". It plays lossless audio through the Web Audio API with a <b>real biquad EQ</b> and a live spectrum — and it's honest about the one thing the web can't do.</p>
-      <div class="webembed"><iframe id="docsPlayer" src="web-player.html?embed=1&amp;title=Resonance&amp;artist=EKO%20%C2%B7%20generated%20ambient&amp;dl=%23" title="EKO Web Lite — live demo" loading="lazy"></iframe></div>
+      <div class="webembed"><iframe id="docsPlayer" src="web-player.html?embed=1&amp;title=Resonance&amp;artist=EKO%20%C2%B7%20generated%20ambient" title="EKO Web Lite — live demo" loading="lazy"></iframe></div>
       <p class="muted">↑ The real EKO Web Lite, running right here in one <code>&lt;iframe&gt;</code> — press play. Cover art and audio are the EKO demo assets; the EQ presets actually change the sound.</p>
       <h3>The web ceiling</h3>
       <p>A web page sits <b>above the OS audio mixer</b>, so the browser resamples its output to the system sample rate — there is no exclusive / bit-perfect path from a browser. EKO Web is therefore <b>"lossless, via the browser mixer"</b>, and its seal never claims BIT-PERFECT — it reads <code>LOSSLESS</code> / <code>LOSSY</code> / <code>GENERATED</code>. For true bit-perfect, native-rate output (matching the device to the file), use the <b>desktop app</b>.</p>

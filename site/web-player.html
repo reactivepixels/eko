@@ -170,10 +170,13 @@
   const SRC=P.get('src')||'assets/eko-loop.flac';
   const TITLE=P.get('title'), ARTIST=P.get('artist'), COVER=P.get('cover');
   const LOOP=P.get('loop')!=='0', EMBED=P.get('embed')==='1';
-  const DL=P.get('dl')||'https://github.com/reactivepixels/eko';
+  const DL=P.get('dl')||'https://github.com/reactivepixels/eko/releases/latest';
   if(P.get('theme'))document.documentElement.dataset.theme=P.get('theme')==='dark'?'dark':'light';
   if(P.get('accent'))document.documentElement.style.setProperty('--accent',P.get('accent'));
-  if(EMBED){document.body.classList.add('embed');document.getElementById('caption').classList.add('hidden');}
+  if(EMBED){document.body.classList.add('embed');document.getElementById('caption').classList.add('hidden');
+    // When embedded, the host page drives the theme (via postMessage), so the player's own
+    // light/dark toggle is redundant — hide it.
+    document.getElementById('ewThemeBtn').classList.add('hidden');}
   const $=id=>document.getElementById(id);
   $('ewDl').href=DL;
   // cover: explicit param wins, else theme-aware default (porcelain / graphite)
