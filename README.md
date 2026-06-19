@@ -39,7 +39,8 @@ system resample. Watch **Audio MIDI Setup** follow the music.
 ## Features
 
 - **Native bit-perfect engine** — `symphonia` decode → `cpal` output at the file's own sample
-  rate, with a true bit-perfect bypass when nothing is touching the samples.
+  rate, with a true bit-perfect bypass when nothing is touching the samples. Supports FLAC,
+  ALAC, MP3, AAC, WAV, AIFF, OGG, and Opus.
 - **CoreAudio device-rate matching** — EKO owns the output device's nominal rate while playing,
   the way the high-end players do. No OS mixer resample.
 - **Honest signal path** — a Roon-style `SOURCE → OUTPUT` chain with a dedicated bit-perfect
@@ -56,13 +57,15 @@ system resample. Watch **Audio MIDI Setup** follow the music.
 ## Screenshots
 
 > Captures from the running app are coming. In the meantime the whole site — and a playable
-> "EKO Web Lite" — live in `site/` as plain static HTML: open [`site/index.html`](./site/index.html),
-> [`site/docs.html`](./site/docs.html), and [`site/web-player.html`](./site/web-player.html).
+> "EKO Web Lite" — are live at **[eko.reactivepixels.com](https://eko.reactivepixels.com)**:
+> [landing](https://eko.reactivepixels.com) · [docs](https://eko.reactivepixels.com/docs.html)
+> · [web player](https://eko.reactivepixels.com/web-player.html).
 
 ## Requirements
 
 - **macOS** (Apple Silicon or Intel). EKO is macOS-only for v1 — the bit-perfect device-rate
-  matching uses the CoreAudio HAL, which has no cross-platform equivalent.
+  matching uses the CoreAudio HAL, which has no cross-platform equivalent. Note: the prebuilt
+  DMG is Apple Silicon only for now; Intel users should build from source.
 - A DAC or audio interface to hear the difference (though it's a better path on any output).
 
 ## Install

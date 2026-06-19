@@ -7,7 +7,7 @@ import { ConnectPanel } from "./windows/ConnectPanel";
 import { useSubsonic } from "./subsonic/useSubsonic";
 import { useLocal } from "./local/useLocal";
 import { useUiStore } from "./store/useUiStore";
-import { usePlayerStore } from "./store/usePlayerStore";
+import { usePlayerStore, pauseMainPoll, resumeMainPoll } from "./store/usePlayerStore";
 import { restoreState, startAutosave } from "./store/persist";
 import { AUDIO_EXTENSIONS } from "./audio/loader";
 import "./App.css";
@@ -133,7 +133,15 @@ function App() {
   }, []);
 
   // Show the mini window / hide the main one (and back) when compact toggles.
+  // Pause the main poll while in compact mode (the mini window reads engine state
+  // directly from Rust); restart it when returning while a track is active.
   useEffect(() => {
+    if (compact) {
+      pauseMainPoll();
+    } else {
+      const ps = usePlayerStore.getState();
+      if (ps.isPlaying || ps.engineActive) resumeMainPoll();
+    }
     void (async () => {
       try {
         const mini = await WebviewWindow.getByLabel("mini");

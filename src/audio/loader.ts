@@ -36,7 +36,12 @@ export async function pickAudioFiles(): Promise<string[]> {
 /** Read tags/stream info from Rust and wrap into a playlist Track with a stable id. */
 export async function toTrack(path: string): Promise<Track> {
   const meta = await invoke<TrackMetadata>("read_metadata", { path });
-  return { ...meta, id: crypto.randomUUID() };
+  return {
+    ...meta,
+    id: crypto.randomUUID(),
+    mime: mimeForPath(path),
+    channels: meta.channels ?? 2,
+  };
 }
 
 /** Read the raw bytes of a file for blob playback. */

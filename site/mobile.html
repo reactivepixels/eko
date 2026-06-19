@@ -32,6 +32,10 @@
   }
   *{box-sizing:border-box;margin:0;padding:0;-webkit-font-smoothing:antialiased}
   body{background:#d7d5cd;font-family:var(--font);padding:40px;transition:.3s}
+  .concept-banner{display:flex;align-items:center;gap:14px;margin-bottom:28px;padding:13px 18px;border-radius:13px;background:var(--bg);box-shadow:var(--in)}
+  .concept-banner .cb-text{font-size:13px;color:var(--ink-2)}.concept-banner .cb-text b{color:var(--ink);font-weight:700}
+  .concept-banner .cb-back{margin-left:auto;font:600 12px var(--font);color:var(--ink-2);background:var(--bg);box-shadow:var(--out-xs),var(--bevel);border:none;border-radius:999px;padding:8px 16px;cursor:pointer;text-decoration:none;white-space:nowrap}
+  .concept-banner .cb-back:hover{color:var(--accent)}
   [data-theme="dark"] body{background:#16181c}
   .head{display:flex;align-items:baseline;gap:14px;margin-bottom:28px}
   .head h1{font-size:20px;color:var(--ink)}
@@ -131,6 +135,10 @@
 </style>
 </head>
 <body>
+  <div class="concept-banner">
+    <span class="cb-text"><b>Concept</b> — the iOS app isn't shipping yet. This is an early design exploration.</span>
+    <a class="cb-back" href="index.html">← Back to EKO</a>
+  </div>
   <div class="head">
     <h1>EKO · iOS</h1>
     <span class="sub">how the player adapts to a phone — Library · Now Playing · EQ sheet</span>

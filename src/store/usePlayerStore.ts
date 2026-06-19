@@ -16,6 +16,9 @@ export interface EngineInfo {
 }
 
 let posTimer: ReturnType<typeof setInterval> | null = null;
+// Poll generation: incremented on stop so an in-flight await after clearInterval can
+// detect it's stale and bail out without touching store state.
+let pollGen = 0;
 // While the user drags the seek bar we drive `currentTime` ourselves and throttle the
 // engine seeks — so the poll must not fight the drag, and we don't flood IPC.
 let scrubbing = false;
@@ -23,6 +26,11 @@ let lastSeekSent = 0;
 // Gapless: which queue index we've already armed the next track for (avoid re-enqueuing
 // every poll). Reset on a fresh session and after each gapless advance.
 let enqueuedFor: number | null = null;
+// Gapless session integrity: set to true when the queue is mutated mid-session (reorder,
+// removeTrack, playNext, setQueue without immediate playAt). While dirty the poll skips
+// the seg-advance and enqueue-next blocks and clears any armed next-source. Cleared by
+// playAt (a fresh session) and clearPlaylist.
+let sessionDirty = false;
 // Seek convergence: after a seek/click, hold the optimistic position until the engine's
 // reported time catches up — otherwise a stale status poll snaps the thumb back to the old
 // spot for a frame. Cleared on convergence or when the guard window lapses.
@@ -37,24 +45,32 @@ function stopNativePoll() {
     clearInterval(posTimer);
     posTimer = null;
   }
+  // Bump the generation so any in-flight await in the last callback knows to bail.
+  pollGen++;
 }
 function startNativePoll() {
   stopNativePoll();
+  const gen = ++pollGen;
   posTimer = setInterval(async () => {
     if (scrubbing) return;
     const st = await nativeEngine.status().catch(() => null);
+    // Bail if this interval was cancelled while we were awaiting.
+    if (gen !== pollGen) return;
     if (!st) return;
 
     // Gapless advance: the engine reports the playing-track index within the session
     // (st.seg). When it moves past 0, advance the UI to that track WITHOUT restarting —
     // and the boundary is therefore never seen as "ended".
+    // Skip when sessionDirty (queue mutated mid-session — wrong track would be shown).
     const s0 = usePlayerStore.getState();
-    const wantIndex = s0.sessionStartIndex + (st.seg ?? 0);
-    if (st.seg > 0 && wantIndex !== s0.currentIndex && wantIndex < s0.tracks.length) {
-      usePlayerStore.setState({ currentIndex: wantIndex });
-      enqueuedFor = null; // can arm the following track now
-      pushNowPlaying();
-      applyReplayGain();
+    if (!sessionDirty) {
+      const wantIndex = s0.sessionStartIndex + (st.seg ?? 0);
+      if (st.seg > 0 && wantIndex !== s0.currentIndex && wantIndex < s0.tracks.length) {
+        usePlayerStore.setState({ currentIndex: wantIndex });
+        enqueuedFor = null; // can arm the following track now
+        pushNowPlaying();
+        applyReplayGain();
+      }
     }
 
     const ended = st.durMs > 0 && st.posMs >= st.durMs - 350 && !st.playing;
@@ -74,23 +90,28 @@ function startNativePoll() {
 
     // Arm the next sequential track for gapless continuation ~12s before the current ends
     // (once per track; only when playing straight through — not shuffle / repeat-one).
+    // Skip when sessionDirty and clear any previously armed next-source.
     const cur = usePlayerStore.getState();
-    const sequential = !cur.shuffle && cur.repeat !== "one";
-    const nextIdx = cur.currentIndex != null ? cur.currentIndex + 1 : -1;
-    const remaining = st.durMs - st.posMs;
-    if (
-      sequential &&
-      nextIdx > 0 &&
-      nextIdx < cur.tracks.length &&
-      enqueuedFor !== cur.currentIndex &&
-      st.durMs > 0 &&
-      remaining > 0 &&
-      remaining < 12000
-    ) {
-      const nt = cur.tracks[nextIdx];
-      enqueuedFor = cur.currentIndex;
-      if (nt.subsonicId) void nativeEngine.enqueue(null, streamSrcUrl(nt.subsonicId));
-      else void nativeEngine.enqueue(nt.path, null);
+    if (sessionDirty) {
+      void nativeEngine.enqueue(null, null);
+    } else {
+      const sequential = !cur.shuffle && cur.repeat !== "one";
+      const nextIdx = cur.currentIndex != null ? cur.currentIndex + 1 : -1;
+      const remaining = st.durMs - st.posMs;
+      if (
+        sequential &&
+        nextIdx > 0 &&
+        nextIdx < cur.tracks.length &&
+        enqueuedFor !== cur.currentIndex &&
+        st.durMs > 0 &&
+        remaining > 0 &&
+        remaining < 12000
+      ) {
+        const nt = cur.tracks[nextIdx];
+        enqueuedFor = cur.currentIndex;
+        if (nt.subsonicId) void nativeEngine.enqueue(null, streamSrcUrl(nt.subsonicId));
+        else void nativeEngine.enqueue(nt.path, null);
+      }
     }
     // Signal-path info changes only per track — only write (and re-render) when it does.
     const prev = usePlayerStore.getState().engineInfo;
@@ -318,15 +339,19 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       }
       return { tracks, currentIndex };
     });
+    sessionDirty = true;
   },
 
   clearPlaylist: () => {
     void nativeEngine.stop();
     nativeEngine.stopBands();
     stopNativePoll();
+    enqueuedFor = null;
+    sessionDirty = false;
     set({
       tracks: [],
       currentIndex: null,
+      sessionStartIndex: 0,
       isPlaying: false,
       currentTime: 0,
       duration: 0,
@@ -347,6 +372,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         currentIndex += 1;
       return { tracks, currentIndex };
     });
+    sessionDirty = true;
   },
 
   playAt: async (index) => {
@@ -357,6 +383,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     const resumeSec = pendingResumeSec != null && index === prevIndex ? pendingResumeSec : null;
     // A manual play starts a fresh engine session at this index; re-arm gapless from here.
     enqueuedFor = null;
+    sessionDirty = false;
     set({
       currentIndex: index,
       sessionStartIndex: index,
@@ -387,7 +414,13 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
 
   setQueue: (tracks, autoplay = true) => {
     set({ tracks, currentIndex: null });
-    if (autoplay && tracks.length > 0) void get().playAt(0);
+    if (autoplay && tracks.length > 0) {
+      void get().playAt(0);
+    } else {
+      // Queue replaced without an immediate playAt — the current gapless session's
+      // sessionStartIndex and enqueuedFor are now stale.
+      sessionDirty = true;
+    }
   },
 
   // Append to the end of the queue (starts playback if nothing is loaded).
@@ -408,6 +441,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     }
     const at = currentIndex != null ? currentIndex + 1 : 0;
     set((s) => ({ tracks: [...s.tracks.slice(0, at), ...add, ...s.tracks.slice(at)] }));
+    sessionDirty = true;
   },
 
   togglePlay: async () => {
@@ -447,7 +481,16 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     }
     let nextIndex: number;
     if (shuffle) {
-      nextIndex = Math.floor(Math.random() * tracks.length);
+      if (tracks.length > 1 && currentIndex !== null) {
+        // Exclude the current track so shuffle never repeats back-to-back.
+        let candidate: number;
+        do {
+          candidate = Math.floor(Math.random() * tracks.length);
+        } while (candidate === currentIndex);
+        nextIndex = candidate;
+      } else {
+        nextIndex = Math.floor(Math.random() * tracks.length);
+      }
     } else if (currentIndex === null) {
       nextIndex = 0;
     } else if (currentIndex + 1 < tracks.length) {
@@ -572,3 +615,16 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
 }));
 
 export { EQ_PRESETS };
+
+/** Pause the main status poll while the mini window is active (compact mode).
+ *  Call `resumeMainPoll` when returning to the full player and a track is playing. */
+export function pauseMainPoll() {
+  stopNativePoll();
+  nativeEngine.stopBands();
+}
+
+/** Restart the main status poll when leaving compact mode with a track active. */
+export function resumeMainPoll() {
+  startNativePoll();
+  nativeEngine.startBands();
+}

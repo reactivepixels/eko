@@ -100,17 +100,27 @@ export async function restoreState() {
   // are not restored (their stream URLs need a live connection).
   const ls = data.lastSession;
   if (ls && Array.isArray(ls.tracks) && ls.tracks.length > 0) {
-    const idx = Math.min(Math.max(0, ls.index ?? 0), ls.tracks.length - 1);
-    const pos = Math.max(0, ls.positionSec || 0);
-    usePlayerStore.setState({
-      tracks: ls.tracks,
-      currentIndex: idx,
-      currentTime: pos,
-      duration: ls.tracks[idx]?.duration || 0,
-      pendingResumeSec: pos > 1 ? pos : null,
-      isPlaying: false,
-      engineActive: false,
-    });
+    // Validate each track: must have a non-empty path and a finite numeric duration.
+    const allValid = ls.tracks.every(
+      (t) =>
+        typeof t.path === "string" &&
+        t.path.length > 0 &&
+        typeof t.duration === "number" &&
+        Number.isFinite(t.duration),
+    );
+    if (allValid) {
+      const idx = Math.min(Math.max(0, ls.index ?? 0), ls.tracks.length - 1);
+      const pos = Math.max(0, ls.positionSec || 0);
+      usePlayerStore.setState({
+        tracks: ls.tracks,
+        currentIndex: idx,
+        currentTime: pos,
+        duration: ls.tracks[idx]?.duration || 0,
+        pendingResumeSec: pos > 1 ? pos : null,
+        isPlaying: false,
+        engineActive: false,
+      });
+    }
   }
 }
 
@@ -119,7 +129,10 @@ export function startAutosave(): () => void {
   let timer: ReturnType<typeof setTimeout> | null = null;
   const schedule = () => {
     if (timer) clearTimeout(timer);
-    timer = setTimeout(saveState, 400);
+    // 2500 ms debounce: the poll fires ~8×/sec updating currentTime; serialising the full
+    // tracks array on every tick wastes CPU. Structural changes (track add/remove, EQ, etc.)
+    // still land within a few seconds rather than the old 400 ms.
+    timer = setTimeout(saveState, 2500);
   };
   const u1 = usePlayerStore.subscribe(schedule);
   const u2 = useUiStore.subscribe(schedule);

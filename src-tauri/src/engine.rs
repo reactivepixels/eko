@@ -118,6 +118,12 @@ use symphonia::core::probe::Hint;
 /// downloaded — the same streaming-decode latency benefit as local files, but over the
 /// network. The design is forward-only: [`Seek`] is implemented (symphonia requires it)
 /// but `is_seekable` returns `false` so symphonia never actually issues backward seeks.
+///
+/// # Stall guard
+///
+/// If the download thread stalls (no new bytes and `done` not set), consecutive empty
+/// polls are counted. After ~15 s (1875 × 8 ms polls) with no progress, `read` returns
+/// `Ok(0)` so symphonia aborts cleanly rather than looping forever.
 struct HttpSource {
     /// Shared byte buffer filled by the download thread.
     buf: Arc<Mutex<Vec<u8>>>,
@@ -125,9 +131,13 @@ struct HttpSource {
     done: Arc<AtomicBool>,
     /// Current read position within `buf` (in bytes).
     pos: usize,
+    /// Consecutive empty-poll counter for the stall guard (~15 s at 8 ms/poll).
+    stall_count: u32,
 }
 impl Read for HttpSource {
     fn read(&mut self, out: &mut [u8]) -> std::io::Result<usize> {
+        // ~15 s stall budget: 1875 × 8 ms = 15 000 ms.
+        const STALL_LIMIT: u32 = 1875;
         loop {
             {
                 let buf = self.buf.lock().unwrap();
@@ -136,11 +146,21 @@ impl Read for HttpSource {
                     let n = avail.min(out.len());
                     out[..n].copy_from_slice(&buf[self.pos..self.pos + n]);
                     self.pos += n;
+                    self.stall_count = 0; // progress made — reset the stall counter
                     return Ok(n);
                 }
                 if self.done.load(Ordering::Relaxed) {
                     return Ok(0);
                 }
+            }
+            self.stall_count += 1;
+            if self.stall_count >= STALL_LIMIT {
+                // Network has been stalled for ~15 s with no new bytes and download
+                // thread still running. Return EOF so symphonia aborts cleanly.
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::TimedOut,
+                    "HttpSource: network stall timeout",
+                ));
             }
             std::thread::sleep(Duration::from_millis(8));
         }
@@ -668,7 +688,15 @@ fn open_source(src: Source) -> Option<OpenSource> {
             {
                 let (buf, done) = (buf.clone(), done.clone());
                 std::thread::spawn(move || {
-                    match reqwest::blocking::get(&url) {
+                    // Build a client with connection + overall read timeouts so a stalled
+                    // server can't wedge the download thread (and therefore the decode thread)
+                    // indefinitely. Falls back to a plain get if the builder fails.
+                    let client = reqwest::blocking::Client::builder()
+                        .connect_timeout(Duration::from_secs(10))
+                        .timeout(Duration::from_secs(60))
+                        .build()
+                        .unwrap_or_else(|_| reqwest::blocking::Client::new());
+                    match client.get(&url).send() {
                         Ok(mut resp) => {
                             let mut chunk = vec![0u8; 65536];
                             loop {
@@ -683,7 +711,12 @@ fn open_source(src: Source) -> Option<OpenSource> {
                     done.store(true, Ordering::SeqCst);
                 });
             }
-            let s = HttpSource { buf, done, pos: 0 };
+            let s = HttpSource {
+                buf,
+                done,
+                pos: 0,
+                stall_count: 0,
+            };
             (
                 MediaSourceStream::new(Box::new(s), Default::default()),
                 None,
@@ -813,6 +846,8 @@ fn decode_and_play(
     *shared.codec.lock().unwrap() = codec_name;
 
     let cb = shared.clone();
+    // Clone for the error callback (Fix 4: device errors stop playback state).
+    let err_shared = shared.clone();
     let mut eq_state = [[(0.0f32, 0.0f32); MAX_CH]; 10];
     let stream = device.build_output_stream(
         &config,
@@ -822,8 +857,11 @@ fn decode_and_play(
                 return;
             }
             // Resolve EQ once per callback (bypassed entirely when flat → bit-perfect).
+            // Use unwrap_or_else(|e| e.into_inner()) so that if another thread panicked
+            // while holding the lock (poisoning it) the audio callback recovers from the
+            // poison and keeps playing rather than aborting with a panic.
             let (active, pre, coeffs) = {
-                let e = cb.eq.lock().unwrap();
+                let e = cb.eq.lock().unwrap_or_else(|e| e.into_inner());
                 if e.active() {
                     (
                         true,
@@ -839,7 +877,8 @@ fn decode_and_play(
             // Bit-perfect path only when nothing touches the samples: EQ flat AND unity
             // volume AND ReplayGain off (see `is_bitperfect`).
             let bit_perfect = is_bitperfect(active, vol, rg);
-            let buf = cb.samples.lock().unwrap();
+            // Same poison recovery as eq above — keeps audio flowing on device errors.
+            let buf = cb.samples.lock().unwrap_or_else(|e| e.into_inner());
             let len = buf.len();
             let mut p = cb.pos.load(Ordering::Relaxed);
             for frame in data.chunks_mut(out_ch) {
@@ -870,7 +909,13 @@ fn decode_and_play(
                 cb.playing.store(false, Ordering::Relaxed);
             }
         },
-        |e| eprintln!("cpal stream: {e}"),
+        move |e| {
+            // A real device error (e.g. DAC unplugged mid-track) — log it and flip the
+            // playing flag so the UI stops showing "playing" rather than hanging.
+            eprintln!("cpal stream error: {e}");
+            err_shared.playing.store(false, Ordering::SeqCst);
+            err_shared.done.store(true, Ordering::SeqCst);
+        },
         None,
     );
     let stream = match stream {
@@ -989,13 +1034,18 @@ fn decode_and_play(
                 Ok(Cmd::Seek(frame)) => {
                     // Seek is relative to the CURRENT track: map it into the concatenated
                     // buffer via the segment boundaries and clamp to this track's range.
+                    // Use saturating arithmetic throughout so a huge `frame` (possible even
+                    // after the engine_seek clamp, e.g. if rate is very large) can't
+                    // overflow the usize addition/multiplication.
                     let starts = shared.seg_starts.lock().unwrap().clone();
                     let cur = shared.pos.load(Ordering::SeqCst);
                     let i = segment_at(&starts, cur);
                     let track_start = starts[i];
                     let len = shared.samples.lock().unwrap().len();
                     let track_end = starts.get(i + 1).copied().unwrap_or(len);
-                    let target = (track_start + frame * out_ch).min(track_end);
+                    let target = track_start
+                        .saturating_add(frame.saturating_mul(out_ch))
+                        .min(track_end);
                     shared.pos.store(target, Ordering::SeqCst);
                 }
                 Ok(Cmd::Stop) | Err(RecvTimeoutError::Disconnected) => {
@@ -1136,7 +1186,16 @@ pub fn engine_resume(engine: tauri::State<Engine>) {
 pub fn engine_seek(secs: f64, engine: tauri::State<Engine>) {
     if let Some(sh) = engine.shared.0.lock().unwrap().as_ref() {
         let rate = sh.rate.load(Ordering::SeqCst);
-        let frame = (secs.max(0.0) * rate as f64) as usize;
+        // Guard NaN and clamp to a sane finite range before converting to usize.
+        // 1e7 seconds (~115 days) is far beyond any realistic track length; this
+        // prevents overflow in both the multiplication and the downstream saturating
+        // arithmetic in the Cmd::Seek handler.
+        let clamped = if secs.is_nan() {
+            0.0
+        } else {
+            secs.clamp(0.0, 1.0e7)
+        };
+        let frame = (clamped * rate as f64) as usize;
         send(&engine, Cmd::Seek(frame));
     }
 }
@@ -1430,6 +1489,7 @@ mod tests {
             buf: src_buf,
             done,
             pos: 0,
+            stall_count: 0,
         };
         let mut out = [0u8; 3];
         assert_eq!(src.read(&mut out).unwrap(), 3);
@@ -1448,6 +1508,7 @@ mod tests {
             buf: src_buf,
             done,
             pos: 0,
+            stall_count: 0,
         };
         assert_eq!(src.seek(SeekFrom::Start(4)).unwrap(), 4);
         assert_eq!(src.seek(SeekFrom::End(0)).unwrap(), 10);

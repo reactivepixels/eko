@@ -129,7 +129,7 @@ those as shipping-quality until they pass the [QA checklist](docs/QA-CHECKLIST.m
 
 #### Source support
 - Local file playback (all formats symphonia decodes: FLAC, ALAC, MP3, AAC, WAV,
-  OGG, Opus).
+  AIFF, OGG, Opus).
 - Navidrome / Subsonic streaming: album browse, track list, cover art proxy, server
   URL playback through the native engine.
 

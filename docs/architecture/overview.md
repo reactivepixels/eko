@@ -44,7 +44,7 @@ one place to look when something sounds wrong.
                            ▼
 ┌──────────────────────────────────────────────────────────────────────────┐
 │  DECODE  (symphonia)                                                     │
-│  Probe format → select decoder (FLAC/ALAC/MP3/AAC/WAV/OGG/Opus/…)      │
+│  Probe format → select decoder (FLAC/ALAC/MP3/AAC/WAV/AIFF/OGG/Opus)   │
 │  Decode packets → interleaved f32 samples at src_rate / src_channels    │
 │  Convert to f32 / interleave / channel-map                              │
 │  Append to Mutex<Vec<f32>> shared buffer (growing, random-access)       │
