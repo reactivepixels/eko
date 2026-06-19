@@ -14,8 +14,23 @@ import {
   type SubSong,
   type SubPlaylist,
 } from "./client";
+import { invoke } from "@tauri-apps/api/core";
 import { usePlayerStore } from "../store/usePlayerStore";
 import type { Track } from "../types";
+
+/** The origin (scheme://host:port) the `stream://` proxy is allowed to fetch — the SSRF
+ *  allowlist. Registered on connect, cleared on disconnect. */
+function setStreamOrigin(baseUrl: string | null) {
+  let origin: string | null = null;
+  if (baseUrl) {
+    try {
+      origin = new URL(baseUrl).origin;
+    } catch {
+      origin = null;
+    }
+  }
+  void invoke("set_stream_origin", { origin });
+}
 
 function toTrack(s: SubSong): Track {
   return {
@@ -70,6 +85,7 @@ export const useSubsonic = create<SubsonicState>((set, get) => ({
   connect: async (cfg) => {
     set({ status: "connecting", error: null });
     setConfig(cfg);
+    setStreamOrigin(cfg.baseUrl); // allow the proxy to fetch this server before any cover art
     try {
       await ping();
       const albums = await getAlbums(500);
@@ -88,6 +104,7 @@ export const useSubsonic = create<SubsonicState>((set, get) => ({
       return true;
     } catch (e) {
       setConfig(null);
+      setStreamOrigin(null);
       set({ connected: false, status: "error", error: String(e instanceof Error ? e.message : e) });
       return false;
     }
@@ -110,6 +127,7 @@ export const useSubsonic = create<SubsonicState>((set, get) => ({
 
   disconnect: () => {
     setConfig(null);
+    setStreamOrigin(null);
     try {
       localStorage.removeItem("eko.subsonic");
     } catch {

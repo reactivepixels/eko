@@ -14,9 +14,16 @@ use tauri::http::{header, Response, StatusCode};
 const CHUNK: u64 = 1024 * 1024;
 
 /// Always returns a response (errors become a 502 with CORS headers so the element fails
-/// cleanly rather than hanging).
-pub async fn proxy(uri: String, range: Option<String>) -> Response<Vec<u8>> {
-    match fetch(uri, range).await {
+/// cleanly rather than hanging). `allowed` is the configured Navidrome origin (set on
+/// connect); the proxy refuses to fetch anything that isn't that exact origin — without it
+/// the proxy would be an open SSRF primitive that webview code could point at internal hosts
+/// (cloud metadata, localhost services, the LAN).
+pub async fn proxy(
+    uri: String,
+    range: Option<String>,
+    allowed: Option<String>,
+) -> Response<Vec<u8>> {
+    match fetch(uri, range, allowed).await {
         Ok(r) => r,
         Err(_) => Response::builder()
             .status(StatusCode::BAD_GATEWAY)
@@ -29,6 +36,7 @@ pub async fn proxy(uri: String, range: Option<String>) -> Response<Vec<u8>> {
 async fn fetch(
     uri: String,
     range: Option<String>,
+    allowed: Option<String>,
 ) -> Result<Response<Vec<u8>>, Box<dyn std::error::Error + Send + Sync>> {
     let parsed = url::Url::parse(&uri)?;
     let src = parsed
@@ -36,6 +44,16 @@ async fn fetch(
         .find(|(k, _)| k == "src")
         .map(|(_, v)| v.into_owned())
         .ok_or("missing src param")?;
+
+    // SSRF guard: only proxy http(s) to the configured Navidrome server's exact origin.
+    let src_url = url::Url::parse(&src)?;
+    if !matches!(src_url.scheme(), "http" | "https") {
+        return Err("disallowed scheme".into());
+    }
+    let allowed = allowed.ok_or("no configured server")?;
+    if src_url.origin() != url::Url::parse(&allowed)?.origin() {
+        return Err("src origin not allowed".into());
+    }
 
     // Where to start: the first number in `bytes=START-END` (or 0 for the initial load).
     let start: u64 = range

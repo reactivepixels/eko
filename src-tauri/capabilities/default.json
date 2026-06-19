@@ -21,12 +21,6 @@
     "opener:default",
     "dialog:default",
     "dialog:allow-open",
-    "fs:default",
-    "fs:allow-read-file",
-    {
-      "identifier": "fs:scope",
-      "allow": [{ "path": "**" }]
-    },
     {
       "identifier": "http:default",
       "allow": [

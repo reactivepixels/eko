@@ -1,5 +1,4 @@
 import { open } from "@tauri-apps/plugin-dialog";
-import { readFile } from "@tauri-apps/plugin-fs";
 import { invoke } from "@tauri-apps/api/core";
 import type { Track, TrackMetadata } from "../types";
 
@@ -42,9 +41,4 @@ export async function toTrack(path: string): Promise<Track> {
     mime: mimeForPath(path),
     channels: meta.channels ?? 2,
   };
-}
-
-/** Read the raw bytes of a file for blob playback. */
-export async function readBytes(path: string): Promise<Uint8Array> {
-  return readFile(path);
 }
