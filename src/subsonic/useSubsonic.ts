@@ -31,6 +31,11 @@ function toTrack(s: SubSong): Track {
     channels: s.channelCount ?? 2,
     mime: mimeForSong(s),
     coverArt: s.coverArt,
+    // OpenSubsonic ReplayGain → same fields local files carry, so server tracks normalise too.
+    rgTrackGain: s.replayGain?.trackGain ?? null,
+    rgAlbumGain: s.replayGain?.albumGain ?? null,
+    rgTrackPeak: s.replayGain?.trackPeak ?? null,
+    rgAlbumPeak: s.replayGain?.albumPeak ?? null,
   };
 }
 

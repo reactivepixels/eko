@@ -34,6 +34,13 @@ export interface SubSong {
   contentType?: string;
   track?: number;
   coverArt?: string;
+  // OpenSubsonic ReplayGain (gains in dB, peaks linear) — present on servers that support it.
+  replayGain?: {
+    trackGain?: number;
+    albumGain?: number;
+    trackPeak?: number;
+    albumPeak?: number;
+  };
 }
 
 let cfg: SubsonicConfig | null = null;

@@ -50,7 +50,8 @@ those as shipping-quality until they pass the [QA checklist](docs/QA-CHECKLIST.m
   Off/Track/Album picker in the signal path drives it, and the seal honestly shows
   `REPLAYGAIN` when active. Unity (off / 0 dB) preserves the bit-perfect bypass — an
   invariant now pinned by a unit test (`is_bitperfect`, refactored out of the realtime
-  callback). Local files only for now (Navidrome RG mapping is a documented follow-up).
+  callback). Works for **local files and Navidrome/Subsonic** (OpenSubsonic `replayGain` tags
+  mapped through the same path).
 - Gapless playback **[needs ear-verify]** — same-rate tracks play through one continuous cpal
   stream with no seam (and bit-perfect); a rate change between tracks rebuilds the stream (tiny
   gap, bit-perfect preserved), exactly like Roon. Implemented by continuing the decode loop into
@@ -142,8 +143,6 @@ those as shipping-quality until they pass the [QA checklist](docs/QA-CHECKLIST.m
   (`loader.ts` and `useLocal.ts`) now carry the ReplayGain fields through. (Caught by ear.)
 
 ### Deferred (not built yet)
-- **ReplayGain for Navidrome** — local-file RG is implemented; mapping OpenSubsonic
-  `replayGain` fields onto server tracks remains. See `docs/architecture/replaygain.md`.
 - **macOS media keys / Now Playing** — MPNowPlayingInfoCenter integration requires
   native plugin work.
 - **Crossfade** — overlap two decode streams.
