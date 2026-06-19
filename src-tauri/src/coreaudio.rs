@@ -37,8 +37,18 @@
 
 #![cfg(target_os = "macos")]
 
+use std::collections::HashMap;
 use std::os::raw::c_void;
 use std::ptr::null;
+use std::sync::{Mutex, OnceLock};
+
+/// Maps device display name → nominal sample rate (Hz) recorded the first time EKO
+/// changes that device's rate. Populated lazily; restored on app exit via [`restore_all`].
+static ORIGINAL_RATES: OnceLock<Mutex<HashMap<String, f64>>> = OnceLock::new();
+
+fn original_rates() -> &'static Mutex<HashMap<String, f64>> {
+    ORIGINAL_RATES.get_or_init(|| Mutex::new(HashMap::new()))
+}
 
 /// Opaque 32-bit identifier for a CoreAudio HAL object (device, stream, system, etc.).
 type AudioObjectID = u32;
@@ -337,12 +347,38 @@ pub fn match_device_rate(device_name: Option<&str>, rate: u32) -> Option<u32> {
         None => default_output_device()?,
     };
     let target = rate as f64;
-    let needs = nominal_rate(dev)
+    let current = nominal_rate(dev);
+    let needs = current
         .map(|cur| (cur - target).abs() > 1.0)
         .unwrap_or(true);
     if needs && set_nominal_rate(dev, target) {
+        // Record the pre-EKO rate for this device the first time we change it.
+        if let (Some(name), Some(orig)) = (
+            device_name.map(|s| s.to_owned()).or_else(|| {
+                // Fall back to reading the HAL name for the default device so we can
+                // restore it even when no explicit device name was supplied.
+                self::device_name(dev)
+            }),
+            current,
+        ) {
+            let mut map = original_rates().lock().unwrap();
+            map.entry(name).or_insert(orig);
+        }
         // Give CoreAudio a moment to apply the rate change before playback starts.
         std::thread::sleep(std::time::Duration::from_millis(60));
     }
     nominal_rate(dev).map(|r| r.round() as u32)
+}
+
+/// Restore every device whose nominal rate EKO changed back to its original value.
+///
+/// Called once on [`tauri::RunEvent::Exit`]. Does not thrash mid-session; only runs at quit.
+pub fn restore_all() {
+    let map = original_rates().lock().unwrap();
+    for (name, &orig) in map.iter() {
+        if let Some(dev) = find_output_device(name) {
+            // Best-effort: ignore failures (device may have been disconnected).
+            set_nominal_rate(dev, orig);
+        }
+    }
 }

@@ -34,4 +34,5 @@ url = "2"
 cpal = "0.15"
 symphonia = { version = "0.5", features = ["all"] }
 rustfft = "6"
+keyring = "3"
 

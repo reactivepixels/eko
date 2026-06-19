@@ -90,11 +90,16 @@ export const useSubsonic = create<SubsonicState>((set, get) => ({
       await ping();
       const albums = await getAlbums(500);
       set({ connected: true, status: "idle", config: cfg, albums, error: null });
+      // Persist only the non-secret fields; password goes to the macOS Keychain.
       try {
-        localStorage.setItem("eko.subsonic", JSON.stringify(cfg));
+        localStorage.setItem(
+          "eko.subsonic",
+          JSON.stringify({ baseUrl: cfg.baseUrl, username: cfg.username }),
+        );
       } catch {
         /* ignore */
       }
+      void invoke("secret_set", { key: "navidrome", value: cfg.password });
       // No auto-dump: the Track Library opens on the album browser, the user picks.
       getPlaylists()
         .then((playlists) => set({ playlists }))
@@ -119,7 +124,28 @@ export const useSubsonic = create<SubsonicState>((set, get) => ({
     }
     if (!raw) return;
     try {
-      await get().connect(JSON.parse(raw) as SubsonicConfig);
+      const stored = JSON.parse(raw) as { baseUrl: string; username: string; password?: string };
+      const { baseUrl, username } = stored;
+
+      if (stored.password) {
+        // Legacy migration: old format stored the password in plaintext localStorage.
+        // Move it to the Keychain and rewrite the stored value without the password.
+        void invoke("secret_set", { key: "navidrome", value: stored.password });
+        try {
+          localStorage.setItem("eko.subsonic", JSON.stringify({ baseUrl, username }));
+        } catch {
+          /* ignore */
+        }
+        await get().connect({ baseUrl, username, password: stored.password });
+        return;
+      }
+
+      // New shape: retrieve the password from the Keychain.
+      const password = await invoke<string | null>("secret_get", { key: "navidrome" });
+      if (password) {
+        await get().connect({ baseUrl, username, password });
+      }
+      // If no password in Keychain, do nothing — user must re-enter credentials.
     } catch {
       /* show panel */
     }
@@ -133,6 +159,7 @@ export const useSubsonic = create<SubsonicState>((set, get) => ({
     } catch {
       /* ignore */
     }
+    void invoke("secret_delete", { key: "navidrome" });
     set({ connected: false, status: "idle", config: null, albums: [] });
   },
 
