@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>EKO — Pro-Audio Hardware</title>
+    <style>
+      :root {
+        --font: "Helvetica Neue", Inter, -apple-system, Helvetica, Arial, sans-serif;
+        --mono: "SF Mono", ui-monospace, Menlo, "Roboto Mono", monospace;
+        --case: #d9d6cf;          /* machined off-white aluminium */
+        --case-2: #c9c6bd;
+        --case-edge: #b4b0a6;
+        --panel: #161616;         /* dark instrument face */
+        --panel-2: #0e0e0e;
+        --panel-line: #2a2a2a;
+        --ink: #1c1b18;
+        --ink-2: #6a675f;
+        --amber: #ffb000;         /* VFD / LED amber */
+        --amber-dim: #6e4d00;
+        --green: #1fd17a;         /* bit-perfect green */
+        --silk: #8d8a82;
+        --screw: #a7a39a;
+      }
+      * { box-sizing: border-box; }
+      html, body { height: 100%; }
+      body {
+        margin: 0; font-family: var(--font); color: var(--ink);
+        background:
+          radial-gradient(120% 120% at 50% -10%, #efece5, #c2bfb6 90%);
+        -webkit-font-smoothing: antialiased;
+        min-height: 100vh; display: grid; place-items: center; padding: 40px 20px;
+      }
+      .unit {
+        width: min(940px, 100%); border-radius: 26px; position: relative;
+        background:
+          linear-gradient(180deg, #e4e1da, var(--case) 8%, var(--case-2) 92%, #bdbab1);
+        box-shadow:
+          0 1px 0 rgba(255,255,255,0.9) inset,
+          0 -2px 0 rgba(0,0,0,0.12) inset,
+          0 40px 80px rgba(40,38,32,0.4),
+          0 2px 0 var(--case-edge);
+        padding: 20px;
+        border: 1px solid #bdbab1;
+      }
+      /* brushed texture */
+      .unit::before {
+        content: ""; position: absolute; inset: 0; border-radius: 26px; pointer-events: none;
+        background-image: repeating-linear-gradient(90deg, rgba(255,255,255,0.05) 0 1px, transparent 1px 3px);
+        mix-blend-mode: overlay; opacity: 0.5;
+      }
+      .screw { position: absolute; width: 11px; height: 11px; border-radius: 50%;
+        background: radial-gradient(circle at 35% 30%, #cbc8bf, var(--screw) 60%, #837f76);
+        box-shadow: 0 1px 1px rgba(255,255,255,0.6), inset 0 -1px 1px rgba(0,0,0,0.3); }
+      .screw::after { content:""; position:absolute; inset:3px; border-top:1px solid rgba(0,0,0,0.35); transform: rotate(35deg); }
+      .screw.tl { top: 12px; left: 12px; } .screw.tr { top: 12px; right: 12px; }
+      .screw.bl { bottom: 12px; left: 12px; } .screw.br { bottom: 12px; right: 12px; }
+
+      /* header strip */
+      .head { display: flex; align-items: center; justify-content: space-between; padding: 6px 18px 16px; }
+      .wordmark { display: flex; align-items: center; gap: 11px; }
+      .bars { display: flex; align-items: flex-end; gap: 3px; height: 22px; }
+      .bars i { width: 4px; background: var(--ink); border-radius: 1px; }
+      .bars i:nth-child(1){height:35%} .bars i:nth-child(2){height:70%}
+      .bars i:nth-child(3){height:100%; background: var(--amber);} .bars i:nth-child(4){height:55%}
+      .wm-text { font-weight: 800; letter-spacing: 0.34em; font-size: 17px; }
+      .model { font: 600 11px/1 var(--mono); letter-spacing: 0.14em; color: var(--ink-2); }
+      .model b { color: var(--ink); }
+
+      /* main grid: display face + side controls */
+      .face {
+        background: linear-gradient(180deg, var(--panel), var(--panel-2));
+        border-radius: 16px; padding: 22px; position: relative;
+        border: 1px solid #000;
+        box-shadow: inset 0 2px 6px rgba(0,0,0,0.8), inset 0 -1px 0 rgba(255,255,255,0.04), 0 1px 0 rgba(255,255,255,0.5);
+      }
+      .face::after { content:""; position:absolute; inset:0; border-radius:16px; pointer-events:none;
+        background: repeating-linear-gradient(0deg, rgba(255,255,255,0.018) 0 1px, transparent 1px 3px); }
+
+      .row1 { display: grid; grid-template-columns: 132px 1fr auto; gap: 22px; align-items: center; }
+
+      /* album as a "loaded media" window */
+      .cover { width: 132px; height: 132px; border-radius: 8px; overflow: hidden; position: relative;
+        border: 1px solid #000; box-shadow: inset 0 0 0 2px #222, 0 0 0 1px rgba(255,255,255,0.06); }
+      .cover .art { position:absolute; inset:0;
+        background:
+          repeating-linear-gradient(45deg, #1a1d22 0 8px, #20242b 8px 16px),
+          linear-gradient(135deg, #2b1c00, #ffb000 140%);
+        background-blend-mode: overlay; }
+      .cover .scan { position:absolute; inset:0; background: repeating-linear-gradient(0deg, rgba(255,176,0,0.12) 0 2px, transparent 2px 4px); }
+      .cover .em { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); font:800 46px/1 var(--mono); color: var(--amber); text-shadow:0 0 18px rgba(255,176,0,0.7); letter-spacing:-0.04em; }
+
+      .read .badge { display:inline-block; font:600 10px/1 var(--mono); letter-spacing:0.12em; color: var(--amber);
+        border:1px solid var(--amber-dim); background: rgba(255,176,0,0.06); padding:6px 9px; border-radius:4px; margin-bottom:12px; }
+      .read .title { font:700 22px/1.12 var(--mono); color:#f3efe6; letter-spacing:-0.01em; margin:0 0 6px; }
+      .read .artist { font:500 14px/1 var(--mono); color: #b6b1a6; margin:0; letter-spacing:0.04em; }
+
+      /* big knob */
+      .knob-wrap { display:flex; flex-direction:column; align-items:center; gap:9px; }
+      .knob { width: 92px; height: 92px; border-radius:50%; position: relative;
+        background: radial-gradient(circle at 38% 32%, #3a3a3a, #141414 70%);
+        box-shadow: 0 6px 14px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.12), inset 0 -4px 8px rgba(0,0,0,0.6);
+        border:1px solid #000; }
+      .knob .grip { position:absolute; inset:0; border-radius:50%;
+        background: repeating-conic-gradient(from 0deg, #2b2b2b 0 6deg, #1a1a1a 6deg 12deg); opacity:0.6; mask: radial-gradient(circle, transparent 60%, #000 61%); }
+      .knob .ind { position:absolute; left:50%; top:9px; width:3px; height:22px; background: var(--amber); border-radius:2px; transform-origin:50% 37px; transform:rotate(135deg); box-shadow:0 0 8px var(--amber); }
+      .knob-lbl { font:600 9px/1 var(--mono); letter-spacing:0.14em; color: var(--ink-2); }
+
+      /* spectrum — instrument readout */
+      .meter { margin-top: 20px; background:#000; border-radius:8px; padding:12px 14px;
+        border:1px solid #000; box-shadow: inset 0 0 12px rgba(0,0,0,0.9), inset 0 1px 0 rgba(255,255,255,0.05); }
+      .meter .lbl { display:flex; justify-content:space-between; font:600 9px/1 var(--mono); letter-spacing:0.16em; color: var(--ink-2); margin-bottom:8px; }
+      .spectrum { display:flex; align-items:flex-end; gap:2px; height:48px; }
+      .spectrum i { flex:1; min-width:3px;
+        background: linear-gradient(180deg, var(--amber), #7a3b00);
+        box-shadow: 0 0 6px rgba(255,176,0,0.4); transform-origin:bottom; animation: eq 1s ease-in-out infinite; }
+      @keyframes eq { 0%,100%{transform:scaleY(0.15)} 50%{transform:scaleY(1)} }
+
+      /* signal path strip */
+      .signal { margin-top: 16px; display:flex; align-items:center; gap:0;
+        background:#000; border-radius:8px; padding:13px 16px; border:1px solid #000;
+        box-shadow: inset 0 0 10px rgba(0,0,0,0.9), inset 0 1px 0 rgba(255,255,255,0.04); }
+      .node { display:flex; flex-direction:column; gap:3px; }
+      .node .k { font:600 8px/1 var(--mono); letter-spacing:0.18em; color:#6e6a60; }
+      .node .v { font:600 12px/1 var(--mono); color: var(--amber); letter-spacing:0.04em; }
+      .flow { flex:1; height:2px; margin:0 14px; background: repeating-linear-gradient(90deg, var(--amber-dim) 0 6px, transparent 6px 10px); position:relative; }
+      .flow::after { content:""; position:absolute; top:-2px; width:6px; height:6px; border-radius:50%; background:var(--amber); box-shadow:0 0 8px var(--amber); animation: dash 1.6s linear infinite; }
+      @keyframes dash { from{left:0} to{left:100%} }
+      .seal { margin-left:auto; display:inline-flex; align-items:center; gap:7px;
+        font:700 11px/1 var(--mono); letter-spacing:0.1em; color:#041;
+        background: var(--green); padding:8px 11px; border-radius:5px;
+        box-shadow: 0 0 16px rgba(31,209,122,0.5), inset 0 1px 0 rgba(255,255,255,0.4); }
+      .seal svg { width:13px; height:13px; }
+      .seal .blink { width:6px;height:6px;border-radius:50%;background:#041;animation:blink 1.4s steps(1) infinite; }
+      @keyframes blink { 50%{opacity:0.2} }
+
+      /* transport: hardware buttons */
+      .ctl { margin-top: 18px; display:flex; align-items:center; justify-content:space-between; gap:16px; }
+      .transport { display:flex; align-items:center; gap:11px; }
+      .hbtn { width:46px; height:40px; border-radius:7px; display:grid; place-items:center; cursor:pointer;
+        color:#3a3a3a;
+        background: linear-gradient(180deg, #f0ede6, #d2cfc6);
+        box-shadow: 0 2px 0 #aaa69c, 0 3px 5px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.9);
+        border:1px solid #b6b2a8; transition:0.05s; }
+      .hbtn:active { transform: translateY(2px); box-shadow: 0 0 0 #aaa69c, inset 0 1px 3px rgba(0,0,0,0.3); }
+      .hbtn svg { width:17px; height:17px; }
+      .hbtn.play { width:62px; color:#fff;
+        background: linear-gradient(180deg, #ffc23a, var(--amber));
+        box-shadow: 0 2px 0 #a86f00, 0 3px 8px rgba(255,176,0,0.5), inset 0 1px 0 rgba(255,255,255,0.6);
+        border:1px solid #c98a00; }
+      .hbtn.play:active { box-shadow: 0 0 0 #a86f00, inset 0 1px 4px rgba(120,80,0,0.4); transform:translateY(2px); }
+
+      /* seek as fader */
+      .fader { display:flex; align-items:center; gap:12px; flex:1; max-width:360px; font:600 10px/1 var(--mono); color:var(--ink-2); }
+      .track { flex:1; height:8px; border-radius:4px; position:relative;
+        background: linear-gradient(180deg,#b6b2a8,#cfccc3); box-shadow: inset 0 1px 2px rgba(0,0,0,0.3); }
+      .track .fill { position:absolute; inset:0 62% 0 0; border-radius:4px; background: var(--amber); box-shadow:0 0 8px rgba(255,176,0,0.5); }
+      .track .cap { position:absolute; left:38%; top:50%; transform:translate(-50%,-50%); width:14px; height:22px; border-radius:4px;
+        background: linear-gradient(180deg,#3a3a3a,#161616); box-shadow:0 2px 5px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.2); border:1px solid #000; }
+      .track .cap::after { content:""; position:absolute; left:3px; right:3px; top:50%; height:1px; background:var(--amber); }
+
+      /* bottom silkscreen */
+      .silk { margin-top:14px; padding:0 6px; display:flex; justify-content:space-between; font:600 9px/1 var(--mono); letter-spacing:0.18em; color: var(--silk); }
+
+      @media (max-width: 640px) {
+        .row1 { grid-template-columns: 1fr; justify-items:center; text-align:center; }
+        .knob-wrap { order: 3; }
+        .ctl { flex-direction: column; align-items: stretch; }
+        .fader { max-width:none; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="unit">
+      <span class="screw tl"></span><span class="screw tr"></span><span class="screw bl"></span><span class="screw br"></span>
+
+      <div class="head">
+        <div class="wordmark">
+          <div class="bars"><i></i><i></i><i></i><i></i></div>
+          <div class="wm-text">EKO</div>
+        </div>
+        <div class="model">DAC&nbsp;ENGINE&nbsp;·&nbsp;<b>EKO-1</b>&nbsp;·&nbsp;REV&nbsp;A</div>
+      </div>
+
+      <div class="face">
+        <div class="row1">
+          <div class="cover">
+            <div class="art"></div>
+            <div class="scan"></div>
+            <div class="em">JK</div>
+          </div>
+          <div class="read">
+            <span class="badge">FLAC · 44.1 kHz · 16-BIT</span>
+            <h1 class="title">Emergency On Planet<br />Earth (Remastered)</h1>
+            <p class="artist">JAMIROQUAI</p>
+          </div>
+          <div class="knob-wrap">
+            <div class="knob"><span class="grip"></span><span class="ind"></span></div>
+            <span class="knob-lbl">VOLUME</span>
+          </div>
+        </div>
+
+        <div class="meter">
+          <div class="lbl"><span>SPECTRUM · 1/3 OCT</span><span>RMS −14.2 dB</span></div>
+          <div class="spectrum" id="spectrum"></div>
+        </div>
+
+        <div class="signal">
+          <div class="node"><span class="k">SOURCE</span><span class="v">FLAC 16/44.1</span></div>
+          <div class="flow"></div>
+          <div class="node"><span class="k">OUTPUT</span><span class="v">DAC 44.1kHz</span></div>
+          <div class="seal">
+            <span class="blink"></span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l7 3v6c0 4.5-3 8-7 9-4-1-7-4.5-7-9V5z"/><path d="M9 12l2 2 4-4"/></svg>
+            BIT-PERFECT
+          </div>
+        </div>
+
+        <div class="ctl">
+          <div class="transport">
+            <button class="hbtn" title="Shuffle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5"/><path d="M4 20L21 3"/><path d="M21 16v5h-5"/><path d="M15 15l6 6"/><path d="M4 4l5 5"/></svg></button>
+            <button class="hbtn" title="Previous"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 5h2v14H6zM20 5L9 12l11 7z"/></svg></button>
+            <button class="hbtn play" title="Play/Pause"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5h3v14H8zM14 5h3v14h-3z"/></svg></button>
+            <button class="hbtn" title="Next"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 5h2v14h-2zM4 5l11 7L4 19z"/></svg></button>
+            <button class="hbtn" title="Repeat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 2l4 4-4 4"/><path d="M3 11V9a4 4 0 014-4h14"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v2a4 4 0 01-4 4H3"/></svg></button>
+          </div>
+          <div class="fader">
+            <span>01:42</span>
+            <div class="track"><div class="fill"></div><div class="cap"></div></div>
+            <span>04:31</span>
+          </div>
+        </div>
+
+        <div class="silk">
+          <span>EXCLUSIVE&nbsp;MODE&nbsp;·&nbsp;HOG&nbsp;ON</span>
+          <span>EKO&nbsp;AUDIO&nbsp;ENGINE&nbsp;·&nbsp;48V</span>
+          <span>S/N&nbsp;0042</span>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const spec = document.getElementById("spectrum");
+      for (let i = 0; i < 40; i++) {
+        const b = document.createElement("i");
+        b.style.animationDelay = (-(Math.random() * 1)).toFixed(2) + "s";
+        b.style.animationDuration = (0.6 + Math.random() * 0.8).toFixed(2) + "s";
+        spec.appendChild(b);
+      }
+    </script>
+  </body>
+</html>
