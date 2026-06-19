@@ -13,6 +13,21 @@ Items marked **[needs ear-verify]** are complete in code but have not been
 confirmed by the maintainer's listening tests or Audio MIDI Setup inspection. Do not treat
 those as shipping-quality until they pass the [QA checklist](docs/QA-CHECKLIST.md).
 
+## [0.2.0] — 2026-06-20
+
+Security + robustness hardening over the v0.1.0 preview (no feature regressions):
+
+- **Security:** the `stream://` proxy is now restricted to the configured Navidrome
+  origin (was an open SSRF); the broad `**` filesystem capability was removed; a
+  Content-Security-Policy was added; the Navidrome password moved from plaintext
+  `localStorage` to the macOS Keychain.
+- **Engine:** the realtime audio callback recovers from a poisoned lock instead of
+  crashing; seek arithmetic is clamped; network streams get timeouts + a stall guard;
+  a device error clears playback state; **the DAC's sample rate is restored on quit.**
+- **Frontend:** gapless session state resets on queue edits; a poll generation guard
+  fixes an after-stop race; the file-open path carries all track metadata; faster,
+  stickier seek bar; ReplayGain now also works for Navidrome.
+
 ### Added
 
 #### Audio engine
