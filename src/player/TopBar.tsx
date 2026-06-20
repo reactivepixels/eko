@@ -70,11 +70,7 @@ export function TopBar() {
 
         <div className="skinseg" role="tablist" title="Skin">
           {SKINS.map((sk) => (
-            <b
-              key={sk.id}
-              className={skin === sk.id ? "on" : ""}
-              onClick={() => setSkin(sk.id)}
-            >
+            <b key={sk.id} className={skin === sk.id ? "on" : ""} onClick={() => setSkin(sk.id)}>
               {sk.label}
             </b>
           ))}

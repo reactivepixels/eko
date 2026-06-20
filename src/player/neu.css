@@ -138,11 +138,10 @@
   --out: 6px 6px 14px rgba(60, 58, 50, 0.16), -5px -5px 12px #ffffff;
   --out-sm: 4px 4px 9px rgba(60, 58, 50, 0.14), -3px -3px 8px #ffffff;
   --out-xs: 2px 2px 5px rgba(60, 58, 50, 0.13), -2px -2px 4px #ffffff;
-  --bevel: inset 1px 1px 1.5px rgba(255, 255, 255, 0.7),
-    inset -1px -1px 1.5px rgba(60, 58, 50, 0.05);
+  --bevel:
+    inset 1px 1px 1.5px rgba(255, 255, 255, 0.7), inset -1px -1px 1.5px rgba(60, 58, 50, 0.05);
   --in: inset 3px 3px 7px rgba(60, 58, 50, 0.15), inset -3px -3px 7px #ffffff;
-  --in-deep: inset 5px 5px 11px rgba(60, 58, 50, 0.17),
-    inset -4px -4px 9px #ffffff;
+  --in-deep: inset 5px 5px 11px rgba(60, 58, 50, 0.17), inset -4px -4px 9px #ffffff;
 }
 [data-skin="studio"][data-theme="dark"] {
   --bg: #21242a;
@@ -158,8 +157,7 @@
   --out: 5px 5px 13px #0e0f12, -3px -3px 9px #2e3138;
   --out-sm: 3px 3px 8px #0e0f12, -2px -2px 6px #2e3138;
   --out-xs: 2px 2px 5px #0e0f12, -2px -2px 4px #2e3138;
-  --bevel: inset 1px 1px 1px rgba(255, 255, 255, 0.06),
-    inset -1px -1px 1px rgba(0, 0, 0, 0.3);
+  --bevel: inset 1px 1px 1px rgba(255, 255, 255, 0.06), inset -1px -1px 1px rgba(0, 0, 0, 0.3);
   --in: inset 3px 3px 8px #0e0f12, inset -2px -2px 6px #2e3138;
   --in-deep: inset 5px 5px 12px #0c0d10, inset -3px -3px 8px #2e3138;
 }
@@ -364,7 +362,9 @@ body {
   padding: 0;
   cursor: pointer;
   background: var(--c, var(--accent));
-  box-shadow: var(--out-xs), inset 0 1px 1px rgba(255, 255, 255, 0.4);
+  box-shadow:
+    var(--out-xs),
+    inset 0 1px 1px rgba(255, 255, 255, 0.4);
   transition: transform 0.14s var(--ec);
 }
 .acc-sw:hover {
