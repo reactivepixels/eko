@@ -3,6 +3,7 @@ import { useMusicSource } from "../hooks/useMusicSource";
 import { TopBar } from "./TopBar";
 import { Sidebar } from "./Sidebar";
 import { LibraryView } from "./LibraryView";
+import { StudioLibrary } from "./studio/StudioLibrary";
 import { DeckView } from "./DeckView";
 import { TransportBar } from "./TransportBar";
 import { QueuePanel } from "./QueuePanel";
@@ -41,7 +42,15 @@ export function PlayerApp() {
           )}
           <div className="spacer" />
         </div>
-        {playerView === "library" ? <LibraryView /> : <DeckView />}
+        {playerView === "library" ? (
+          skin === "studio" ? (
+            <StudioLibrary />
+          ) : (
+            <LibraryView />
+          )
+        ) : (
+          <DeckView />
+        )}
       </main>
       <TransportBar />
       <QueuePanel />
