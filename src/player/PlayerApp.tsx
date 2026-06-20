@@ -21,6 +21,8 @@ export function PlayerApp() {
   const localCount = useLocal((s) => s.albums.length);
   const count = source === "server" ? subCount : localCount;
 
+  // ONE app, themed. `data-skin` selects the theme layer (Porcelain | Studio) over the same
+  // shell + views — never a separate app.
   return (
     <div className="app" data-theme={theme} data-accent={accent} data-skin={skin}>
       <TopBar />

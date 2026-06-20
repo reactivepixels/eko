@@ -115,39 +115,43 @@
 }
 
 /* ============================================================
-   SKIN: "Studio" — a COOL, clean, flatter alternative to the warm
-   Porcelain default (the first built-in `data-skin`). Deliberately
-   distinct so the skin picker is obviously doing something: cooler
-   slate-white surfaces + ink, softer/flatter neumorphism, and its
-   OWN app background (Porcelain's `.app` bg is hard-coded warm, so
-   without this override the skin would be masked).
-   NOTE: palette-level — the Studio control GEOMETRY (flat-top
-   knobs, gauge arcs) is a further, component-level pass.
+   SKIN: "Studio" — the warm matte "device" theme (from the approved
+   concept). The differentiator from Porcelain is NOT a tint: it's a
+   different MATERIAL. Porcelain = domed dual-soft neumorphism. Studio
+   = flat matte faces, a seated drop shadow + a crisp white top edge,
+   warm #f3f1ec surfaces, mono device labels. All token-driven, so the
+   recipe below re-skins every surface at once.
    ============================================================ */
 [data-skin="studio"] {
-  --bg: #e7eaf0;
-  --bg2: #eef1f6;
+  --bg: #e4e0d8;
+  --bg2: #efece6;
   --light: #ffffff;
-  --dark: #c2c8d4;
-  --ink: #2e323b;
-  --ink-2: #636b78;
-  --ink-3: #98a0ad;
-  --line: rgba(40, 48, 66, 0.07);
-  --art-bg: #d6dbe5;
-  --hover: rgba(40, 48, 66, 0.05);
-  /* softer/flatter, cooler neumorphism */
-  --out: 6px 6px 15px #c2c8d4, -6px -6px 13px #ffffff;
-  --out-sm: 4px 4px 10px #c6ccd8, -3px -3px 8px #ffffff;
-  --out-xs: 2px 2px 5px #ccd2dd, -2px -2px 4px #ffffff;
-  --bevel:
-    inset 1px 1px 1.5px rgba(255, 255, 255, 0.9), inset -1px -1px 1.5px rgba(40, 48, 66, 0.06);
-  --in: inset 4px 4px 9px #c2c8d4, inset -4px -4px 9px #ffffff;
-  --in-deep: inset 6px 6px 13px #bcc3d0, inset -5px -5px 11px #ffffff;
+  --dark: #cdc7bb;
+  --ink: #3b3933;
+  --ink-2: #6d6a61;
+  --ink-3: #a4a096;
+  --line: rgba(62, 58, 50, 0.08);
+  --art-bg: #e7e3da;
+  --hover: rgba(62, 58, 50, 0.05);
+  /* FLAT MATTE material — a seated drop shadow + crisp white top edge, NOT Porcelain's
+     domed dual-neumorphism. This is what makes Studio read as a device, not a recolour. */
+  --out:
+    0 2px 4px rgba(62, 58, 50, 0.16), 0 14px 24px -12px rgba(62, 58, 50, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.92), 0 0 0 1px rgba(255, 255, 255, 0.55);
+  --out-sm:
+    0 1.5px 3px rgba(62, 58, 50, 0.15), 0 8px 15px -9px rgba(62, 58, 50, 0.26),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  --out-xs: 0 1px 2px rgba(62, 58, 50, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.85);
+  --bevel: inset 0 1px 1px rgba(255, 255, 255, 0.9), 0 0 0 1px rgba(62, 58, 50, 0.04);
+  --in: inset 2px 2px 5px rgba(62, 58, 50, 0.16), inset -2px -2px 5px rgba(255, 255, 255, 0.92);
+  --in-deep: inset 3px 3px 7px rgba(62, 58, 50, 0.22), inset -3px -3px 6px rgba(255, 255, 255, 0.9);
+  --lift: 0 14px 28px -10px rgba(62, 58, 50, 0.4), 0 2px 6px rgba(62, 58, 50, 0.18);
+  --lift-sm: 0 7px 16px -9px rgba(62, 58, 50, 0.34), 0 1px 3px rgba(62, 58, 50, 0.15);
 }
 .app[data-skin="studio"] {
   background:
-    radial-gradient(140% 120% at 22% 8%, #f4f6fb, transparent 60%),
-    radial-gradient(120% 120% at 90% 100%, #d7dce7, transparent 55%), var(--bg);
+    radial-gradient(120% 90% at 50% -6%, #f1eee8, transparent 55%),
+    radial-gradient(120% 110% at 50% 112%, #d2cdc2, transparent 55%), var(--bg);
 }
 [data-skin="studio"][data-theme="dark"] {
   --bg: #1a1e27;
@@ -182,33 +186,33 @@
 [data-skin="studio"] .tbtn,
 [data-skin="studio"] .knob-dial .hub,
 [data-skin="studio"] .fader .cap {
-  background: radial-gradient(135% 135% at 50% 35%, #ffffff, #eef1f6 68%, #e3e8f0 100%);
+  background: radial-gradient(135% 135% at 50% 38%, #ffffff, #f3efe8 60%, #d4cfc4 100%);
   box-shadow:
-    0 3px 5px rgba(40, 48, 66, 0.16),
-    0 10px 18px -6px rgba(40, 48, 66, 0.2),
-    inset 0 1.5px 1px rgba(255, 255, 255, 0.92),
+    0 3px 5px rgba(62, 58, 50, 0.18),
+    0 12px 20px -7px rgba(62, 58, 50, 0.24),
+    inset 0 1.5px 1px rgba(255, 255, 255, 0.95),
     0 0 0 1px rgba(255, 255, 255, 0.6);
 }
 [data-skin="studio"] .tbtn:active {
   box-shadow:
-    inset 0 2px 5px rgba(40, 48, 66, 0.22),
-    0 1px 2px rgba(40, 48, 66, 0.18);
+    inset 0 2px 5px rgba(150, 144, 132, 0.28),
+    0 1px 2px rgba(62, 58, 50, 0.2);
   transform: translateY(1px) scale(0.97);
 }
 /* play — flat-top accent puck with an accent halo */
 [data-skin="studio"] .tbtn.play {
   background: radial-gradient(135% 135% at 50% 34%, var(--accent-2), var(--accent) 80%);
   box-shadow:
-    0 10px 22px -6px rgba(40, 48, 66, 0.28),
-    0 0 20px -3px var(--accent),
+    0 12px 24px -7px rgba(62, 58, 50, 0.3),
+    0 0 22px -3px var(--accent),
     inset 0 1.5px 1px rgba(255, 255, 255, 0.5),
     0 0 0 1px rgba(255, 255, 255, 0.22);
 }
 /* pill buttons (EQ preset etc.) — flatter, crisp */
 [data-skin="studio"] .pillbtn {
-  background: radial-gradient(140% 170% at 50% 28%, #ffffff, #edf0f5 100%);
+  background: radial-gradient(140% 170% at 50% 28%, #ffffff, #f1ede6 100%);
   box-shadow:
-    0 2px 4px rgba(40, 48, 66, 0.14),
+    0 2px 4px rgba(62, 58, 50, 0.16),
     inset 0 1px 1px rgba(255, 255, 255, 0.9),
     0 0 0 1px rgba(255, 255, 255, 0.55);
 }
