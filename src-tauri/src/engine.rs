@@ -1032,9 +1032,7 @@ fn decode_and_play(
                             let cur_frames = buf_len.saturating_sub(cur_seg) / out_ch;
                             let cur_pos = shared.pos.load(Ordering::SeqCst);
 
-                            let fade_frames = (out_rate as usize)
-                                .saturating_mul(xms)
-                                / 1000;
+                            let fade_frames = (out_rate as usize).saturating_mul(xms) / 1000;
                             let overlap = fade_frames.min(cur_frames);
                             let overlap_start = buf_len - overlap * out_ch;
                             // Need the overlap meaningfully long AND comfortably ahead of the

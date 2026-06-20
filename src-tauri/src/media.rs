@@ -56,7 +56,10 @@ pub fn init(app: &AppHandle) {
             MediaControlEvent::SetPosition(MediaPosition(pos)) => ("seek", Some(pos.as_secs_f64())),
             _ => return,
         };
-        let _ = ah.emit("eko:cmd", serde_json::json!({ "action": action, "value": value }));
+        let _ = ah.emit(
+            "eko:cmd",
+            serde_json::json!({ "action": action, "value": value }),
+        );
     });
     if attached.is_err() {
         return;
