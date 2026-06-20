@@ -13,6 +13,21 @@ Items marked **[needs ear-verify]** are complete in code but have not been
 confirmed by the maintainer's listening tests or Audio MIDI Setup inspection. Do not treat
 those as shipping-quality until they pass the [QA checklist](docs/QA-CHECKLIST.md).
 
+## [0.3.1] — 2026-06-20
+
+Patch release: ship a working, downloadable macOS build.
+
+### Fixed
+- **macOS release pipeline** — releases now produce a working DMG **without** a paid Apple
+  Developer ID: an ad-hoc (unsigned) build that opens via right-click → **Open** (or
+  `xattr -dr com.apple.quarantine /Applications/EKO.app`). The workflow auto-upgrades to a
+  signed + notarized build the moment the Apple signing secrets are configured. Previously every
+  release run died at the codesign step ("failed to import keychain certificate").
+
+> The **skinnable UI** — light/dark theme × user-selectable accent × the matte **Studio** skin
+> (see [docs/skinning.md](docs/skinning.md)) — landed in the 0.3.0 commit; 0.3.1 is the first
+> release you can actually download and run cleanly.
+
 ## [0.3.0] — 2026-06-20
 
 ### Added
