@@ -13,6 +13,8 @@ Items marked **[needs ear-verify]** are complete in code but have not been
 confirmed by the maintainer's listening tests or Audio MIDI Setup inspection. Do not treat
 those as shipping-quality until they pass the [QA checklist](docs/QA-CHECKLIST.md).
 
+## [0.3.0] — 2026-06-20
+
 ### Added
 - **System "Now Playing" + hardware media keys (macOS)** — the lock-screen / Control-Center
   now-playing card and the F7/F8/F9 keys (and headphone controls) now drive EKO, via
