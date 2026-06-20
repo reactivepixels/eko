@@ -1,6 +1,5 @@
 import { useUiStore } from "../store/useUiStore";
-import { useSubsonic } from "../subsonic/useSubsonic";
-import { useLocal } from "../local/useLocal";
+import { useMusicSource } from "../hooks/useMusicSource";
 import { TopBar } from "./TopBar";
 import { Sidebar } from "./Sidebar";
 import { LibraryView } from "./LibraryView";
@@ -12,14 +11,11 @@ import "./neu.css";
 export function PlayerApp() {
   const playerView = useUiStore((s) => s.playerView);
   const setPlayerView = useUiStore((s) => s.setPlayerView);
-  const source = useUiStore((s) => s.source);
   const libSection = useUiStore((s) => s.libSection);
   const theme = useUiStore((s) => s.theme);
   const accent = useUiStore((s) => s.accent);
   const skin = useUiStore((s) => s.skin);
-  const subCount = useSubsonic((s) => s.albums.length);
-  const localCount = useLocal((s) => s.albums.length);
-  const count = source === "server" ? subCount : localCount;
+  const count = useMusicSource().albumCount;
 
   // ONE app, themed. `data-skin` selects the theme layer (Porcelain | Studio) over the same
   // shell + views — never a separate app.

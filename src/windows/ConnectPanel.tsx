@@ -1,11 +1,9 @@
 import { useState, type CSSProperties, type FormEvent } from "react";
-import { useSubsonic } from "../subsonic/useSubsonic";
-import { useUiStore } from "../store/useUiStore";
+import { useConnect } from "../hooks/useConnect";
 
 /** Connection form shown when EKO isn't connected to a Navidrome/OpenSubsonic server. */
 export function ConnectPanel() {
-  const { connect, status, error } = useSubsonic();
-  const setSource = useUiStore((s) => s.setSource);
+  const { connect, status, error, useLocalInstead } = useConnect();
   const [baseUrl, setBaseUrl] = useState("http://192.168.86.50:4533");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -14,7 +12,7 @@ export function ConnectPanel() {
     e.preventDefault();
     await connect({ baseUrl: baseUrl.trim(), username: username.trim(), password });
   };
-  const dismiss = () => setSource("local");
+  const dismiss = () => useLocalInstead();
 
   return (
     <div style={overlay} onClick={dismiss}>

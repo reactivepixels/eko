@@ -1,7 +1,6 @@
 import { type ReactNode } from "react";
 import { useUiStore, type LibSection } from "../store/useUiStore";
-import { useSubsonic } from "../subsonic/useSubsonic";
-import { useLocal } from "../local/useLocal";
+import { useMusicSource } from "../hooks/useMusicSource";
 
 const ICON: Record<string, ReactNode> = {
   albums: (
@@ -52,9 +51,9 @@ function Item({
 }
 
 export function Sidebar() {
-  const { source, playerView, libSection, setPlayerView, setLibSection } = useUiStore();
-  const serverConfig = useSubsonic((s) => s.config);
-  const localRoot = useLocal((s) => s.rootName);
+  const { playerView, libSection, setPlayerView, setLibSection } = useUiStore();
+  const src = useMusicSource();
+  const { source, serverConfigured, localRoot } = src;
 
   const go = (s: LibSection) => {
     setLibSection(s);
@@ -73,8 +72,8 @@ export function Sidebar() {
     source === "server"
       ? {
           t: "OUTPUT",
-          n: serverConfig ? "Topping E50 · USB" : "No device",
-          s: serverConfig ? "EXCLUSIVE · 768k" : "—",
+          n: serverConfigured ? "Topping E50 · USB" : "No device",
+          s: serverConfigured ? "EXCLUSIVE · 768k" : "—",
         }
       : { t: "OUTPUT", n: "System default", s: localRoot ? `LOCAL · ${localRoot}` : "Bit-perfect" };
 
@@ -107,9 +106,9 @@ export function Sidebar() {
           <div className="t">MUSIC FOLDER</div>
           <div className="n">{localRoot}</div>
           <div className="folder-actions">
-            <span onClick={() => useLocal.getState().rescan()}>Rescan</span>
-            <span onClick={() => void useLocal.getState().pickFolder()}>Change</span>
-            <span onClick={() => useLocal.getState().reset()}>Clear</span>
+            <span onClick={src.rescan}>Rescan</span>
+            <span onClick={src.changeFolder}>Change</span>
+            <span onClick={src.clearFolder}>Clear</span>
           </div>
         </div>
       )}
