@@ -1,103 +1,50 @@
 import { useState } from "react";
-import { usePlayerStore } from "../store/usePlayerStore";
-import { nativeEngine } from "../audio/nativeEngine";
+import { useSignalPath } from "../hooks/useSignalPath";
 
 const khz = (n: number) => (n ? `${(n / 1000).toFixed(n % 1000 ? 1 : 0)} kHz` : "—");
 
 /**
- * Roon-style signal path: SOURCE → ENGINE → OUTPUT, with an honest indicator that's only
- * "pure" when nothing alters the bits (no resample, no EQ, unity volume). Reads the live
- * engine info (real device + rates), not a guess from the file's tags. The OUTPUT node is
- * a picker for choosing the DAC.
+ * Roon-style signal path: SOURCE → ENGINE → OUTPUT, with an honest seal that's only "pure"
+ * when nothing alters the bits. Pure presentation over `useSignalPath()` (the single
+ * bit-perfect truth + device/ReplayGain/crossfade actions); this file owns only the
+ * dropdown open-state.
  */
 export function SignalPath() {
-  const info = usePlayerStore((s) => s.engineInfo);
-  const engineActive = usePlayerStore((s) => s.engineActive);
-  const eqEnabled = usePlayerStore((s) => s.eqEnabled);
-  const preamp = usePlayerStore((s) => s.preamp);
-  const gains = usePlayerStore((s) => s.gains);
-  const volume = usePlayerStore((s) => s.volume);
-  const outputDevice = usePlayerStore((s) => s.outputDevice);
-  const setOutputDevice = usePlayerStore((s) => s.setOutputDevice);
-  const replayGainMode = usePlayerStore((s) => s.replayGainMode);
-  const setReplayGainMode = usePlayerStore((s) => s.setReplayGainMode);
-  const rgAppliedDb = usePlayerStore((s) => s.rgAppliedDb);
-  const crossfadeMs = usePlayerStore((s) => s.crossfadeMs);
-  const setCrossfade = usePlayerStore((s) => s.setCrossfade);
-
+  const sp = useSignalPath();
   const [open, setOpen] = useState(false);
   const [rgOpen, setRgOpen] = useState(false);
   const [xfOpen, setXfOpen] = useState(false);
-  const [devices, setDevices] = useState<string[]>([]);
 
-  if (!engineActive || !info || !info.rate) return null;
-
-  const eqActive = eqEnabled && (preamp !== 0 || gains.some((g) => g !== 0));
-  const resampled = info.srcRate > 0 && info.srcRate !== info.rate;
-  // The OS device runs at a different rate than EKO's stream → macOS is resampling.
-  const osResampled = info.devRate > 0 && info.devRate !== info.rate;
-  const attenuated = volume < 1;
-  const rgActive = rgAppliedDb != null; // a non-zero ReplayGain adjustment is being applied
-  const pure = !eqActive && !resampled && !osResampled && !attenuated && !rgActive;
-
-  const codec = (info.codec || "audio").toUpperCase();
-  const src = `${codec} · ${khz(info.srcRate)}${info.bits ? ` · ${info.bits}-bit` : ""}`;
-  const engine = pure
-    ? "Bit-perfect"
-    : [
-        resampled && `Resampled → ${khz(info.rate)}`,
-        osResampled && `OS resample → ${khz(info.devRate)}`,
-        eqActive && "EQ",
-        attenuated && "Volume",
-        rgActive && `ReplayGain ${rgAppliedDb!.toFixed(1)} dB`,
-      ]
-        .filter(Boolean)
-        .join(" · ");
+  if (!sp.active || !sp.info) return null;
+  const info = sp.info;
 
   const openPicker = async () => {
-    setDevices(await nativeEngine.listDevices().catch(() => []));
+    await sp.loadDevices();
     setOpen(true);
   };
   const pick = (name: string | null) => {
-    setOutputDevice(name);
+    sp.setOutputDevice(name);
     setOpen(false);
   };
-
-  const sealLabel = pure
-    ? "BIT-PERFECT"
-    : [
-        (resampled || osResampled) && "RESAMPLED",
-        eqActive && "EQ",
-        attenuated && "VOLUME",
-        rgActive && "REPLAYGAIN",
-      ]
-        .filter(Boolean)
-        .join(" · ") || "PROCESSED";
-
-  const rgLabel =
-    replayGainMode === "off"
-      ? "Off"
-      : `${replayGainMode === "album" ? "Album" : "Track"}${rgActive ? ` · ${rgAppliedDb!.toFixed(1)} dB` : ""}`;
   const pickRg = (mode: "off" | "track" | "album") => {
-    setReplayGainMode(mode);
+    sp.setReplayGainMode(mode);
     setRgOpen(false);
   };
-
-  const xfOptions = [0, 2000, 4000, 6000, 8000, 12000];
-  const xfLabel = crossfadeMs === 0 ? "Off" : `${crossfadeMs / 1000}s`;
   const pickXf = (ms: number) => {
-    setCrossfade(ms);
+    sp.setCrossfade(ms);
     setXfOpen(false);
   };
 
   return (
     <div
-      className={`sigpath${pure ? " pure" : ""}`}
-      title={pure ? "Untouched signal path — bit-for-bit to your DAC" : `Processing: ${engine}`}
+      className={`sigpath${sp.pure ? " pure" : ""}`}
+      title={
+        sp.pure ? "Untouched signal path — bit-for-bit to your DAC" : `Processing: ${sp.engineLabel}`
+      }
     >
       <div className="sp-node sp-source">
         <span className="sp-k">SOURCE</span>
-        <span className="sp-v">{src}</span>
+        <span className="sp-v">{sp.src}</span>
       </div>
       <span className="sp-link" />
       <div className="sp-node sp-out" onClick={openPicker} title="Choose output device">
@@ -117,13 +64,16 @@ export function SignalPath() {
               }}
             />
             <div className="menu sp-menu" onClick={(e) => e.stopPropagation()}>
-              <div className={`mi${outputDevice == null ? " on" : ""}`} onClick={() => pick(null)}>
+              <div
+                className={`mi${sp.outputDevice == null ? " on" : ""}`}
+                onClick={() => pick(null)}
+              >
                 System Default
               </div>
-              {devices.map((d) => (
+              {sp.devices.map((d) => (
                 <div
                   key={d}
-                  className={`mi${outputDevice === d ? " on" : ""}`}
+                  className={`mi${sp.outputDevice === d ? " on" : ""}`}
                   onClick={() => pick(d)}
                 >
                   {d}
@@ -141,7 +91,7 @@ export function SignalPath() {
         <span className="sp-k">
           RG <span className="sp-caret">▾</span>
         </span>
-        <span className="sp-v">{rgLabel}</span>
+        <span className="sp-v">{sp.rgLabel}</span>
         {rgOpen && (
           <>
             <div
@@ -153,19 +103,19 @@ export function SignalPath() {
             />
             <div className="menu sp-menu" onClick={(e) => e.stopPropagation()}>
               <div
-                className={`mi${replayGainMode === "off" ? " on" : ""}`}
+                className={`mi${sp.replayGainMode === "off" ? " on" : ""}`}
                 onClick={() => pickRg("off")}
               >
                 Off
               </div>
               <div
-                className={`mi${replayGainMode === "track" ? " on" : ""}`}
+                className={`mi${sp.replayGainMode === "track" ? " on" : ""}`}
                 onClick={() => pickRg("track")}
               >
                 Track
               </div>
               <div
-                className={`mi${replayGainMode === "album" ? " on" : ""}`}
+                className={`mi${sp.replayGainMode === "album" ? " on" : ""}`}
                 onClick={() => pickRg("album")}
               >
                 Album
@@ -182,7 +132,7 @@ export function SignalPath() {
         <span className="sp-k">
           XFADE <span className="sp-caret">▾</span>
         </span>
-        <span className="sp-v">{xfLabel}</span>
+        <span className="sp-v">{sp.xfLabel}</span>
         {xfOpen && (
           <>
             <div
@@ -193,10 +143,10 @@ export function SignalPath() {
               }}
             />
             <div className="menu sp-menu" onClick={(e) => e.stopPropagation()}>
-              {xfOptions.map((ms) => (
+              {sp.xfOptions.map((ms) => (
                 <div
                   key={ms}
-                  className={`mi${crossfadeMs === ms ? " on" : ""}`}
+                  className={`mi${sp.crossfadeMs === ms ? " on" : ""}`}
                   onClick={() => pickXf(ms)}
                 >
                   {ms === 0 ? "Off" : `${ms / 1000}s`}
@@ -208,7 +158,7 @@ export function SignalPath() {
       </div>
       <div className="sp-seal">
         <span className="sp-ring">
-          {pure ? (
+          {sp.pure ? (
             <svg
               viewBox="0 0 24 24"
               fill="none"
@@ -233,7 +183,7 @@ export function SignalPath() {
             </svg>
           )}
         </span>
-        <span className="sp-seal-lab">{sealLabel}</span>
+        <span className="sp-seal-lab">{sp.sealLabel}</span>
       </div>
     </div>
   );
