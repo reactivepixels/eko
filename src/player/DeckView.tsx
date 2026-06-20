@@ -1,15 +1,13 @@
-import { useRef } from "react";
 import { useUiStore } from "../store/useUiStore";
-import { usePlayerStore } from "../store/usePlayerStore";
-import { coverArtUrl } from "../subsonic/client";
-import { EQ_PRESETS, EQ_GAIN_MIN, EQ_GAIN_MAX } from "../audio/constants";
 import { Spectrum } from "./Spectrum";
 import { LocalCover } from "./LocalCover";
 import { Marquee } from "./Marquee";
 import { SignalPath } from "./SignalPath";
+import { useNowPlaying } from "../hooks/useNowPlaying";
+import { useEq } from "../hooks/useEq";
+import { useTransport } from "../hooks/useTransport";
+import { useSignalPath } from "../hooks/useSignalPath";
 import type { Track } from "../types";
-
-const BANDS = ["60", "170", "310", "600", "1k", "3k", "6k", "12k", "14k", "16k"];
 
 function fmt(t: Track | null) {
   if (!t) return { container: "—", rate: "—" };
@@ -35,43 +33,21 @@ export function DeckView() {
   const presetsOpen = useUiStore((s) => s.presetsOpen);
   const setPresetsOpen = useUiStore((s) => s.setPresetsOpen);
   const skin = useUiStore((s) => s.skin);
-  const { gains, preamp, presetName, currentIndex, tracks, isPlaying, engineInfo } =
-    usePlayerStore();
-  const setBandGain = usePlayerStore((s) => s.setBandGain);
-  const applyPreset = usePlayerStore((s) => s.applyPreset);
-  const cur = currentIndex !== null ? (tracks[currentIndex] ?? null) : null;
+  const np = useNowPlaying();
+  const eq = useEq();
+  const { isPlaying } = useTransport();
+  const { info: engineInfo } = useSignalPath();
+  const cur = np.track;
   const f = fmt(cur);
-
-  const setFromY = (i: number, clientY: number, rail: HTMLElement) => {
-    const r = rail.getBoundingClientRect();
-    const t = 1 - Math.min(1, Math.max(0, (clientY - r.top) / r.height));
-    setBandGain(i, EQ_GAIN_MIN + t * (EQ_GAIN_MAX - EQ_GAIN_MIN));
-  };
-
-  // EQ knob (Studio skin): vertical drag changes the band gain (~130px = full range).
-  const knobDrag = useRef<{ i: number; startY: number; startGain: number } | null>(null);
-  const onKnobDown = (i: number, e: React.PointerEvent) => {
-    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-    knobDrag.current = { i, startY: e.clientY, startGain: gains[i] };
-  };
-  const onKnobMove = (e: React.PointerEvent) => {
-    const d = knobDrag.current;
-    if (!d || !(e.buttons & 1)) return;
-    const next = d.startGain + ((d.startY - e.clientY) / 130) * (EQ_GAIN_MAX - EQ_GAIN_MIN);
-    setBandGain(d.i, Math.max(EQ_GAIN_MIN, Math.min(EQ_GAIN_MAX, next)));
-  };
-  const onKnobUp = () => {
-    knobDrag.current = null;
-  };
 
   return (
     <div className="view deck">
       <div className="deck-disp">
         <div className="art">
-          {cur?.coverArt ? (
-            <img src={coverArtUrl(cur.coverArt, 200) ?? ""} alt="" />
-          ) : cur?.path && !cur.subsonicId ? (
-            <LocalCover path={cur.path} />
+          {np.coverUrl(200) ? (
+            <img src={np.coverUrl(200) ?? ""} alt="" />
+          ) : np.coverPath ? (
+            <LocalCover path={np.coverPath} />
           ) : null}
         </div>
         <div className="well">
@@ -116,7 +92,7 @@ export function DeckView() {
                     ? engineInfo.channels === 1
                       ? "MONO"
                       : "STEREO"
-                    : " "}
+                    : " "}
               </div>
             </div>
           </div>
@@ -136,16 +112,11 @@ export function DeckView() {
       <div className="deck-eq">
         {skin === "studio" ? (
           <div className="eqknobs">
-            {BANDS.map((b, i) => {
-              const t = (gains[i] - EQ_GAIN_MIN) / (EQ_GAIN_MAX - EQ_GAIN_MIN);
+            {eq.bands.map((b, i) => {
+              const t = eq.norm(i);
               return (
                 <div className="ctl" key={b}>
-                  <div
-                    className="eqknob"
-                    onPointerDown={(e) => onKnobDown(i, e)}
-                    onPointerMove={onKnobMove}
-                    onPointerUp={onKnobUp}
-                  >
+                  <div className="eqknob" {...eq.knobHandlers(i)}>
                     <svg className="arc" viewBox="0 0 100 100">
                       <circle className="trk" cx="50" cy="50" r="45" pathLength={100} />
                       <circle
@@ -173,20 +144,11 @@ export function DeckView() {
           </div>
         ) : (
           <div className="eqfaders">
-            {BANDS.map((b, i) => {
-              const t = (gains[i] + 12) / 24;
+            {eq.bands.map((b, i) => {
+              const t = eq.norm(i);
               return (
                 <div className="fader" key={b}>
-                  <div
-                    className="rail"
-                    onPointerDown={(e) => {
-                      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-                      setFromY(i, e.clientY, e.currentTarget);
-                    }}
-                    onPointerMove={(e) => {
-                      if (e.buttons & 1) setFromY(i, e.clientY, e.currentTarget);
-                    }}
-                  >
+                  <div className="rail" {...eq.railHandlers(i)}>
                     <div className="cap" style={{ bottom: `calc(${t * 100}% - 6.5px)` }} />
                   </div>
                   <div className="fl">{b}</div>
@@ -197,22 +159,22 @@ export function DeckView() {
         )}
         <div className="eq-side" style={{ position: "relative" }}>
           <div className="pillbtn" onClick={() => setPresetsOpen(!presetsOpen)}>
-            {(presetName ?? "CUSTOM").toUpperCase()} ▾
+            {(eq.presetName ?? "CUSTOM").toUpperCase()} ▾
           </div>
           <div className="tag">
-            PREAMP {preamp > 0 ? "+" : ""}
-            {preamp.toFixed(0)} dB
+            PREAMP {eq.preamp > 0 ? "+" : ""}
+            {eq.preamp.toFixed(0)} dB
           </div>
           {presetsOpen && (
             <>
               <div className="backdrop" onClick={() => setPresetsOpen(false)} />
               <div className="menu" style={{ right: 0, bottom: 44 }}>
-                {EQ_PRESETS.map((p) => (
+                {eq.presets.map((p) => (
                   <div
                     key={p.name}
-                    className={`mi${p.name === presetName ? " on" : ""}`}
+                    className={`mi${p.name === eq.presetName ? " on" : ""}`}
                     onClick={() => {
-                      applyPreset(p);
+                      eq.applyPreset(p);
                       setPresetsOpen(false);
                     }}
                   >

@@ -1,6 +1,5 @@
 import { useEffect, useRef } from "react";
-import { usePlayerStore } from "../store/usePlayerStore";
-import { nativeEngine } from "../audio/nativeEngine";
+import { useSpectrum } from "../hooks/useSpectrum";
 
 interface Props {
   bands?: number;
@@ -16,6 +15,7 @@ interface Props {
  */
 export function Spectrum({ bands = 36, bargap = 2, className }: Props) {
   const cvs = useRef<HTMLCanvasElement>(null);
+  const { read } = useSpectrum();
 
   useEffect(() => {
     const canvas = cvs.current!;
@@ -46,7 +46,7 @@ export function Spectrum({ bands = 36, bargap = 2, className }: Props) {
       ctx.clearRect(0, 0, w, h);
 
       // Bands come from the Rust FFT (engine_bands); fall quietly to rest when idle.
-      const eng = usePlayerStore.getState().engineActive ? nativeEngine.getBands() : null;
+      const eng = read();
       if (eng && eng.length) {
         for (let b = 0; b < bands; b++) {
           const v = eng[Math.min(eng.length - 1, Math.floor((b / bands) * eng.length))] ?? 0;
