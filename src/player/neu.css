@@ -115,51 +115,127 @@
 }
 
 /* ============================================================
-   SKIN: "Studio" — matte, softer-shadow take on the porcelain
-   surface (the first built-in `data-skin`). Token-level only: it
-   re-tones surfaces, ink and the neumorphic shadow recipe to the
-   flatter, matte Studio feel. The default skin ("porcelain") is
-   :root and needs no block. Theme-aware via the dark override.
-   NOTE: this changes the *palette*; the Studio control geometry
-   (flat-top knobs, gauge arcs) is a further, component-level pass.
+   SKIN: "Studio" — a COOL, clean, flatter alternative to the warm
+   Porcelain default (the first built-in `data-skin`). Deliberately
+   distinct so the skin picker is obviously doing something: cooler
+   slate-white surfaces + ink, softer/flatter neumorphism, and its
+   OWN app background (Porcelain's `.app` bg is hard-coded warm, so
+   without this override the skin would be masked).
+   NOTE: palette-level — the Studio control GEOMETRY (flat-top
+   knobs, gauge arcs) is a further, component-level pass.
    ============================================================ */
 [data-skin="studio"] {
-  --bg: #f1efe9;
-  --bg2: #f6f4ef;
+  --bg: #e7eaf0;
+  --bg2: #eef1f6;
   --light: #ffffff;
-  --dark: #d9d5cb; /* softer shadow colour → flatter, matte */
-  --ink: #3b3933;
-  --ink-2: #6d6a61;
-  --ink-3: #a4a096;
-  --line: rgba(60, 58, 50, 0.06);
-  --art-bg: #e7e3da;
-  --hover: rgba(60, 58, 50, 0.045);
-  /* softer/flatter neumorphism (matte) */
-  --out: 6px 6px 14px rgba(60, 58, 50, 0.16), -5px -5px 12px #ffffff;
-  --out-sm: 4px 4px 9px rgba(60, 58, 50, 0.14), -3px -3px 8px #ffffff;
-  --out-xs: 2px 2px 5px rgba(60, 58, 50, 0.13), -2px -2px 4px #ffffff;
+  --dark: #c2c8d4;
+  --ink: #2e323b;
+  --ink-2: #636b78;
+  --ink-3: #98a0ad;
+  --line: rgba(40, 48, 66, 0.07);
+  --art-bg: #d6dbe5;
+  --hover: rgba(40, 48, 66, 0.05);
+  /* softer/flatter, cooler neumorphism */
+  --out: 6px 6px 15px #c2c8d4, -6px -6px 13px #ffffff;
+  --out-sm: 4px 4px 10px #c6ccd8, -3px -3px 8px #ffffff;
+  --out-xs: 2px 2px 5px #ccd2dd, -2px -2px 4px #ffffff;
   --bevel:
-    inset 1px 1px 1.5px rgba(255, 255, 255, 0.7), inset -1px -1px 1.5px rgba(60, 58, 50, 0.05);
-  --in: inset 3px 3px 7px rgba(60, 58, 50, 0.15), inset -3px -3px 7px #ffffff;
-  --in-deep: inset 5px 5px 11px rgba(60, 58, 50, 0.17), inset -4px -4px 9px #ffffff;
+    inset 1px 1px 1.5px rgba(255, 255, 255, 0.9), inset -1px -1px 1.5px rgba(40, 48, 66, 0.06);
+  --in: inset 4px 4px 9px #c2c8d4, inset -4px -4px 9px #ffffff;
+  --in-deep: inset 6px 6px 13px #bcc3d0, inset -5px -5px 11px #ffffff;
+}
+.app[data-skin="studio"] {
+  background:
+    radial-gradient(140% 120% at 22% 8%, #f4f6fb, transparent 60%),
+    radial-gradient(120% 120% at 90% 100%, #d7dce7, transparent 55%), var(--bg);
 }
 [data-skin="studio"][data-theme="dark"] {
-  --bg: #21242a;
-  --bg2: #25282e;
-  --light: #2e3138;
-  --dark: #121317;
-  --ink: #e9e7e2;
-  --ink-2: #a8a59d;
-  --ink-3: #6f6c64;
+  --bg: #1a1e27;
+  --bg2: #1e232d;
+  --light: #2a3039;
+  --dark: #0b0e13;
+  --ink: #e8ebf2;
+  --ink-2: #9aa2b0;
+  --ink-3: #687180;
   --line: rgba(255, 255, 255, 0.05);
-  --art-bg: #2a2d33;
+  --art-bg: #262c37;
   --hover: rgba(255, 255, 255, 0.05);
-  --out: 5px 5px 13px #0e0f12, -3px -3px 9px #2e3138;
-  --out-sm: 3px 3px 8px #0e0f12, -2px -2px 6px #2e3138;
-  --out-xs: 2px 2px 5px #0e0f12, -2px -2px 4px #2e3138;
-  --bevel: inset 1px 1px 1px rgba(255, 255, 255, 0.06), inset -1px -1px 1px rgba(0, 0, 0, 0.3);
-  --in: inset 3px 3px 8px #0e0f12, inset -2px -2px 6px #2e3138;
-  --in-deep: inset 5px 5px 12px #0c0d10, inset -3px -3px 8px #2e3138;
+  --out: 5px 5px 13px #0b0e13, -3px -3px 9px #2a3039;
+  --out-sm: 3px 3px 8px #0b0e13, -2px -2px 6px #2a3039;
+  --out-xs: 2px 2px 5px #0b0e13, -2px -2px 4px #2a3039;
+  --bevel: inset 1px 1px 1px rgba(255, 255, 255, 0.06), inset -1px -1px 1px rgba(0, 0, 0, 0.32);
+  --in: inset 4px 4px 9px #0b0e13, inset -3px -3px 8px #2a3039;
+  --in-deep: inset 6px 6px 13px #090c10, inset -4px -4px 10px #2a3039;
+}
+.app[data-skin="studio"][data-theme="dark"] {
+  background:
+    radial-gradient(120% 95% at 50% -12%, #232a37, transparent 58%),
+    radial-gradient(130% 120% at 85% 115%, #11141b, transparent 60%), var(--bg);
+}
+
+/* ============================================================
+   STUDIO control material — flat-top, matte, crisp-edged faces
+   across the device controls (the concept's look), vs Porcelain's
+   domed neumorphism. Light here; dark mirrored below.
+   ============================================================ */
+/* round / raised device faces */
+[data-skin="studio"] .tbtn,
+[data-skin="studio"] .knob-dial .hub,
+[data-skin="studio"] .fader .cap {
+  background: radial-gradient(135% 135% at 50% 35%, #ffffff, #eef1f6 68%, #e3e8f0 100%);
+  box-shadow:
+    0 3px 5px rgba(40, 48, 66, 0.16),
+    0 10px 18px -6px rgba(40, 48, 66, 0.2),
+    inset 0 1.5px 1px rgba(255, 255, 255, 0.92),
+    0 0 0 1px rgba(255, 255, 255, 0.6);
+}
+[data-skin="studio"] .tbtn:active {
+  box-shadow:
+    inset 0 2px 5px rgba(40, 48, 66, 0.22),
+    0 1px 2px rgba(40, 48, 66, 0.18);
+  transform: translateY(1px) scale(0.97);
+}
+/* play — flat-top accent puck with an accent halo */
+[data-skin="studio"] .tbtn.play {
+  background: radial-gradient(135% 135% at 50% 34%, var(--accent-2), var(--accent) 80%);
+  box-shadow:
+    0 10px 22px -6px rgba(40, 48, 66, 0.28),
+    0 0 20px -3px var(--accent),
+    inset 0 1.5px 1px rgba(255, 255, 255, 0.5),
+    0 0 0 1px rgba(255, 255, 255, 0.22);
+}
+/* pill buttons (EQ preset etc.) — flatter, crisp */
+[data-skin="studio"] .pillbtn {
+  background: radial-gradient(140% 170% at 50% 28%, #ffffff, #edf0f5 100%);
+  box-shadow:
+    0 2px 4px rgba(40, 48, 66, 0.14),
+    inset 0 1px 1px rgba(255, 255, 255, 0.9),
+    0 0 0 1px rgba(255, 255, 255, 0.55);
+}
+/* ---- dark mirror ---- */
+[data-skin="studio"][data-theme="dark"] .tbtn,
+[data-skin="studio"][data-theme="dark"] .knob-dial .hub,
+[data-skin="studio"][data-theme="dark"] .fader .cap {
+  background: radial-gradient(135% 135% at 50% 35%, #2e353f, #20262f 68%, #151a21 100%);
+  box-shadow:
+    0 3px 6px rgba(0, 0, 0, 0.5),
+    0 10px 18px -6px rgba(0, 0, 0, 0.5),
+    inset 0 1.5px 1px rgba(255, 255, 255, 0.1),
+    0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+[data-skin="studio"][data-theme="dark"] .tbtn.play {
+  box-shadow:
+    0 10px 22px -6px rgba(0, 0, 0, 0.55),
+    0 0 22px -3px var(--accent),
+    inset 0 1.5px 1px rgba(255, 255, 255, 0.4),
+    0 0 0 1px rgba(0, 0, 0, 0.2);
+}
+[data-skin="studio"][data-theme="dark"] .pillbtn {
+  background: radial-gradient(140% 170% at 50% 28%, #2e353f, #1f252e 100%);
+  box-shadow:
+    0 2px 5px rgba(0, 0, 0, 0.5),
+    inset 0 1px 1px rgba(255, 255, 255, 0.08),
+    0 0 0 1px rgba(255, 255, 255, 0.04);
 }
 
 * {

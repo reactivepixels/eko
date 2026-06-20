@@ -13,6 +13,15 @@ Items marked **[needs ear-verify]** are complete in code but have not been
 confirmed by the maintainer's listening tests or Audio MIDI Setup inspection. Do not treat
 those as shipping-quality until they pass the [QA checklist](docs/QA-CHECKLIST.md).
 
+## [0.3.2] — 2026-06-20
+
+### Changed
+- **Studio skin is now visibly distinct.** It was a near-identical warm palette to Porcelain
+  (and the `.app` background was hard-coded, masking it) — so it read as "no change". Studio is
+  now a cool, clean slate palette with its **own** app background, plus **flat-top matte control
+  faces** (transport pucks, volume-knob hub, EQ fader caps) and an accent **play puck with halo**,
+  in light + dark. (Material pass toward the Studio concept; more to come.)
+
 ## [0.3.1] — 2026-06-20
 
 Patch release: ship a working, downloadable macOS build.
