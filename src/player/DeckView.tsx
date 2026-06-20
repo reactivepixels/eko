@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import { useUiStore } from "../store/useUiStore";
 import { usePlayerStore } from "../store/usePlayerStore";
 import { coverArtUrl } from "../subsonic/client";
@@ -33,6 +34,7 @@ function fmt(t: Track | null) {
 export function DeckView() {
   const presetsOpen = useUiStore((s) => s.presetsOpen);
   const setPresetsOpen = useUiStore((s) => s.setPresetsOpen);
+  const skin = useUiStore((s) => s.skin);
   const { gains, preamp, presetName, currentIndex, tracks, isPlaying, engineInfo } =
     usePlayerStore();
   const setBandGain = usePlayerStore((s) => s.setBandGain);
@@ -44,6 +46,22 @@ export function DeckView() {
     const r = rail.getBoundingClientRect();
     const t = 1 - Math.min(1, Math.max(0, (clientY - r.top) / r.height));
     setBandGain(i, EQ_GAIN_MIN + t * (EQ_GAIN_MAX - EQ_GAIN_MIN));
+  };
+
+  // EQ knob (Studio skin): vertical drag changes the band gain (~130px = full range).
+  const knobDrag = useRef<{ i: number; startY: number; startGain: number } | null>(null);
+  const onKnobDown = (i: number, e: React.PointerEvent) => {
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    knobDrag.current = { i, startY: e.clientY, startGain: gains[i] };
+  };
+  const onKnobMove = (e: React.PointerEvent) => {
+    const d = knobDrag.current;
+    if (!d || !(e.buttons & 1)) return;
+    const next = d.startGain + ((d.startY - e.clientY) / 130) * (EQ_GAIN_MAX - EQ_GAIN_MIN);
+    setBandGain(d.i, Math.max(EQ_GAIN_MIN, Math.min(EQ_GAIN_MAX, next)));
+  };
+  const onKnobUp = () => {
+    knobDrag.current = null;
   };
 
   return (
@@ -116,28 +134,67 @@ export function DeckView() {
       </div>
 
       <div className="deck-eq">
-        <div className="eqfaders">
-          {BANDS.map((b, i) => {
-            const t = (gains[i] + 12) / 24;
-            return (
-              <div className="fader" key={b}>
-                <div
-                  className="rail"
-                  onPointerDown={(e) => {
-                    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-                    setFromY(i, e.clientY, e.currentTarget);
-                  }}
-                  onPointerMove={(e) => {
-                    if (e.buttons & 1) setFromY(i, e.clientY, e.currentTarget);
-                  }}
-                >
-                  <div className="cap" style={{ bottom: `calc(${t * 100}% - 6.5px)` }} />
+        {skin === "studio" ? (
+          <div className="eqknobs">
+            {BANDS.map((b, i) => {
+              const t = (gains[i] - EQ_GAIN_MIN) / (EQ_GAIN_MAX - EQ_GAIN_MIN);
+              return (
+                <div className="ctl" key={b}>
+                  <div
+                    className="eqknob"
+                    onPointerDown={(e) => onKnobDown(i, e)}
+                    onPointerMove={onKnobMove}
+                    onPointerUp={onKnobUp}
+                  >
+                    <svg className="arc" viewBox="0 0 100 100">
+                      <circle className="trk" cx="50" cy="50" r="45" pathLength={100} />
+                      <circle
+                        className="val"
+                        cx="50"
+                        cy="50"
+                        r="45"
+                        pathLength={100}
+                        style={{ strokeDasharray: `${(t * 75).toFixed(1)} 100` }}
+                      />
+                    </svg>
+                    <div className="body" />
+                    <div className="top" />
+                    <div
+                      className="dial"
+                      style={{ transform: `rotate(${(t * 270 - 135).toFixed(1)}deg)` }}
+                    >
+                      <i className="ind" />
+                    </div>
+                  </div>
+                  <div className="fl">{b}</div>
                 </div>
-                <div className="fl">{b}</div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="eqfaders">
+            {BANDS.map((b, i) => {
+              const t = (gains[i] + 12) / 24;
+              return (
+                <div className="fader" key={b}>
+                  <div
+                    className="rail"
+                    onPointerDown={(e) => {
+                      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+                      setFromY(i, e.clientY, e.currentTarget);
+                    }}
+                    onPointerMove={(e) => {
+                      if (e.buttons & 1) setFromY(i, e.clientY, e.currentTarget);
+                    }}
+                  >
+                    <div className="cap" style={{ bottom: `calc(${t * 100}% - 6.5px)` }} />
+                  </div>
+                  <div className="fl">{b}</div>
+                </div>
+              );
+            })}
+          </div>
+        )}
         <div className="eq-side" style={{ position: "relative" }}>
           <div className="pillbtn" onClick={() => setPresetsOpen(!presetsOpen)}>
             {(presetName ?? "CUSTOM").toUpperCase()} ▾

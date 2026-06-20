@@ -13,6 +13,14 @@ Items marked **[needs ear-verify]** are complete in code but have not been
 confirmed by the maintainer's listening tests or Audio MIDI Setup inspection. Do not treat
 those as shipping-quality until they pass the [QA checklist](docs/QA-CHECKLIST.md).
 
+## [0.3.3] — 2026-06-20
+
+### Added
+- **Studio EQ is now knobs.** Switching to the Studio skin turns the 10-band EQ faders into
+  flat-top matte **knobs with accent gauge arcs** (drag vertically to set each band) — the
+  concept's EQ, built into `DeckView` (Porcelain keeps the faders). The skin switch is now a
+  real structural change, not just a palette swap.
+
 ## [0.3.2] — 2026-06-20
 
 ### Changed
