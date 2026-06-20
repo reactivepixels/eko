@@ -36,3 +36,8 @@ symphonia = { version = "0.5", features = ["all"] }
 rustfft = "6"
 keyring = "3"
 
+# System "Now Playing" + hardware media keys (macOS MPNowPlayingInfoCenter /
+# MPRemoteCommandCenter; cross-platform under the hood).
+[target.'cfg(target_os = "macos")'.dependencies]
+souvlaki = "0.7"
+

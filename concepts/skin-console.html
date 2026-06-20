@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>EKO — Console</title>
+<style>
+  /* ============================================================
+     EKO — "CONSOLE"
+     A pro-audio rack module in brushed anthracite steel. The
+     BOSS EQ-200 lineage: a bank of TEN real channel faders that
+     ARE EKO's 10-band EQ, a green VFD spectrum analyser, silk-
+     screened labels, status LEDs, and a foot-switch-style
+     "BIT-PERFECT" lock lamp. Orange = transport / live.
+     ============================================================ */
+  :root {
+    --steel-0: #41454b;  /* top sheen           */
+    --steel-1: #2c2f34;  /* faceplate           */
+    --steel-2: #25272c;  /* faceplate low       */
+    --steel-3: #1b1d21;  /* deep / seam         */
+    --steel-4: #131417;  /* groove black        */
+    --alu-0:   #eef0f2;  /* fader cap highlight  */
+    --alu-1:   #cfd3d7;
+    --alu-2:   #9aa0a6;
+    --silk:    #c7ccc6;  /* silkscreen ink       */
+    --silk-d:  #868c86;  /* dim silkscreen       */
+    --green:   #5fd866;  /* status LED green     */
+    --vfd:     #6cf08a;  /* phosphor green       */
+    --accent:  #ef6a1e;
+    --accent-2:#ff8338;
+    --font: "Helvetica Neue", "Inter", -apple-system, Helvetica, Arial, sans-serif;
+    --mono: "SF Mono", ui-monospace, "Roboto Mono", Menlo, monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; width: 100%; overflow: hidden; }
+  body {
+    font-family: var(--font); color: var(--silk); -webkit-font-smoothing: antialiased;
+    display: grid; place-items: center;
+    background:
+      radial-gradient(120% 110% at 50% -10%, #2a2d31 0%, transparent 55%),
+      radial-gradient(120% 120% at 50% 120%, #0e0f11 0%, transparent 55%),
+      #17181b;
+  }
+
+  /* ============ THE RACK MODULE ============ */
+  .rack {
+    position: relative; width: min(860px, 95vw); border-radius: 16px;
+    padding: 20px 22px 22px;
+    background:
+      linear-gradient(180deg, var(--steel-0) 0%, var(--steel-1) 14%, var(--steel-2) 86%, var(--steel-3) 100%);
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,.16), inset 0 0 0 1px rgba(255,255,255,.05),
+      inset 0 -2px 4px rgba(0,0,0,.5),
+      0 40px 80px -28px rgba(0,0,0,.8), 0 14px 30px -18px rgba(0,0,0,.7);
+    isolation: isolate;
+  }
+  .rack::before { /* vertical brushing */
+    content: ""; position: absolute; inset: 0; border-radius: 16px; pointer-events: none; z-index: 0;
+    opacity: .5; mix-blend-mode: overlay;
+    background: repeating-linear-gradient(90deg, rgba(255,255,255,.07) 0 1px, transparent 1px 3px);
+  }
+  /* rack mounting ears */
+  .ear {
+    position: absolute; top: 0; bottom: 0; width: 18px; display: grid; align-content: space-between;
+    padding: 16px 0; justify-items: center;
+  }
+  .ear.l { left: 0; } .ear.r { right: 0; }
+  .ear .hole {
+    width: 9px; height: 9px; border-radius: 50%;
+    background: radial-gradient(circle at 40% 35%, #0a0b0d, #1f2125 80%);
+    box-shadow: inset 0 1px 1px rgba(0,0,0,.9), 0 1px 0 rgba(255,255,255,.08);
+  }
+  .rack .inner { margin: 0 14px; position: relative; z-index: 2; }
+
+  /* ============ TOP STRIP ============ */
+  .rk-top {
+    display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;
+    padding-bottom: 14px; border-bottom: 1px solid rgba(0,0,0,.5);
+    box-shadow: 0 1px 0 rgba(255,255,255,.05);
+  }
+  .wordmark { display: flex; align-items: flex-end; gap: 10px; }
+  .bars { display: flex; align-items: flex-end; gap: 3px; height: 19px; }
+  .bars i { width: 3px; border-radius: 1px; transform-origin: bottom;
+    background: linear-gradient(180deg, var(--accent-2), var(--accent)); box-shadow: 0 0 6px rgba(239,106,30,.5); }
+  .bars i:nth-child(1){ height: 8px; } .bars i:nth-child(2){ height: 19px; }
+  .bars i:nth-child(3){ height: 12px; } .bars i:nth-child(4){ height: 15px; }
+  .playing .bars i { animation: bob 1.5s ease-in-out infinite; }
+  .playing .bars i:nth-child(2){ animation-delay:.18s; } .playing .bars i:nth-child(3){ animation-delay:.36s; } .playing .bars i:nth-child(4){ animation-delay:.1s; }
+  @keyframes bob { 0%,100%{ transform: scaleY(1);} 50%{ transform: scaleY(.5);} }
+  .brand-txt { display: flex; align-items: baseline; gap: 11px; }
+  .brand-txt b { font-size: 16px; letter-spacing: .34em; color: var(--silk); font-weight: 700; }
+  .brand-txt .model { font: 9.5px/1 var(--mono); letter-spacing: .2em; color: var(--silk-d); }
+  .powered { display: flex; align-items: center; gap: 9px; font: 9px/1 var(--mono); letter-spacing: 2px; color: var(--silk-d); }
+  .led { width: 8px; height: 8px; border-radius: 50%; }
+  .led.green { background: radial-gradient(circle at 38% 32%, #c7ffce, var(--green) 55%, #2c8a32 100%);
+    box-shadow: 0 0 9px rgba(95,216,102,.8), inset 0 0 2px rgba(255,255,255,.5); }
+
+  /* ============ EQ FADER BANK ============ */
+  .eqzone { display: grid; grid-template-columns: 30px 1fr; gap: 8px; margin-bottom: 18px; }
+  .dbscale { display: flex; flex-direction: column; justify-content: space-between; padding: 10px 0 26px;
+    font: 8px/1 var(--mono); color: var(--silk-d); text-align: right; }
+  .eqbank {
+    display: flex; gap: 8px; align-items: stretch; padding: 8px 12px 6px;
+    border-radius: 11px; background: linear-gradient(180deg, var(--steel-3), var(--steel-2));
+    box-shadow: inset 0 2px 6px rgba(0,0,0,.7), inset 0 -1px 0 rgba(255,255,255,.05), inset 0 0 0 1px rgba(0,0,0,.4);
+  }
+  .ch { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 7px; }
+  .ch .track {
+    position: relative; flex: 1; width: 7px; min-height: 132px; border-radius: 999px; cursor: ns-resize;
+    background: linear-gradient(90deg, #0a0b0d, #1c1e22 50%, #0a0b0d);
+    box-shadow: inset 0 0 0 1px rgba(0,0,0,.7), inset 1px 0 1px rgba(255,255,255,.05);
+  }
+  /* centre detent line at 0 dB */
+  .ch .track::before { content:""; position:absolute; left:-4px; right:-4px; top:50%; height:1px;
+    background: rgba(255,255,255,.12); }
+  .ch .cap {
+    position: absolute; left: 50%; transform: translate(-50%,50%); bottom: var(--v, 50%);
+    width: 26px; height: 16px; border-radius: 4px;
+    background: linear-gradient(180deg, var(--alu-0) 0%, var(--alu-1) 45%, var(--alu-2) 100%);
+    box-shadow: inset 0 1px 1px rgba(255,255,255,.9), inset 0 -2px 3px rgba(0,0,0,.4),
+      0 4px 7px -2px rgba(0,0,0,.7), 0 0 0 1px rgba(0,0,0,.3);
+  }
+  .ch .cap::after { content:""; position:absolute; left:3px; right:3px; top:50%; height:2px; transform:translateY(-50%);
+    border-radius:2px; background: var(--accent); box-shadow: 0 0 4px rgba(239,106,30,.7); }
+  .ch .freq { font: 8.5px/1 var(--mono); letter-spacing: .5px; color: var(--silk-d); }
+
+  /* ============ MID: VFD analyser + now-playing module ============ */
+  .rk-mid { display: grid; grid-template-columns: 1fr 300px; gap: 16px; margin-bottom: 18px; }
+
+  /* green VFD spectrum analyser */
+  .vfd {
+    position: relative; border-radius: 10px; padding: 11px 13px 9px; overflow: hidden;
+    background: linear-gradient(180deg, #04140a, #020a05);
+    box-shadow: inset 0 2px 7px rgba(0,0,0,.95), inset 0 0 0 1px rgba(0,0,0,.8),
+      0 0 0 1.5px rgba(255,255,255,.07), 0 1px 0 rgba(255,255,255,.05);
+  }
+  .vfd .vhead { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+  .vfd .vhead .tag { font: 8px/1 var(--mono); letter-spacing: 3px; color: rgba(108,240,138,.6); }
+  .vfd .vhead .rate { font: 700 12px/1 var(--mono); letter-spacing: 1px; color: var(--vfd); text-shadow: 0 0 7px rgba(108,240,138,.6); }
+  .analyser { position: relative; display: flex; align-items: flex-end; gap: 3px; height: 78px; }
+  .analyser i {
+    flex: 1; height: 6%; border-radius: 1px 1px 0 0;
+    background: linear-gradient(180deg, var(--vfd) 0%, rgba(108,240,138,.5) 55%, rgba(108,240,138,.12) 100%);
+    box-shadow: 0 0 5px rgba(108,240,138,.4);
+  }
+  .vfd::after { /* scanlines + dot grid */
+    content: ""; position: absolute; inset: 0; pointer-events: none;
+    background:
+      repeating-linear-gradient(0deg, rgba(0,0,0,.30) 0 1px, transparent 1px 3px),
+      radial-gradient(130% 80% at 50% 0%, rgba(108,240,138,.10), transparent 62%);
+  }
+
+  /* now-playing module: art in a milled bezel + silkscreen meta */
+  .nowmod { display: flex; gap: 13px; align-items: center;
+    border-radius: 10px; padding: 12px; background: linear-gradient(180deg, var(--steel-2), var(--steel-3));
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.06), inset 0 -2px 4px rgba(0,0,0,.5), inset 0 0 0 1px rgba(0,0,0,.35); }
+  .cover {
+    width: 84px; height: 84px; border-radius: 7px; flex: 0 0 auto;
+    background:
+      radial-gradient(60% 60% at 30% 26%, #6fe0ff 0%, transparent 56%),
+      radial-gradient(70% 70% at 78% 30%, #3a7bff 0%, transparent 58%),
+      radial-gradient(80% 80% at 60% 88%, #16243f 0%, transparent 64%),
+      linear-gradient(150deg, #0c1830 0%, #1b3a66 55%, #0a1422 100%);
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,.1), inset 0 2px 8px rgba(0,0,0,.5),
+      0 0 0 4px var(--steel-3), 0 0 0 5px rgba(0,0,0,.5), 0 5px 12px -4px rgba(0,0,0,.7);
+  }
+  .nowmeta .t { font-size: 16px; font-weight: 600; color: #e7eae6; line-height: 1.15; }
+  .nowmeta .a { margin-top: 4px; font-size: 12px; color: var(--silk-d); }
+  .nowmeta .f { margin-top: 9px; font: 9px/1 var(--mono); letter-spacing: 2px; color: var(--silk-d); text-transform: uppercase; }
+
+  /* ============ BOTTOM: seek + transport + bit-perfect footswitch ============ */
+  .seekbar { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+  .tt { font: 10px/1 var(--mono); color: var(--silk-d); min-width: 38px; }
+  .tt.r { text-align: right; }
+  .ledbar { position: relative; flex: 1; height: 8px; border-radius: 999px;
+    background: #0c0d0f; box-shadow: inset 0 1px 3px rgba(0,0,0,.9), inset 0 0 0 1px rgba(0,0,0,.6); }
+  .ledbar .on { position:absolute; left:3px; top:50%; transform:translateY(-50%); height:3px; width:34%; border-radius:999px;
+    background: linear-gradient(90deg, rgba(239,106,30,.6), var(--accent));
+    box-shadow: 0 0 7px rgba(239,106,30,.7); }
+  .ledbar .pin { position:absolute; left:34%; top:50%; width:13px; height:13px; border-radius:50%; transform:translate(-50%,-50%);
+    background: linear-gradient(180deg, var(--alu-0), var(--alu-2)); box-shadow: 0 1px 3px rgba(0,0,0,.7), inset 0 1px 1px rgba(255,255,255,.8); }
+
+  .rk-bot { display: grid; grid-template-columns: 1fr auto; gap: 18px; align-items: center; }
+  .transport { display: flex; align-items: center; gap: 11px; }
+  .tbtn {
+    width: 50px; height: 44px; border: 0; border-radius: 9px; cursor: pointer; display: grid; place-items: center;
+    color: var(--silk);
+    background: linear-gradient(180deg, #34373d 0%, #25272c 55%, #1c1e22 100%);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.1), inset 0 -2px 4px rgba(0,0,0,.55),
+      0 3px 6px -2px rgba(0,0,0,.7), 0 0 0 1px rgba(0,0,0,.4);
+    transition: transform .07s ease;
+  }
+  .tbtn:hover { color: #fff; } .tbtn:active { transform: translateY(2px); }
+  .tbtn svg { width: 18px; height: 18px; }
+  .tbtn.sm { width: 42px; height: 40px; } .tbtn.sm svg { width: 15px; height: 15px; }
+  .tbtn.play {
+    width: 60px; height: 50px;
+    background: linear-gradient(180deg, #ff9a4f, #ef6a1e 55%, #c9510e); color: #fff;
+    box-shadow: inset 0 1px 1px rgba(255,255,255,.5), inset 0 -2px 5px rgba(120,40,0,.5),
+      0 5px 14px -4px rgba(239,106,30,.7), 0 0 0 1px rgba(160,60,8,.6);
+  }
+  .tbtn.play svg { width: 22px; height: 22px; }
+
+  /* foot-switch style BIT-PERFECT lamp */
+  .footsw {
+    display: flex; align-items: center; gap: 11px; padding: 9px 16px 9px 12px; border-radius: 11px;
+    background: linear-gradient(180deg, var(--steel-2), var(--steel-3));
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.07), inset 0 -2px 4px rgba(0,0,0,.5), inset 0 0 0 1px rgba(0,0,0,.4);
+  }
+  .footsw .biglED {
+    width: 16px; height: 16px; border-radius: 50%;
+    background: radial-gradient(circle at 38% 32%, #d8ffdc, var(--green) 50%, #1f7a26 100%);
+    box-shadow: 0 0 14px rgba(95,216,102,.8), 0 0 4px rgba(95,216,102,.6), inset 0 0 3px rgba(255,255,255,.6);
+    animation: lampPulse 2.6s ease-in-out infinite;
+  }
+  @keyframes lampPulse { 0%,100%{ box-shadow: 0 0 10px rgba(95,216,102,.6), inset 0 0 3px rgba(255,255,255,.5);} 50%{ box-shadow: 0 0 18px rgba(95,216,102,.95), 0 0 6px rgba(95,216,102,.7), inset 0 0 3px rgba(255,255,255,.7);} }
+  .footsw .sw-txt { line-height: 1.15; }
+  .footsw .sw-txt b { display: block; font: 700 11px/1 var(--mono); letter-spacing: 2px; color: var(--green); }
+  .footsw .sw-txt span { font: 8px/1 var(--mono); letter-spacing: 1.5px; color: var(--silk-d); }
+
+  /* silkscreen signal line */
+  .sig {
+    margin-top: 14px; display: flex; align-items: center; justify-content: center; gap: 11px;
+    font: 9px/1 var(--mono); letter-spacing: 1.5px; color: var(--silk-d); text-transform: uppercase; flex-wrap: wrap;
+  }
+  .sig .lab { color: #5f655f; margin-right: 5px; }
+  .sig .arrow { color: var(--accent); }
+
+  @media (max-width: 720px) {
+    .rk-mid { grid-template-columns: 1fr; }
+    .rk-bot { grid-template-columns: 1fr; justify-items: center; gap: 14px; }
+    .ear { display: none; } .rack .inner { margin: 0; }
+  }
+</style>
+</head>
+<body>
+  <div class="rack playing" id="rack">
+    <div class="ear l"><span class="hole"></span><span class="hole"></span></div>
+    <div class="ear r"><span class="hole"></span><span class="hole"></span></div>
+
+    <div class="inner">
+      <!-- TOP -->
+      <div class="rk-top">
+        <div class="wordmark">
+          <span class="bars"><i></i><i></i><i></i><i></i></span>
+          <span class="brand-txt"><b>EKO</b><span class="model">EQ-10 · BIT-PERFECT ENGINE</span></span>
+        </div>
+        <div class="powered"><span class="led green"></span>POWER</div>
+      </div>
+
+      <!-- EQ BANK -->
+      <div class="eqzone">
+        <div class="dbscale"><span>+12</span><span>+6</span><span>0</span><span>−6</span><span>−12</span></div>
+        <div class="eqbank" id="eqbank"></div>
+      </div>
+
+      <!-- MID -->
+      <div class="rk-mid">
+        <div class="vfd">
+          <div class="vhead"><span class="tag">SPECTRUM ANALYSER</span><span class="rate">96kHz / 24b</span></div>
+          <div class="analyser" id="analyser"></div>
+        </div>
+        <div class="nowmod">
+          <div class="cover"></div>
+          <div class="nowmeta">
+            <div class="t">Strobe</div>
+            <div class="a">Deadmau5 — For Lack of a Better Name</div>
+            <div class="f">FLAC · 96k · 24b</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SEEK -->
+      <div class="seekbar">
+        <span class="tt">3:42</span>
+        <div class="ledbar" id="ledbar"><div class="on" id="lon"></div><div class="pin" id="lpin"></div></div>
+        <span class="tt r">−6:38</span>
+      </div>
+
+      <!-- BOTTOM -->
+      <div class="rk-bot">
+        <div class="transport">
+          <button class="tbtn sm" title="Shuffle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5M4 20 21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg></button>
+          <button class="tbtn" title="Previous"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 5v14h2V5H6zm3 7 10 7V5L9 12z"/></svg></button>
+          <button class="tbtn play" id="play" title="Play / Pause"><svg id="playIcon" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg></button>
+          <button class="tbtn" title="Next"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M18 5v14h-2V5h2zM15 12 5 5v14l10-7z"/></svg></button>
+          <button class="tbtn sm" title="Repeat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M17 2l4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg></button>
+        </div>
+        <div class="footsw">
+          <span class="biglED"></span>
+          <span class="sw-txt"><b>BIT-PERFECT</b><span>DEVICE LOCKED · 96kHz</span></span>
+        </div>
+      </div>
+
+      <div class="sig">
+        <span><span class="lab">SRC</span>FLAC 96/24</span>
+        <span class="arrow">→</span>
+        <span><span class="lab">EQ</span>FLAT · BYPASS</span>
+        <span class="arrow">→</span>
+        <span><span class="lab">OUT</span>RME ADI-2 · 96kHz</span>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ---- build the 10 EQ channels with a pleasing curve ----
+    const FREQS = ['32','64','125','250','500','1k','2k','4k','8k','16k'];
+    const CURVE = [62,70,58,50,48,52,60,66,57,46]; // % of travel (0 dB = 50)
+    const eqbank = document.getElementById('eqbank');
+    FREQS.forEach((f,i)=>{
+      const ch = document.createElement('div'); ch.className='ch';
+      ch.innerHTML = `<div class="track"><div class="cap" style="--v:${CURVE[i]}%"></div></div><div class="freq">${f}</div>`;
+      eqbank.appendChild(ch);
+      // drag a cap vertically (visual)
+      const track = ch.querySelector('.track'), cap = ch.querySelector('.cap');
+      let down=false;
+      track.addEventListener('pointerdown', e=>{ down=true; track.setPointerCapture(e.pointerId); move(e); });
+      track.addEventListener('pointermove', e=>{ if(down) move(e); });
+      track.addEventListener('pointerup', ()=> down=false);
+      function move(e){ const r=track.getBoundingClientRect(); let v=1-(e.clientY-r.top)/r.height; v=Math.max(0,Math.min(1,v)); cap.style.setProperty('--v',(v*100)+'%'); }
+    });
+
+    // ---- green VFD analyser ----
+    const analyser = document.getElementById('analyser');
+    const N = 30, bars = [];
+    for(let i=0;i<N;i++){ const el=document.createElement('i'); analyser.appendChild(el); bars.push(el); }
+    const ph = bars.map(()=>Math.random()*Math.PI*2), sp = bars.map(()=>.6+Math.random()*1.2);
+    let playing = true, t = 0;
+    function tick(){
+      t += .05;
+      for(let i=0;i<N;i++){
+        const c = 1 - Math.abs(i-N/2)/(N/2);
+        let v = playing ? (Math.sin(t*sp[i]+ph[i])*.5+.5) : .03;
+        v = playing ? (.1 + v*.9)*(.42+c*.58) : .04+c*.02;
+        bars[i].style.height = (v*100)+'%';
+      }
+      requestAnimationFrame(tick);
+    }
+    tick();
+
+    // ---- play / pause ----
+    const rack = document.getElementById('rack'), play = document.getElementById('play'), icon = document.getElementById('playIcon');
+    play.addEventListener('click', ()=>{
+      playing = !playing; rack.classList.toggle('playing', playing);
+      icon.innerHTML = playing
+        ? '<rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/>'
+        : '<path d="M7 4v16l13-8z"/>';
+    });
+
+    // ---- seek ----
+    const ledbar = document.getElementById('ledbar'), lon = document.getElementById('lon'), lpin = document.getElementById('lpin');
+    function setSeek(p){ p=Math.max(0,Math.min(1,p)); lon.style.width=(p*100)+'%'; lpin.style.left=(p*100)+'%'; }
+    setSeek(.34);
+    let sdown=false;
+    ledbar.addEventListener('pointerdown', e=>{ sdown=true; ledbar.setPointerCapture(e.pointerId); s(e); });
+    ledbar.addEventListener('pointermove', e=>{ if(sdown) s(e); });
+    ledbar.addEventListener('pointerup', ()=> sdown=false);
+    function s(e){ const r=ledbar.getBoundingClientRect(); setSeek((e.clientX-r.left)/r.width); }
+  </script>
+</body>
+</html>

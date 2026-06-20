@@ -7,6 +7,7 @@ import { coverArtUrl } from "../subsonic/client";
 import { formatTime, trackLabel } from "../lib/format";
 import { LocalCover } from "./LocalCover";
 import { Marquee } from "./Marquee";
+import { useContextMenu } from "./ContextMenu";
 import type { Track } from "../types";
 
 interface Card {
@@ -53,10 +54,37 @@ export function LibraryView() {
 
   const [detail, setDetail] = useState<Detail | null>(null);
   const [artist, setArtist] = useState<string | null>(null);
+  const { open: openMenu, menu } = useContextMenu();
   useEffect(() => {
     setDetail(null);
     setArtist(null);
   }, [source, libSection]);
+
+  // Resolve a card's full track list on demand (server fetch / local lookup).
+  const tracksForCard = async (c: Card): Promise<Track[]> => {
+    if (source === "server") return (await useSubsonic.getState().openAlbum(c.id)).tracks;
+    return useLocal.getState().openAlbum(c.id)?.tracks ?? [];
+  };
+  // Right-click an album card → play / queue the whole album.
+  const albumMenu = (c: Card) =>
+    openMenu([
+      { label: "Play album", onSelect: () => void tracksForCard(c).then((t) => playFrom(t, 0)) },
+      {
+        label: "Play next",
+        onSelect: () => void tracksForCard(c).then((t) => usePlayerStore.getState().playNext(t)),
+      },
+      {
+        label: "Add to queue",
+        onSelect: () => void tracksForCard(c).then((t) => usePlayerStore.getState().addToQueue(t)),
+      },
+    ]);
+  // Right-click a track row → play it now / queue just that track.
+  const trackMenu = (tracks: Track[], i: number) =>
+    openMenu([
+      { label: "Play", onSelect: () => playFrom(tracks, i) },
+      { label: "Play next", onSelect: () => usePlayerStore.getState().playNext([tracks[i]]) },
+      { label: "Add to queue", onSelect: () => usePlayerStore.getState().addToQueue([tracks[i]]) },
+    ]);
 
   const cards: Card[] = useMemo(() => {
     if (source === "server") {
@@ -211,6 +239,7 @@ export function LibraryView() {
               key={t.id}
               className={`trow${t.id === curId ? " playing" : ""}`}
               onClick={() => playFrom(detail.tracks, i)}
+              onContextMenu={trackMenu(detail.tracks, i)}
             >
               <span className="n">{String(i + 1).padStart(2, "0")}</span>
               <span className="tt">{trackLabel(t)}</span>
@@ -218,6 +247,7 @@ export function LibraryView() {
             </div>
           ))}
         </div>
+        {menu}
       </div>
     );
   }
@@ -263,8 +293,14 @@ export function LibraryView() {
       <div className="empty">{query ? "No matches." : "No albums found."}</div>
     ) : (
       <div className="grid">
+        {menu}
         {sortCards(list).map((c) => (
-          <div key={c.id} className="card" onClick={() => void openAlbum(c.id)}>
+          <div
+            key={c.id}
+            className="card"
+            onClick={() => void openAlbum(c.id)}
+            onContextMenu={albumMenu(c)}
+          >
             <div className="cover">
               {c.cover ? (
                 <img src={c.cover} alt="" />
@@ -343,11 +379,13 @@ export function LibraryView() {
                 key={t.id}
                 className={`trow${t.id === curId ? " playing" : ""}`}
                 onClick={() => playFrom(tracks, i)}
+                onContextMenu={trackMenu(tracks, i)}
               >
                 <span className="tt">{trackLabel(t)}</span>
                 <span className="du">{formatTime(t.duration)}</span>
               </div>
             ))}
+            {menu}
           </div>
         )}
       </div>

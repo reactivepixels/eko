@@ -15,12 +15,14 @@ export function PlayerApp() {
   const source = useUiStore((s) => s.source);
   const libSection = useUiStore((s) => s.libSection);
   const theme = useUiStore((s) => s.theme);
+  const accent = useUiStore((s) => s.accent);
+  const skin = useUiStore((s) => s.skin);
   const subCount = useSubsonic((s) => s.albums.length);
   const localCount = useLocal((s) => s.albums.length);
   const count = source === "server" ? subCount : localCount;
 
   return (
-    <div className="app" data-theme={theme}>
+    <div className="app" data-theme={theme} data-accent={accent} data-skin={skin}>
       <TopBar />
       <Sidebar />
       <main className="main">

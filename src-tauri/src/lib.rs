@@ -1,6 +1,8 @@
 #[cfg(target_os = "macos")]
 mod coreaudio;
 mod engine;
+#[cfg(target_os = "macos")]
+mod media;
 mod metadata;
 mod stream;
 
@@ -47,11 +49,51 @@ fn secret_delete(key: String) -> Result<(), String> {
     }
 }
 
+/// Push current-track metadata to the OS "Now Playing" card. No-op off macOS.
+#[tauri::command]
+fn media_metadata(
+    app: tauri::AppHandle,
+    title: String,
+    artist: String,
+    album: String,
+    cover_url: Option<String>,
+    duration: Option<f64>,
+) {
+    #[cfg(target_os = "macos")]
+    media::set_metadata(&app, title, artist, album, cover_url, duration);
+    #[cfg(not(target_os = "macos"))]
+    let _ = (app, title, artist, album, cover_url, duration);
+}
+
+/// Push the OS "Now Playing" play/pause state + elapsed position. No-op off macOS.
+#[tauri::command]
+fn media_playback(app: tauri::AppHandle, playing: bool, elapsed: f64) {
+    #[cfg(target_os = "macos")]
+    media::set_playback(&app, playing, elapsed);
+    #[cfg(not(target_os = "macos"))]
+    let _ = (app, playing, elapsed);
+}
+
+/// Clear the OS "Now Playing" card. No-op off macOS.
+#[tauri::command]
+fn media_stopped(app: tauri::AppHandle) {
+    #[cfg(target_os = "macos")]
+    media::set_stopped(&app);
+    #[cfg(not(target_os = "macos"))]
+    let _ = app;
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    #[allow(unused_mut)]
+    let mut builder = tauri::Builder::default()
         .manage(engine::Engine::default())
-        .manage(StreamOrigin::default())
+        .manage(StreamOrigin::default());
+    #[cfg(target_os = "macos")]
+    {
+        builder = builder.manage(media::Media::default());
+    }
+    builder
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_http::init())
@@ -103,6 +145,11 @@ pub fn run() {
 
             let menu = MenuBuilder::new(h).items(&[&app_menu]).build()?;
             app.set_menu(menu)?;
+
+            // System "Now Playing" + hardware media keys (macOS). Must be set up on the
+            // main thread, which `setup` runs on.
+            #[cfg(target_os = "macos")]
+            media::init(&h.clone());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -121,6 +168,7 @@ pub fn run() {
             engine::engine_set_volume,
             engine::engine_set_replaygain,
             engine::engine_enqueue,
+            engine::engine_set_crossfade,
             engine::engine_set_now_playing,
             engine::engine_now_playing,
             engine::engine_list_devices,
@@ -128,7 +176,10 @@ pub fn run() {
             set_stream_origin,
             secret_set,
             secret_get,
-            secret_delete
+            secret_delete,
+            media_metadata,
+            media_playback,
+            media_stopped
         ])
         .build(tauri::generate_context!())
         .expect("error while running tauri application")

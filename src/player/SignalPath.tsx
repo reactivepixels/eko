@@ -22,9 +22,12 @@ export function SignalPath() {
   const replayGainMode = usePlayerStore((s) => s.replayGainMode);
   const setReplayGainMode = usePlayerStore((s) => s.setReplayGainMode);
   const rgAppliedDb = usePlayerStore((s) => s.rgAppliedDb);
+  const crossfadeMs = usePlayerStore((s) => s.crossfadeMs);
+  const setCrossfade = usePlayerStore((s) => s.setCrossfade);
 
   const [open, setOpen] = useState(false);
   const [rgOpen, setRgOpen] = useState(false);
+  const [xfOpen, setXfOpen] = useState(false);
   const [devices, setDevices] = useState<string[]>([]);
 
   if (!engineActive || !info || !info.rate) return null;
@@ -78,6 +81,13 @@ export function SignalPath() {
   const pickRg = (mode: "off" | "track" | "album") => {
     setReplayGainMode(mode);
     setRgOpen(false);
+  };
+
+  const xfOptions = [0, 2000, 4000, 6000, 8000, 12000];
+  const xfLabel = crossfadeMs === 0 ? "Off" : `${crossfadeMs / 1000}s`;
+  const pickXf = (ms: number) => {
+    setCrossfade(ms);
+    setXfOpen(false);
   };
 
   return (
@@ -160,6 +170,38 @@ export function SignalPath() {
               >
                 Album
               </div>
+            </div>
+          </>
+        )}
+      </div>
+      <div
+        className="sp-node sp-rg"
+        onClick={() => setXfOpen((v) => !v)}
+        title="Crossfade between tracks — off keeps the bit-perfect path; only the overlap is mixed"
+      >
+        <span className="sp-k">
+          XFADE <span className="sp-caret">▾</span>
+        </span>
+        <span className="sp-v">{xfLabel}</span>
+        {xfOpen && (
+          <>
+            <div
+              className="backdrop"
+              onClick={(e) => {
+                e.stopPropagation();
+                setXfOpen(false);
+              }}
+            />
+            <div className="menu sp-menu" onClick={(e) => e.stopPropagation()}>
+              {xfOptions.map((ms) => (
+                <div
+                  key={ms}
+                  className={`mi${crossfadeMs === ms ? " on" : ""}`}
+                  onClick={() => pickXf(ms)}
+                >
+                  {ms === 0 ? "Off" : `${ms / 1000}s`}
+                </div>
+              ))}
             </div>
           </>
         )}

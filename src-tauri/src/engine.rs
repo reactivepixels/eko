@@ -429,6 +429,13 @@ struct Shared {
     /// [`engine_status`] report position/duration — and the playing-track index — relative to
     /// the *current* track. A single track keeps this `[0]`, so non-gapless math is unchanged.
     seg_starts: Mutex<Vec<usize>>,
+    /// Crossfade duration in milliseconds (**0 = off**, the default). When non-zero, a
+    /// same-rate gapless continuation overlaps the two tracks: the decode thread fades the
+    /// outgoing track's tail down and mixes the incoming track's head up over this window,
+    /// in-place in `samples`. The cpal callback is unchanged — it still reads one contiguous
+    /// buffer — so steady-state playback (and the bit-perfect bypass) is untouched; only the
+    /// short overlap region holds pre-mixed samples (inherent to crossfading).
+    xfade_ms: AtomicU32,
 }
 
 /// The Tauri-managed engine state, registered once at startup via `tauri::Builder::manage`.
@@ -936,6 +943,15 @@ fn decode_and_play(
     let mut last_analyze = Instant::now();
     let mut decoding = true;
 
+    // Crossfade-in state. When a same-rate continuation is armed with crossfade on, the
+    // incoming track's first `xfade_len` frames are mixed (equal-power) into the overlap
+    // region [`xfade_start`, …) already present in `samples` (whose tail was faded out),
+    // rather than appended. `xfade_remaining` counts the frames still to mix.
+    let mut xfade_remaining: usize = 0;
+    let mut xfade_pos: usize = 0;
+    let mut xfade_len: usize = 1;
+    let mut xfade_start: usize = 0;
+
     loop {
         if decoding {
             let mut local: Vec<f32> = Vec::new();
@@ -974,17 +990,83 @@ fn decode_and_play(
                 }
             }
             if !local.is_empty() {
-                shared.samples.lock().unwrap().extend_from_slice(&local);
+                let mut buf = shared.samples.lock().unwrap();
+                let mut consumed = 0usize; // samples of `local` mixed into the overlap
+                if xfade_remaining > 0 {
+                    // Mix the incoming head up (equal-power) into the faded-out tail.
+                    let avail_frames = local.len() / out_ch;
+                    let mix_frames = xfade_remaining.min(avail_frames);
+                    for i in 0..mix_frames {
+                        let gi = xfade_pos + i;
+                        let t = (gi as f32 + 0.5) / xfade_len as f32;
+                        let g_in = (t * std::f32::consts::FRAC_PI_2).sin();
+                        let dst = xfade_start + gi * out_ch;
+                        for c in 0..out_ch {
+                            buf[dst + c] += local[i * out_ch + c] * g_in;
+                        }
+                    }
+                    xfade_pos += mix_frames;
+                    xfade_remaining -= mix_frames;
+                    consumed = mix_frames * out_ch;
+                }
+                if consumed < local.len() {
+                    buf.extend_from_slice(&local[consumed..]);
+                }
             }
             if !decoding {
                 // Gapless: if a same-rate next track is queued, keep decoding into the SAME
                 // stream/buffer (the cpal callback reads one contiguous buffer, so there's no
                 // seam and the bit-perfect path is untouched). Otherwise finalize normally.
                 let mut continued = false;
+                xfade_remaining = 0; // any prior fade is complete by now
                 if let Some(src) = shared.next_src.lock().unwrap().take() {
                     if let Some(nd) = open_source(src) {
                         if nd.file_rate == out_rate {
-                            let boundary = shared.samples.lock().unwrap().len();
+                            // Decide the seam: an overlapping crossfade (when enabled AND the
+                            // overlap region is safely ahead of playback) or the hard gapless
+                            // join. `boundary` is where the incoming track is considered to
+                            // begin in the concatenated buffer.
+                            let xms = shared.xfade_ms.load(Ordering::Relaxed) as usize;
+                            let buf_len = shared.samples.lock().unwrap().len();
+                            let cur_seg = *shared.seg_starts.lock().unwrap().last().unwrap_or(&0);
+                            let cur_frames = buf_len.saturating_sub(cur_seg) / out_ch;
+                            let cur_pos = shared.pos.load(Ordering::SeqCst);
+
+                            let fade_frames = (out_rate as usize)
+                                .saturating_mul(xms)
+                                / 1000;
+                            let overlap = fade_frames.min(cur_frames);
+                            let overlap_start = buf_len - overlap * out_ch;
+                            // Need the overlap meaningfully long AND comfortably ahead of the
+                            // play head, or the callback could reach it mid-mix → fall back.
+                            let margin = overlap_start.saturating_sub(cur_pos) / out_ch;
+                            let can_xfade = xms > 0
+                                && overlap >= out_rate as usize / 20
+                                && margin >= overlap + out_rate as usize / 4;
+
+                            let boundary = if can_xfade {
+                                // Fade the outgoing tail down now (it's fully decoded + ahead
+                                // of the play head). The incoming head is mixed up later,
+                                // incrementally, as it decodes (see the append block above).
+                                let mut buf = shared.samples.lock().unwrap();
+                                for i in 0..overlap {
+                                    let t = (i as f32 + 0.5) / overlap as f32;
+                                    let g_out = (t * std::f32::consts::FRAC_PI_2).cos();
+                                    let base = overlap_start + i * out_ch;
+                                    for c in 0..out_ch {
+                                        buf[base + c] *= g_out;
+                                    }
+                                }
+                                drop(buf);
+                                xfade_remaining = overlap;
+                                xfade_pos = 0;
+                                xfade_len = overlap;
+                                xfade_start = overlap_start;
+                                overlap_start
+                            } else {
+                                buf_len
+                            };
+
                             shared.seg_starts.lock().unwrap().push(boundary);
                             // total stays the GLOBAL concatenated estimate; status derives the
                             // current track's duration from it minus the segment start.
@@ -1097,6 +1179,7 @@ fn new_shared() -> Arc<Shared> {
         rg_gain: AtomicU32::new(1.0f32.to_bits()),
         next_src: Mutex::new(None),
         seg_starts: Mutex::new(vec![0]),
+        xfade_ms: AtomicU32::new(0),
     })
 }
 
@@ -1254,6 +1337,17 @@ pub fn engine_set_replaygain(gain_db: Option<f32>, engine: tauri::State<Engine>)
     if let Some(sh) = engine.shared.0.lock().unwrap().as_ref() {
         sh.rg_gain
             .store(rg_db_to_linear(gain_db).to_bits(), Ordering::Relaxed);
+    }
+}
+
+/// Set the crossfade duration in milliseconds (**0 = off**, the default). Re-pushed by the
+/// frontend on each track start (a fresh session resets it). Clamped to 12 s. When non-zero,
+/// same-rate track transitions overlap with an equal-power fade; steady-state playback and
+/// the bit-perfect bypass are unaffected (see [`Shared::xfade_ms`]).
+#[tauri::command]
+pub fn engine_set_crossfade(ms: u32, engine: tauri::State<Engine>) {
+    if let Some(sh) = engine.shared.0.lock().unwrap().as_ref() {
+        sh.xfade_ms.store(ms.min(12000), Ordering::Relaxed);
     }
 }
 

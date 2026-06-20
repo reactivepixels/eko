@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>EKO — Midnight Luxe</title>
+<style>
+  :root {
+    --bg:        #0a0b0e;
+    --panel:     #14161b;
+    --panel-2:   #181a20;
+    --gold:      #e6b566;
+    --gold-soft: rgba(230,181,102,0.12);
+    --text:      #e8e4da;
+    --label:     #8a857a;
+    --hair:      rgba(255,255,255,0.16);
+    --serif: Charter, "Iowan Old Style", Georgia, "Times New Roman", serif;
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  html, body { height:100%; }
+
+  body {
+    font-family: var(--sans);
+    color: var(--text);
+    background: var(--bg);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: clamp(20px, 5vmin, 64px);
+    overflow: hidden;
+    position: relative;
+  }
+
+  /* The single warm light source — a soft lamp from the top */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    background:
+      radial-gradient(120% 80% at 50% -20%, var(--gold-soft) 0%, rgba(230,181,102,0.05) 28%, transparent 60%),
+      radial-gradient(80% 60% at 50% 0%, rgba(255,245,225,0.04) 0%, transparent 50%);
+    pointer-events: none;
+    z-index: 0;
+    animation: lampBreathe 11s ease-in-out infinite;
+  }
+  /* faint grain/vignette for depth */
+  body::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    background: radial-gradient(130% 130% at 50% 40%, transparent 55%, rgba(0,0,0,0.55) 100%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  @keyframes lampBreathe {
+    0%, 100% { opacity: 0.85; }
+    50%      { opacity: 1; }
+  }
+
+  .player {
+    position: relative;
+    z-index: 1;
+    width: min(880px, 100%);
+    background:
+      linear-gradient(180deg, var(--panel-2) 0%, var(--panel) 100%);
+    border-radius: 20px;
+    border: 1px solid rgba(255,255,255,0.05);
+    box-shadow:
+      0 1px 0 0 rgba(255,255,255,0.06) inset,
+      0 40px 100px -30px rgba(0,0,0,0.85),
+      0 0 0 1px rgba(0,0,0,0.4);
+    padding: clamp(26px, 4vmin, 44px);
+    overflow: hidden;
+  }
+  /* top hairline reflection inside the panel */
+  .player::before {
+    content:"";
+    position:absolute;
+    top:0; left:8%; right:8%;
+    height:1px;
+    background: linear-gradient(90deg, transparent, var(--hair), transparent);
+  }
+
+  /* ===== Header ===== */
+  .header {
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    margin-bottom: clamp(22px, 3.5vmin, 36px);
+  }
+
+  .wordmark { display:flex; align-items:center; gap:11px; }
+  .wordmark .bars {
+    display:flex; align-items:flex-end; gap:3px; height:20px;
+  }
+  .wordmark .bars span {
+    width:3px; border-radius:2px;
+    background: linear-gradient(180deg, var(--gold), #b88a3e);
+    box-shadow: 0 0 7px rgba(230,181,102,0.45);
+  }
+  .wordmark .bars span:nth-child(1){ height:9px;  animation: wm 2.6s ease-in-out infinite 0s;}
+  .wordmark .bars span:nth-child(2){ height:18px; animation: wm 2.6s ease-in-out infinite .35s;}
+  .wordmark .bars span:nth-child(3){ height:13px; animation: wm 2.6s ease-in-out infinite .7s;}
+  .wordmark .bars span:nth-child(4){ height:20px; animation: wm 2.6s ease-in-out infinite 1.05s;}
+  @keyframes wm { 0%,100%{ transform: scaleY(0.7); } 50%{ transform: scaleY(1); } }
+
+  .wordmark .name {
+    font-family: var(--serif);
+    font-size: 21px;
+    letter-spacing: 0.22em;
+    color: var(--text);
+    font-weight: 500;
+    padding-left: 1px;
+  }
+
+  .status {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    color: var(--label);
+    display:flex; align-items:center; gap:9px;
+  }
+  .status .dot {
+    width:6px; height:6px; border-radius:50%;
+    background: var(--gold);
+    box-shadow: 0 0 8px var(--gold);
+    animation: lampBreathe 3s ease-in-out infinite;
+  }
+
+  .divider {
+    height:1px;
+    background: linear-gradient(90deg, transparent, var(--hair) 18%, var(--hair) 82%, transparent);
+    margin: clamp(22px,3vmin,34px) 0;
+  }
+
+  /* ===== Main ===== */
+  .main {
+    display:grid;
+    grid-template-columns: 230px 1fr;
+    gap: clamp(28px, 4.5vmin, 52px);
+    align-items:center;
+  }
+
+  /* Cover */
+  .cover-wrap { position:relative; }
+  .cover {
+    position:relative;
+    aspect-ratio: 1/1;
+    border-radius: 10px;
+    background:
+      radial-gradient(120% 120% at 25% 18%, rgba(255,255,255,0.10), transparent 45%),
+      linear-gradient(150deg, #1f6b54 0%, #0d3a2c 38%, #2a1410 72%, #050505 100%);
+    border: 1px solid rgba(230,181,102,0.45);
+    box-shadow:
+      0 0 0 1px rgba(0,0,0,0.6),
+      inset 0 1px 1px rgba(255,255,255,0.14),
+      inset 0 0 40px rgba(0,0,0,0.55),
+      0 24px 50px -20px rgba(0,0,0,0.9);
+    overflow:hidden;
+    animation: coverGlow 5.5s ease-in-out infinite;
+  }
+  @keyframes coverGlow {
+    0%,100% { box-shadow:
+      0 0 0 1px rgba(0,0,0,0.6),
+      inset 0 1px 1px rgba(255,255,255,0.14),
+      inset 0 0 40px rgba(0,0,0,0.55),
+      0 24px 50px -20px rgba(0,0,0,0.9),
+      0 0 22px -2px rgba(230,181,102,0.18); }
+    50% { box-shadow:
+      0 0 0 1px rgba(0,0,0,0.6),
+      inset 0 1px 1px rgba(255,255,255,0.14),
+      inset 0 0 40px rgba(0,0,0,0.55),
+      0 24px 50px -20px rgba(0,0,0,0.9),
+      0 0 44px 2px rgba(230,181,102,0.34); }
+  }
+  /* a subtle engraved emblem on the cover */
+  .cover .emblem {
+    position:absolute; inset:0;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .cover .emblem svg { width:54%; height:54%; opacity:0.85; }
+  /* sheen sweep */
+  .cover::after {
+    content:"";
+    position:absolute; top:-60%; left:-30%;
+    width:60%; height:220%;
+    background: linear-gradient(100deg, transparent, rgba(255,255,255,0.10), transparent);
+    transform: rotate(8deg);
+    animation: sheen 7s ease-in-out infinite;
+  }
+  @keyframes sheen {
+    0%, 70%, 100% { left:-40%; opacity:0; }
+    78% { opacity:1; }
+    92% { left:120%; opacity:0; }
+  }
+
+  /* Meta + controls column */
+  .info { min-width:0; }
+
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: var(--label);
+    margin-bottom: 12px;
+  }
+  .title {
+    font-family: var(--serif);
+    font-size: clamp(26px, 4vmin, 34px);
+    line-height: 1.12;
+    font-weight: 500;
+    letter-spacing: 0.005em;
+    color: var(--text);
+    text-shadow: 0 1px 0 rgba(0,0,0,0.5), 0 0 28px rgba(230,181,102,0.08);
+  }
+  .artist {
+    margin-top: 9px;
+    font-size: 15px;
+    color: #b6b0a4;
+    letter-spacing: 0.02em;
+  }
+  .format {
+    margin-top: 14px;
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--gold);
+    opacity: 0.9;
+  }
+
+  /* Spectrum */
+  .spectrum {
+    margin-top: 22px;
+    height: 46px;
+    display:flex; align-items:flex-end; gap:3px;
+  }
+  .spectrum span {
+    flex:1;
+    border-radius: 2px 2px 0 0;
+    background: linear-gradient(180deg, var(--gold), rgba(230,181,102,0.25));
+    box-shadow: 0 0 8px rgba(230,181,102,0.4);
+    height: 20%;
+    transform-origin: bottom;
+  }
+
+  /* Seek */
+  .seek { margin-top: 24px; }
+  .seek-track {
+    position:relative;
+    height:3px;
+    border-radius:3px;
+    background: rgba(255,255,255,0.08);
+    box-shadow: inset 0 1px 1px rgba(0,0,0,0.6);
+  }
+  .seek-fill {
+    position:absolute; left:0; top:0; bottom:0;
+    width:38%;
+    border-radius:3px;
+    background: linear-gradient(90deg, rgba(230,181,102,0.5), var(--gold));
+    box-shadow: 0 0 10px rgba(230,181,102,0.55);
+  }
+  .seek-node {
+    position:absolute; top:50%; left:38%;
+    width:11px; height:11px; border-radius:50%;
+    transform: translate(-50%,-50%);
+    background: radial-gradient(circle at 35% 30%, #fff3dc, var(--gold) 60%, #a9772f);
+    box-shadow: 0 0 12px rgba(230,181,102,0.8), 0 1px 2px rgba(0,0,0,0.6);
+  }
+  .seek-times {
+    display:flex; justify-content:space-between;
+    margin-top:11px;
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: 0.12em;
+    color: var(--label);
+  }
+  .seek-times .cur { color: var(--text); }
+
+  /* Controls */
+  .controls {
+    margin-top: 26px;
+    display:flex; align-items:center; gap: 22px;
+  }
+  .btn {
+    appearance:none; border:0; cursor:pointer;
+    background: linear-gradient(180deg, #1d2027, #15171c);
+    color: var(--text);
+    width:42px; height:42px; border-radius:50%;
+    display:grid; place-items:center;
+    border: 1px solid rgba(255,255,255,0.07);
+    box-shadow: 0 1px 0 rgba(255,255,255,0.05) inset, 0 6px 14px -6px rgba(0,0,0,0.8);
+    transition: transform .18s ease, color .2s ease, box-shadow .2s ease;
+  }
+  .btn:hover { color: var(--gold); transform: translateY(-1px);
+    box-shadow: 0 1px 0 rgba(255,255,255,0.06) inset, 0 0 14px -2px rgba(230,181,102,0.4); }
+  .btn:active { transform: translateY(0) scale(0.96); }
+  .btn svg { width:16px; height:16px; }
+
+  .btn.play {
+    width:58px; height:58px;
+    background:
+      radial-gradient(circle at 38% 30%, #ffe7be 0%, var(--gold) 38%, #a9772f 100%);
+    border: 1px solid rgba(255,235,200,0.6);
+    color: #1a1206;
+    box-shadow:
+      inset 0 1px 2px rgba(255,255,255,0.6),
+      inset 0 -3px 8px rgba(120,80,20,0.5),
+      0 0 28px rgba(230,181,102,0.5),
+      0 10px 22px -8px rgba(0,0,0,0.8);
+    animation: playPulse 4s ease-in-out infinite;
+  }
+  .btn.play svg { width:20px; height:20px; }
+  @keyframes playPulse {
+    0%,100% { box-shadow:
+      inset 0 1px 2px rgba(255,255,255,0.6),
+      inset 0 -3px 8px rgba(120,80,20,0.5),
+      0 0 26px rgba(230,181,102,0.45),
+      0 10px 22px -8px rgba(0,0,0,0.8); }
+    50% { box-shadow:
+      inset 0 1px 2px rgba(255,255,255,0.6),
+      inset 0 -3px 8px rgba(120,80,20,0.5),
+      0 0 44px rgba(230,181,102,0.7),
+      0 10px 22px -8px rgba(0,0,0,0.8); }
+  }
+
+  .vol {
+    margin-left:auto;
+    display:flex; align-items:center; gap:11px;
+    min-width: 132px;
+  }
+  .vol svg { width:16px; height:16px; color: var(--label); flex:none; }
+  .vol-track {
+    position:relative; flex:1; height:3px; border-radius:3px;
+    background: rgba(255,255,255,0.08);
+    box-shadow: inset 0 1px 1px rgba(0,0,0,0.6);
+  }
+  .vol-fill {
+    position:absolute; left:0; top:0; bottom:0; width:66%;
+    border-radius:3px;
+    background: linear-gradient(90deg, rgba(230,181,102,0.4), var(--gold));
+  }
+  .vol-knob {
+    position:absolute; top:50%; left:66%;
+    width:14px; height:14px; border-radius:50%;
+    transform: translate(-50%,-50%);
+    background: linear-gradient(180deg, #2a2d35, #15171c);
+    border:1px solid rgba(255,255,255,0.12);
+    box-shadow: 0 2px 5px rgba(0,0,0,0.7), inset 0 1px 1px rgba(255,255,255,0.15);
+  }
+
+  /* ===== Signal path ===== */
+  .signal {
+    margin-top: clamp(26px, 3.5vmin, 38px);
+    display:flex; align-items:center; gap: 0;
+    flex-wrap: wrap;
+  }
+  .node {
+    display:flex; flex-direction:column; gap:5px;
+  }
+  .node .k {
+    font-family: var(--mono);
+    font-size: 9px; letter-spacing:0.26em; text-transform:uppercase;
+    color: var(--label);
+  }
+  .node .v {
+    font-family: var(--mono);
+    font-size: 12px; letter-spacing:0.08em;
+    color: var(--text);
+  }
+  .chain {
+    flex:1; min-width: 28px; height:1px; margin:0 18px;
+    background: linear-gradient(90deg, transparent, var(--hair) 20%, var(--hair) 80%, transparent);
+    position:relative; top:8px;
+  }
+  .chain::after {
+    content:""; position:absolute; top:-1px; left:0; width:24px; height:3px;
+    border-radius:3px;
+    background: linear-gradient(90deg, transparent, rgba(230,181,102,0.8), transparent);
+    filter: blur(0.3px);
+    animation: flow 3.4s linear infinite;
+  }
+  @keyframes flow { 0%{ left:-12%; opacity:0;} 12%{opacity:1;} 88%{opacity:1;} 100%{ left:100%; opacity:0; } }
+
+  .medallion {
+    margin-left: auto;
+    display:flex; align-items:center; gap:12px;
+    padding: 11px 16px 11px 12px;
+    border-radius: 100px;
+    border: 1px solid rgba(230,181,102,0.32);
+    background: linear-gradient(180deg, rgba(230,181,102,0.10), rgba(230,181,102,0.02));
+    box-shadow: 0 0 24px -6px rgba(230,181,102,0.4), inset 0 1px 0 rgba(255,255,255,0.06);
+  }
+  .ring {
+    width:30px; height:30px; border-radius:50%;
+    display:grid; place-items:center;
+    background: radial-gradient(circle at 38% 32%, #ffe7be, var(--gold) 55%, #a9772f);
+    box-shadow: 0 0 16px rgba(230,181,102,0.7), inset 0 -2px 5px rgba(120,80,20,0.5);
+    animation: lampBreathe 3.4s ease-in-out infinite;
+  }
+  .ring svg { width:15px; height:15px; color:#1a1206; }
+  .medallion .ml { display:flex; flex-direction:column; gap:2px; }
+  .medallion .ml .t {
+    font-family: var(--mono); font-size:11px; letter-spacing:0.24em;
+    text-transform:uppercase; color: var(--gold);
+  }
+  .medallion .ml .s {
+    font-family: var(--mono); font-size:8.5px; letter-spacing:0.2em;
+    text-transform:uppercase; color: var(--label);
+  }
+
+  @media (max-width: 680px) {
+    .main { grid-template-columns: 1fr; gap: 28px; }
+    .cover-wrap { max-width: 230px; }
+    .signal { gap: 12px; }
+    .medallion { margin-left:0; }
+    .chain { display:none; }
+  }
+</style>
+</head>
+<body>
+  <div class="player">
+
+    <div class="header">
+      <div class="wordmark">
+        <div class="bars"><span></span><span></span><span></span><span></span></div>
+        <div class="name">EKO</div>
+      </div>
+      <div class="status"><span class="dot"></span>Now Playing · Exclusive Mode</div>
+    </div>
+
+    <div class="main">
+      <div class="cover-wrap">
+        <div class="cover">
+          <div class="emblem">
+            <svg viewBox="0 0 100 100" fill="none" stroke="rgba(230,181,102,0.55)" stroke-width="1.2">
+              <circle cx="50" cy="50" r="34"/>
+              <circle cx="50" cy="50" r="22"/>
+              <path d="M50 16 V84 M16 50 H84" stroke-opacity="0.35"/>
+              <path d="M50 28 a22 22 0 0 1 0 44" stroke="rgba(255,243,220,0.7)" stroke-width="1.6"/>
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <div class="info">
+        <div class="eyebrow">Remastered Edition</div>
+        <h1 class="title">Emergency On Planet Earth<br><span style="opacity:.62;font-size:.7em">(Remastered)</span></h1>
+        <div class="artist">Jamiroquai</div>
+        <div class="format">FLAC · 44.1 kHz · 16-bit</div>
+
+        <div class="spectrum" id="spectrum"></div>
+
+        <div class="seek">
+          <div class="seek-track">
+            <div class="seek-fill"></div>
+            <div class="seek-node"></div>
+          </div>
+          <div class="seek-times"><span class="cur">2:18</span><span>6:04</span></div>
+        </div>
+
+        <div class="controls">
+          <button class="btn" aria-label="Previous">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 6v12H5V6h2zm12 0v12l-9-6 9-6z"/></svg>
+          </button>
+          <button class="btn play" id="play" aria-label="Play / Pause">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7L8 5z"/></svg>
+          </button>
+          <button class="btn" aria-label="Next">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M17 6v12h2V6h-2zM5 6v12l9-6L5 6z"/></svg>
+          </button>
+
+          <div class="vol">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3a4.5 4.5 0 0 0-2.5-4v8a4.5 4.5 0 0 0 2.5-4z"/></svg>
+            <div class="vol-track"><div class="vol-fill"></div><div class="vol-knob"></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="signal">
+      <div class="node">
+        <div class="k">Source</div>
+        <div class="v">FLAC · 44.1 kHz · 16-bit</div>
+      </div>
+      <div class="chain"></div>
+      <div class="node">
+        <div class="k">Output</div>
+        <div class="v">USB DAC · Exclusive</div>
+      </div>
+      <div class="chain"></div>
+      <div class="medallion">
+        <div class="ring">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 6"/></svg>
+        </div>
+        <div class="ml">
+          <div class="t">Bit-Perfect</div>
+          <div class="s">No Resampling</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+<script>
+  // Spectrum — restrained, precise gold bars
+  (function () {
+    const host = document.getElementById('spectrum');
+    const N = 38;
+    const bars = [];
+    for (let i = 0; i < N; i++) {
+      const s = document.createElement('span');
+      host.appendChild(s);
+      bars.push({ el: s, p: Math.random() * Math.PI * 2 });
+    }
+    let playing = true;
+    function frame(t) {
+      const time = t / 1000;
+      for (let i = 0; i < N; i++) {
+        const b = bars[i];
+        // envelope: louder in the mids, calm at the edges
+        const env = Math.sin((i / (N - 1)) * Math.PI);
+        const wob = (Math.sin(time * 2.1 + b.p) + Math.sin(time * 3.7 + b.p * 1.7)) * 0.5;
+        let h = playing ? (12 + (0.5 + 0.5 * wob) * 78 * (0.35 + 0.65 * env)) : 8;
+        b.el.style.height = h + '%';
+        b.el.style.opacity = playing ? (0.55 + 0.45 * env) : 0.25;
+      }
+      requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+
+    // Play / pause toggle
+    const play = document.getElementById('play');
+    const ICON_PLAY = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7L8 5z"/></svg>';
+    const ICON_PAUSE = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 5h4v14H7zM13 5h4v14h-4z"/></svg>';
+    play.innerHTML = ICON_PAUSE;
+    play.addEventListener('click', () => {
+      playing = !playing;
+      play.innerHTML = playing ? ICON_PAUSE : ICON_PLAY;
+      play.style.animationPlayState = playing ? 'running' : 'paused';
+    });
+  })();
+</script>
+</body>
+</html>

@@ -1,4 +1,4 @@
-import { useUiStore } from "../store/useUiStore";
+import { ACCENTS, SKINS, useUiStore } from "../store/useUiStore";
 
 export function TopBar() {
   const source = useUiStore((s) => s.source);
@@ -7,6 +7,10 @@ export function TopBar() {
   const setQuery = useUiStore((s) => s.setQuery);
   const theme = useUiStore((s) => s.theme);
   const toggleTheme = useUiStore((s) => s.toggleTheme);
+  const accent = useUiStore((s) => s.accent);
+  const setAccent = useUiStore((s) => s.setAccent);
+  const skin = useUiStore((s) => s.skin);
+  const setSkin = useUiStore((s) => s.setSkin);
   const toggleCompact = useUiStore((s) => s.toggleCompact);
 
   return (
@@ -62,6 +66,33 @@ export function TopBar() {
             <path d="M20 16v3a1 1 0 0 1-1 1h-3" />
             <path d="M8 20H5a1 1 0 0 1-1-1v-3" />
           </svg>
+        </div>
+
+        <div className="skinseg" role="tablist" title="Skin">
+          {SKINS.map((sk) => (
+            <b
+              key={sk.id}
+              className={skin === sk.id ? "on" : ""}
+              onClick={() => setSkin(sk.id)}
+            >
+              {sk.label}
+            </b>
+          ))}
+        </div>
+
+        <div className="accent-pick" role="group" aria-label="Accent color">
+          {ACCENTS.map((a) => (
+            <button
+              key={a.id}
+              type="button"
+              className={"acc-sw" + (accent === a.id ? " on" : "")}
+              style={{ "--c": a.swatch } as React.CSSProperties}
+              title={a.label}
+              aria-label={a.label}
+              aria-pressed={accent === a.id}
+              onClick={() => setAccent(a.id)}
+            />
+          ))}
         </div>
 
         <div

@@ -3,6 +3,7 @@ import { emit } from "@tauri-apps/api/event";
 import { Marquee } from "./Marquee";
 import { LocalCover } from "./LocalCover";
 import { nativeEngine, type EngineStatus, type NowPlaying } from "../audio/nativeEngine";
+import { ACCENTS, SKINS, type Accent, type Skin } from "../store/useUiStore";
 import "./neu.css";
 
 const NP0: NowPlaying = {
@@ -38,6 +39,26 @@ function readTheme(): "light" | "dark" {
   }
 }
 
+/** Accent is shared across windows via localStorage, same as the theme. */
+function readAccent(): Accent {
+  try {
+    const v = localStorage.getItem("eko.accent") as Accent | null;
+    return v && ACCENTS.some((a) => a.id === v) ? v : "orange";
+  } catch {
+    return "orange";
+  }
+}
+
+/** Skin is shared across windows via localStorage, same as the theme. */
+function readSkin(): Skin {
+  try {
+    const v = localStorage.getItem("eko.skin") as Skin | null;
+    return v && SKINS.some((s) => s.id === v) ? v : "porcelain";
+  } catch {
+    return "porcelain";
+  }
+}
+
 /**
  * Frameless always-on-top mini player. Reads playback state DIRECTLY from the Rust
  * engine (so it stays live even when the main window is hidden and its JS timers are
@@ -48,6 +69,8 @@ export function MiniWindow() {
   const [np, setNp] = useState<NowPlaying>(NP0);
   const [st, setSt] = useState<EngineStatus>(ST0);
   const [theme, setTheme] = useState<"light" | "dark">(readTheme);
+  const [accent, setAccent] = useState<Accent>(readAccent);
+  const [skin, setSkin] = useState<Skin>(readSkin);
   // Optimistic scrub position so the bar tracks the drag without the poll fighting it.
   const [scrub, setScrub] = useState<number | null>(null);
 
@@ -62,10 +85,16 @@ export function MiniWindow() {
       if (s) setSt(s);
       if (n) setNp(n);
       setTheme(readTheme()); // keep the mini's mode in sync with the main window
+      setAccent(readAccent());
+      setSkin(readSkin());
     };
     void poll();
     const t = setInterval(poll, 300);
-    const onStorage = () => setTheme(readTheme());
+    const onStorage = () => {
+      setTheme(readTheme());
+      setAccent(readAccent());
+      setSkin(readSkin());
+    };
     window.addEventListener("storage", onStorage);
     return () => {
       alive = false;
@@ -115,7 +144,7 @@ export function MiniWindow() {
   const hasTrack = np.index >= 0;
 
   return (
-    <div className="capp mini-rounded" data-theme={theme}>
+    <div className="capp mini-rounded" data-theme={theme} data-accent={accent} data-skin={skin}>
       <div className="cbar nolights" data-tauri-drag-region>
         <div className="cart" data-tauri-drag-region>
           {np.coverUrl ? (

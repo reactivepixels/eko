@@ -122,6 +122,12 @@ function App() {
       const { action, value } = e.payload;
       const p = usePlayerStore.getState();
       if (action === "toggle") void p.togglePlay();
+      // OS remote commands (media keys / Control Center) send explicit play & pause.
+      else if (action === "play") {
+        if (!p.isPlaying) void p.togglePlay();
+      } else if (action === "pause") {
+        if (p.isPlaying) void p.togglePlay();
+      } else if (action === "stop") p.stop();
       else if (action === "prev") void p.prev();
       else if (action === "next") void p.next();
       else if (action === "seek" && typeof value === "number") p.seek(value);

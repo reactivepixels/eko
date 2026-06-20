@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { toTrack } from "../audio/loader";
 import { nativeEngine } from "../audio/nativeEngine";
+import { mediaMetadata, mediaPlayback, mediaStopped } from "../audio/media";
 import { streamSrcUrl, coverArtUrl } from "../subsonic/client";
 import { EQ_BAND_COUNT, EQ_PRESETS, FLAT_GAINS, type EqPreset } from "../audio/constants";
 import type { ReplayGainMode, RepeatMode, Track } from "../types";
@@ -69,6 +70,7 @@ function startNativePoll() {
         usePlayerStore.setState({ currentIndex: wantIndex });
         enqueuedFor = null; // can arm the following track now
         pushNowPlaying();
+        pushPlayback();
         applyReplayGain();
       }
     }
@@ -95,17 +97,20 @@ function startNativePoll() {
     if (sessionDirty) {
       void nativeEngine.enqueue(null, null);
     } else {
+      // Arm the next sequential track EARLY — as soon as this track is playing — not near
+      // its end. The native decoder races ahead of playback and reaches end-of-decode within
+      // a second or two of a local track; the gapless/crossfade continuation only fires if
+      // the next source is already queued at that moment. (Server streams decode at ~1× as
+      // they download, so this is also harmless there.) Once consumed the engine clears it;
+      // we re-arm when the displayed track advances (enqueuedFor !== currentIndex).
       const sequential = !cur.shuffle && cur.repeat !== "one";
       const nextIdx = cur.currentIndex != null ? cur.currentIndex + 1 : -1;
-      const remaining = st.durMs - st.posMs;
       if (
         sequential &&
         nextIdx > 0 &&
         nextIdx < cur.tracks.length &&
         enqueuedFor !== cur.currentIndex &&
-        st.durMs > 0 &&
-        remaining > 0 &&
-        remaining < 12000
+        st.durMs > 0
       ) {
         const nt = cur.tracks[nextIdx];
         enqueuedFor = cur.currentIndex;
@@ -175,6 +180,7 @@ interface PlayerState {
   shuffle: boolean;
   replayGainMode: ReplayGainMode; // volume normalisation (off by default)
   rgAppliedDb: number | null; // dB currently applied to the engine (null = none); for the seal
+  crossfadeMs: number; // crossfade between tracks in ms (0 = off; off keeps bit-perfect)
 
   // Resume
   pendingResumeSec: number | null; // restored position to seek to on the next play
@@ -209,6 +215,7 @@ interface PlayerState {
   cycleRepeat: () => void;
   toggleShuffle: () => void;
   setReplayGainMode: (mode: ReplayGainMode) => void;
+  setCrossfade: (ms: number) => void;
 }
 
 // Guards against attaching audio element listeners twice (e.g. StrictMode in dev).
@@ -218,6 +225,12 @@ let storeInitialized = false;
 function syncEq() {
   const s = usePlayerStore.getState();
   void nativeEngine.setEq(s.eqEnabled, s.preamp, s.gains);
+}
+
+/** Push the crossfade duration into the engine. A fresh session resets it to 0, so this is
+ *  re-pushed on each track start (like the EQ). 0 keeps the bit-perfect path. */
+function syncCrossfade() {
+  void nativeEngine.setCrossfade(usePlayerStore.getState().crossfadeMs);
 }
 
 /** Compute the ReplayGain adjustment (dB) for a track under the current mode, peak-limited
@@ -266,6 +279,24 @@ function pushNowPlaying() {
     index: s.currentIndex ?? -1,
     total: s.tracks.length,
   });
+  // Mirror to the OS now-playing card (lock screen / Control Center). Server cover art is a
+  // URL the OS can fetch; local embedded art has no URL, so it's omitted.
+  if (t) {
+    mediaMetadata({
+      title: t.title ?? "Unknown",
+      artist: t.artist ?? "",
+      album: t.album ?? "",
+      coverUrl: t.coverArt ? (coverArtUrl(t.coverArt, 512) ?? undefined) : undefined,
+      duration: t.duration,
+    });
+  }
+}
+
+/** Push the current play/pause state + elapsed position to the OS now-playing card.
+ *  Only needs calling on transitions — macOS extrapolates the running clock itself. */
+function pushPlayback() {
+  const s = usePlayerStore.getState();
+  mediaPlayback(s.isPlaying, s.currentTime);
 }
 
 /** Push the current volume (dial 0..1) into the native engine, throttled to ~20/sec so a
@@ -307,6 +338,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   shuffle: false,
   replayGainMode: "off",
   rgAppliedDb: null,
+  crossfadeMs: 0,
   pendingResumeSec: null,
 
   init: () => {
@@ -357,6 +389,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       duration: 0,
       engineActive: false,
     });
+    mediaStopped();
   },
 
   reorder: (from, to) => {
@@ -404,8 +437,10 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     nativeEngine.startBands();
     syncEq();
     syncVol();
+    syncCrossfade();
     applyReplayGain();
     pushNowPlaying();
+    pushPlayback();
     // Restored session: once decode has buffered, seek to where we left off.
     if (resumeSec != null && resumeSec > 0) {
       setTimeout(() => void nativeEngine.seek(resumeSec), 500);
@@ -454,6 +489,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     if (isPlaying) {
       void nativeEngine.pause();
       set({ isPlaying: false });
+      pushPlayback();
     } else if (!engineActive) {
       // A restored (resumed) session has a selected track but no live engine session yet —
       // start it fresh (playAt consumes pendingResumeSec to seek to the saved position).
@@ -461,6 +497,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     } else {
       void nativeEngine.resume();
       set({ isPlaying: true });
+      pushPlayback();
     }
   },
 
@@ -470,6 +507,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     stopNativePoll();
     enqueuedFor = null;
     set({ isPlaying: false, currentTime: 0, engineActive: false });
+    mediaStopped();
   },
 
   next: async () => {
@@ -520,6 +558,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     markSeek(seconds);
     void nativeEngine.seek(seconds);
     set({ currentTime: seconds });
+    pushPlayback();
   },
 
   toggleTimeDisplay: () =>
@@ -544,6 +583,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     markSeek(seconds);
     set({ currentTime: seconds });
     void nativeEngine.seek(seconds);
+    pushPlayback();
   },
 
   // User moved the dial → EKO's own software volume in the engine (instant, EKO-only).
@@ -611,6 +651,14 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   setReplayGainMode: (mode) => {
     set({ replayGainMode: mode });
     applyReplayGain();
+  },
+
+  // Crossfade between tracks (ms; 0 = off). Off keeps the bit-perfect bypass; any non-zero
+  // value only mixes the short overlap at track transitions (steady-state stays untouched).
+  setCrossfade: (ms) => {
+    const clamped = Math.max(0, Math.min(12000, Math.round(ms)));
+    set({ crossfadeMs: clamped });
+    syncCrossfade();
   },
 }));
 

@@ -13,6 +13,26 @@ Items marked **[needs ear-verify]** are complete in code but have not been
 confirmed by the maintainer's listening tests or Audio MIDI Setup inspection. Do not treat
 those as shipping-quality until they pass the [QA checklist](docs/QA-CHECKLIST.md).
 
+### Added
+- **System "Now Playing" + hardware media keys (macOS)** — the lock-screen / Control-Center
+  now-playing card and the F7/F8/F9 keys (and headphone controls) now drive EKO, via
+  `MPNowPlayingInfoCenter` / `MPRemoteCommandCenter` (the `souvlaki` crate, `src-tauri/src/media.rs`).
+  Remote commands are routed into the existing `eko:cmd` event path, so one command channel
+  serves the mini player and the OS alike. Metadata, play/pause and elapsed position push on
+  every transition; server cover art appears on the card. **[needs the maintainer's eyes — media
+  keys bind for the bundled `.app`, not `tauri dev`.]**
+- **Right-click context menus** — albums (Play album / Play next / Add to queue), track rows
+  (Play / Play next / Add to queue) and queue rows (Play now / Remove). One reusable
+  `ContextMenu` component; viewport-clamped, theme-aware, closes on outside-click / Esc / scroll.
+- **Crossfade between tracks** (`off` by default) — a same-rate transition can overlap with an
+  equal-power fade (2–12 s, picker in the signal-path strip). The fade is baked into the shared
+  PCM buffer by the decode thread, so **the realtime cpal callback is unchanged and steady-state
+  playback (plus the bit-perfect bypass) is untouched** — only the short overlap region holds
+  mixed samples. Falls back to the hard gapless join when the overlap can't be staged safely
+  ahead of the play head (e.g. download-paced server streams). The next track is now armed as
+  soon as it's playing (not 12 s before the end) so the decode-ahead continuation reliably fires.
+  **[needs ear-verify.]**
+
 ## [0.2.0] — 2026-06-20
 
 Security + robustness hardening over the v0.1.0 preview (no feature regressions):
@@ -158,9 +178,10 @@ Security + robustness hardening over the v0.1.0 preview (no feature regressions)
   (`loader.ts` and `useLocal.ts`) now carry the ReplayGain fields through. (Caught by ear.)
 
 ### Deferred (not built yet)
-- **macOS media keys / Now Playing** — MPNowPlayingInfoCenter integration requires
-  native plugin work.
-- **Crossfade** — overlap two decode streams.
+- **In-app update detection + auto-update** — check GitHub Releases for a newer
+  version on launch and surface an "Update available" prompt; ideally a one-click
+  background update via the Tauri updater (`tauri-plugin-updater` + signed release
+  artifacts). Scaffolding notes already in `docs/RELEASE.md`. Not built yet.
 - **macOS exclusive (hog) mode** — cpal does not expose this cleanly; deferred to
   Tier 3.
 - **iOS / iPad** — toolchain confirmed ready; parked until macOS build has traction

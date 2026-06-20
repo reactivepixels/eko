@@ -3,12 +3,14 @@ import { usePlayerStore } from "../store/usePlayerStore";
 import { useUiStore } from "../store/useUiStore";
 import { coverArtUrl } from "../subsonic/client";
 import { LocalCover } from "./LocalCover";
+import { useContextMenu } from "./ContextMenu";
 
 export function QueuePanel() {
   const open = useUiStore((s) => s.queueOpen);
   const close = useUiStore((s) => s.toggleQueue);
   const tracks = usePlayerStore((s) => s.tracks);
   const curIdx = usePlayerStore((s) => s.currentIndex);
+  const { open: openMenu, menu } = useContextMenu();
 
   const [drag, setDrag] = useState<number | null>(null);
   const [over, setOver] = useState<number | null>(null);
@@ -20,6 +22,18 @@ export function QueuePanel() {
     setDrag(null);
     setOver(null);
   };
+
+  // Right-click a queued row → play it now or drop it from the queue.
+  const rowMenu = (id: string, i: number) =>
+    openMenu([
+      { label: "Play now", onSelect: () => void usePlayerStore.getState().playAt(i) },
+      { separator: true },
+      {
+        label: "Remove from queue",
+        danger: true,
+        onSelect: () => usePlayerStore.getState().removeTrack(id),
+      },
+    ]);
 
   return (
     <>
@@ -70,6 +84,7 @@ export function QueuePanel() {
                     drop(i);
                   }}
                   onClick={() => void usePlayerStore.getState().playAt(i)}
+                  onContextMenu={rowMenu(t.id, i)}
                 >
                   <div className="qart">
                     {cover ? (
@@ -99,6 +114,7 @@ export function QueuePanel() {
             })
           )}
         </div>
+        {menu}
       </aside>
     </>
   );

@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>EKO — Machined</title>
+<style>
+  /* ============================================================
+     EKO — "MACHINED"
+     A milled anodized-aluminum playback deck. Teenage-Engineering
+     TP-7 / OP-1 DNA: brushed metal, hairline seams, knurled knob,
+     a tiny OLED status window, keycap transport, and a jog platter
+     whose ring IS the seek position. Album art is seated in the
+     platter like a record on a machined hub. EKO orange = the
+     "REC / live" accent, used only where something is alive.
+     ============================================================ */
+  :root {
+    --metal-0:  #f0f1f3;   /* brightest brush highlight   */
+    --metal-1:  #d7dadd;   /* face                        */
+    --metal-2:  #c2c6ca;   /* face mid                    */
+    --metal-3:  #a9aeb3;   /* shaded                      */
+    --metal-4:  #8d9298;   /* seam / deep shade           */
+    --groove:   #7d8288;   /* milled groove shadow        */
+    --ink:      #2a2d30;
+    --ink-soft: #595e63;
+    --ink-eng:  #4a4f54;   /* engraved label fill         */
+    --accent:   #ef6a1e;   /* EKO orange — REC / live      */
+    --accent-2: #ff8338;
+    --oled-bg:  #07100c;
+    --oled-grn: #6fe6a6;   /* phosphor green                */
+    --oled-amb: #ffcf7a;
+    --font: "Helvetica Neue", "Inter", -apple-system, Helvetica, Arial, sans-serif;
+    --mono: "SF Mono", ui-monospace, "Roboto Mono", Menlo, monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; width: 100%; overflow: hidden; }
+  body {
+    font-family: var(--font);
+    color: var(--ink);
+    -webkit-font-smoothing: antialiased;
+    display: grid;
+    place-items: center;
+    /* a cool, evenly-lit studio surface */
+    background:
+      radial-gradient(120% 100% at 50% -10%, #eef0f2 0%, transparent 55%),
+      radial-gradient(120% 120% at 50% 120%, #c9ccd0 0%, transparent 55%),
+      #dde0e3;
+  }
+  body::after { /* faint room vignette */
+    content: ""; position: fixed; inset: 0; pointer-events: none;
+    background: radial-gradient(120% 100% at 50% 42%, transparent 52%, rgba(40,44,50,.22) 100%);
+  }
+
+  /* ============ THE DEVICE ============ */
+  .device {
+    position: relative;
+    width: min(760px, 94vw);
+    border-radius: 30px;
+    padding: 26px 28px 24px;
+    /* anodized aluminum: vertical light fall-off + a centre sheen */
+    background:
+      linear-gradient(158deg, var(--metal-0) 0%, var(--metal-1) 22%, var(--metal-2) 54%, var(--metal-3) 100%);
+    box-shadow:
+      /* machined edge bevel */
+      inset 0 1px 0 rgba(255,255,255,.9),
+      inset 0 0 0 1px rgba(255,255,255,.45),
+      inset 0 -2px 3px rgba(0,0,0,.18),
+      inset 0 -22px 40px rgba(0,0,0,.05),
+      /* lifted off the bench */
+      0 1px 0 rgba(255,255,255,.7),
+      0 34px 60px -24px rgba(20,24,30,.55),
+      0 12px 22px -16px rgba(20,24,30,.45);
+    isolation: isolate;
+  }
+  /* fine vertical brushing + horizontal hairlines */
+  .device::before {
+    content: ""; position: absolute; inset: 0; border-radius: 30px;
+    pointer-events: none; z-index: 0; opacity: .5; mix-blend-mode: overlay;
+    background:
+      repeating-linear-gradient(90deg, rgba(255,255,255,.5) 0 1px, transparent 1px 3px),
+      repeating-linear-gradient(0deg,  rgba(0,0,0,.05)   0 1px, transparent 1px 4px);
+  }
+  /* corner machine screws */
+  .screw {
+    position: absolute; width: 13px; height: 13px; border-radius: 50%; z-index: 5;
+    background: radial-gradient(circle at 38% 32%, #eef1f3, #b7bbc0 55%, #8c9197 100%);
+    box-shadow: inset 0 0 0 1px rgba(0,0,0,.18), inset 0 1px 1px rgba(255,255,255,.8), 0 1px 1px rgba(0,0,0,.25);
+  }
+  .screw::after { /* slot */
+    content: ""; position: absolute; inset: 0; margin: auto;
+    width: 8px; height: 1.5px; border-radius: 2px; transform: rotate(34deg);
+    background: linear-gradient(90deg, rgba(0,0,0,.32), rgba(0,0,0,.12));
+  }
+  .screw.tl { top: 12px; left: 12px; } .screw.tr { top: 12px; right: 12px; }
+  .screw.bl { bottom: 12px; left: 12px; } .screw.br { bottom: 12px; right: 12px; }
+
+  /* ============ TOP RANK: wordmark + OLED ============ */
+  .toprank {
+    position: relative; z-index: 2;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 2px 8px 0;
+  }
+  .wordmark { display: flex; align-items: flex-end; gap: 10px; }
+  .bars { display: flex; align-items: flex-end; gap: 3px; height: 19px; }
+  .bars i {
+    width: 3px; border-radius: 1px; transform-origin: bottom;
+    background: linear-gradient(180deg, var(--accent-2), var(--accent));
+    box-shadow: 0 0 5px rgba(239,106,30,.45);
+  }
+  .bars i:nth-child(1){ height: 8px; } .bars i:nth-child(2){ height: 19px; }
+  .bars i:nth-child(3){ height: 12px; } .bars i:nth-child(4){ height: 15px; }
+  .playing .bars i { animation: bob 1.5s ease-in-out infinite; }
+  .playing .bars i:nth-child(2){ animation-delay: .18s; }
+  .playing .bars i:nth-child(3){ animation-delay: .36s; }
+  .playing .bars i:nth-child(4){ animation-delay: .1s; }
+  @keyframes bob { 0%,100%{ transform: scaleY(1);} 50%{ transform: scaleY(.5);} }
+  /* engraved wordmark */
+  .eng {
+    font-weight: 700; letter-spacing: .34em; font-size: 16px; color: var(--ink-eng);
+    text-shadow: 0 1px 0 rgba(255,255,255,.85), 0 -1px 1px rgba(0,0,0,.25);
+  }
+  .model {
+    font: 9px/1 var(--mono); letter-spacing: .22em; color: var(--ink-soft);
+    text-shadow: 0 1px 0 rgba(255,255,255,.7); margin-left: 2px; align-self: center;
+  }
+
+  /* OLED status window — recessed into the plate */
+  .oled {
+    position: relative; width: 246px; height: 52px; border-radius: 9px;
+    background:
+      linear-gradient(180deg, #0b1611, #060d09);
+    box-shadow:
+      inset 0 2px 4px rgba(0,0,0,.9), inset 0 0 0 1px rgba(0,0,0,.6),
+      /* milled bezel around the glass */
+      0 0 0 1.5px rgba(255,255,255,.6), 0 1px 2px rgba(0,0,0,.35) inset,
+      0 2px 3px rgba(255,255,255,.5);
+    overflow: hidden; padding: 8px 11px;
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  }
+  .oled::after { /* scanlines + glass curvature */
+    content: ""; position: absolute; inset: 0; pointer-events: none;
+    background:
+      repeating-linear-gradient(0deg, rgba(0,0,0,.22) 0 1px, transparent 1px 3px),
+      radial-gradient(120% 90% at 50% 0%, rgba(111,230,166,.12), transparent 60%);
+  }
+  .oled .col { display: flex; flex-direction: column; gap: 3px; }
+  .oled .rate {
+    font: 700 14px/1 var(--mono); letter-spacing: 1px; color: var(--oled-grn);
+    text-shadow: 0 0 7px rgba(111,230,166,.65);
+  }
+  .oled .sub {
+    font: 8.5px/1 var(--mono); letter-spacing: 1.5px; color: rgba(111,230,166,.55);
+  }
+  /* tiny analyser drawn in the OLED */
+  .oled .mini { display: flex; align-items: flex-end; gap: 2px; height: 26px; }
+  .oled .mini i {
+    width: 3px; height: 8%; border-radius: 1px;
+    background: linear-gradient(180deg, var(--oled-grn), rgba(111,230,166,.25));
+    box-shadow: 0 0 5px rgba(111,230,166,.45);
+  }
+  .lock-led {
+    width: 7px; height: 7px; border-radius: 50%; background: var(--accent);
+    box-shadow: 0 0 8px var(--accent), 0 0 2px #fff inset; flex: 0 0 auto;
+    animation: pulse 3s ease-in-out infinite;
+  }
+  @keyframes pulse { 0%,100%{ opacity: 1; } 50%{ opacity: .5; } }
+
+  /* ============ MID RANK: platter + side column ============ */
+  .midrank {
+    position: relative; z-index: 2;
+    display: grid; grid-template-columns: 1fr auto; gap: 26px;
+    align-items: center; margin: 22px 6px 16px;
+  }
+
+  /* ---- The jog platter ---- */
+  .platter-wrap { display: grid; place-items: center; }
+  .platter {
+    position: relative; width: 268px; height: 268px; border-radius: 50%;
+    /* a turned-aluminum disc: radial machining + a soft dome */
+    background:
+      radial-gradient(circle at 50% 38%, rgba(255,255,255,.55), transparent 45%),
+      repeating-radial-gradient(circle at 50% 50%, rgba(255,255,255,.16) 0 1px, rgba(0,0,0,.035) 1px 2.4px),
+      radial-gradient(circle at 50% 50%, var(--metal-1) 0%, var(--metal-2) 58%, var(--metal-3) 84%, var(--metal-4) 100%);
+    box-shadow:
+      inset 0 2px 3px rgba(255,255,255,.85), inset 0 -6px 14px rgba(0,0,0,.22),
+      0 14px 26px -12px rgba(20,24,30,.5), 0 0 0 1px rgba(255,255,255,.35);
+    display: grid; place-items: center;
+    cursor: pointer;
+  }
+  /* engraved orientation hairline (radial reference line, TP-7 style) */
+  .platter .ref {
+    position: absolute; top: 8px; bottom: 50%; left: 50%; width: 1px;
+    background: linear-gradient(180deg, rgba(0,0,0,.28), transparent);
+    transform-origin: bottom center;
+  }
+  /* the seek ring: orange arc inset into the rim */
+  .ring {
+    position: absolute; inset: 9px; border-radius: 50%;
+    background: conic-gradient(from -90deg, var(--accent) 0 var(--p, 34%), rgba(0,0,0,.18) var(--p,34%) 100%);
+    -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 6px), #000 calc(100% - 6px));
+            mask: radial-gradient(farthest-side, transparent calc(100% - 6px), #000 calc(100% - 6px));
+    box-shadow: 0 0 12px rgba(239,106,30,.0);
+    filter: drop-shadow(0 0 4px rgba(239,106,30,.45));
+  }
+  /* small machined cue bead riding the ring at the play-head */
+  .cue {
+    position: absolute; width: 12px; height: 12px; border-radius: 50%;
+    top: 50%; left: 50%; margin: -6px; z-index: 4;
+    background: radial-gradient(circle at 38% 32%, #fff, var(--accent-2) 50%, var(--accent) 100%);
+    box-shadow: 0 0 10px var(--accent), 0 1px 2px rgba(0,0,0,.4);
+    transform: rotate(var(--a, 32deg)) translateY(-125px);
+    transform-origin: center 6px;
+  }
+  /* recessed art well in the centre */
+  .art-well {
+    position: relative; width: 168px; height: 168px; border-radius: 50%;
+    box-shadow:
+      inset 0 0 0 6px rgba(0,0,0,.04), inset 0 3px 8px rgba(0,0,0,.4),
+      0 0 0 1px rgba(255,255,255,.4);
+    display: grid; place-items: center; overflow: hidden;
+  }
+  .art {
+    width: 100%; height: 100%; border-radius: 50%;
+    /* placeholder cover — warm dusk gradient */
+    background:
+      radial-gradient(60% 60% at 32% 28%, #ffb27a 0%, transparent 58%),
+      radial-gradient(70% 70% at 76% 30%, #ef6a4a 0%, transparent 60%),
+      radial-gradient(80% 80% at 60% 86%, #7d3cff 0%, transparent 62%),
+      linear-gradient(150deg, #34215a 0%, #6a2f7a 52%, #b8462f 100%);
+    box-shadow: inset 0 0 30px rgba(0,0,0,.35);
+  }
+  .playing .art { animation: spin 7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  /* machined centre hub over the art */
+  .hub {
+    position: absolute; width: 34px; height: 34px; border-radius: 50%; z-index: 3;
+    background:
+      radial-gradient(circle at 40% 34%, #fbfcfd, #c4c8cc 52%, #9a9fa4 100%);
+    box-shadow: inset 0 1px 1px rgba(255,255,255,.9), inset 0 -2px 3px rgba(0,0,0,.3), 0 2px 4px rgba(0,0,0,.4);
+  }
+  .hub::after { content:""; position:absolute; inset:0; margin:auto; width:5px; height:5px; border-radius:50%;
+    background: radial-gradient(circle at 40% 35%, #6a6f74, #2c2f33); box-shadow: inset 0 0 2px #000; }
+
+  /* ---- Side column: title, knurled knob, microbuttons ---- */
+  .side { width: 196px; display: flex; flex-direction: column; gap: 16px; }
+  .nowmeta .t {
+    font-size: 19px; font-weight: 600; letter-spacing: -.01em; line-height: 1.12; color: var(--ink);
+    text-shadow: 0 1px 0 rgba(255,255,255,.7);
+  }
+  .nowmeta .a { margin-top: 5px; font-size: 13px; color: var(--ink-soft); text-shadow: 0 1px 0 rgba(255,255,255,.6); }
+  .nowmeta .f {
+    margin-top: 9px; font: 9.5px/1 var(--mono); letter-spacing: 2px; color: var(--ink-soft);
+    text-transform: uppercase;
+  }
+
+  .knob-row { display: flex; align-items: center; gap: 14px; }
+  .knob {
+    position: relative; width: 74px; height: 74px; border-radius: 50%; cursor: ns-resize; flex: 0 0 auto;
+    background:
+      radial-gradient(circle at 50% 36%, rgba(255,255,255,.7), transparent 46%),
+      radial-gradient(circle at 50% 50%, var(--metal-0) 0%, var(--metal-2) 62%, var(--metal-4) 100%);
+    box-shadow:
+      inset 0 2px 2px rgba(255,255,255,.85), inset 0 -4px 8px rgba(0,0,0,.28),
+      0 8px 16px -8px rgba(20,24,30,.55), 0 0 0 1px rgba(255,255,255,.3);
+  }
+  /* knurled collar */
+  .knob::before {
+    content: ""; position: absolute; inset: 6px; border-radius: 50%;
+    background: repeating-conic-gradient(from 0deg, #c9cdd1 0deg 3deg, #9da2a7 3deg 6deg);
+    -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 9px), #000 calc(100% - 9px));
+            mask: radial-gradient(farthest-side, transparent calc(100% - 9px), #000 calc(100% - 9px));
+    box-shadow: inset 0 0 6px rgba(0,0,0,.3); opacity: .85;
+  }
+  /* turned cap + pointer dimple */
+  .knob .cap {
+    position: absolute; inset: 16px; border-radius: 50%;
+    background:
+      repeating-radial-gradient(circle at 50% 50%, rgba(255,255,255,.14) 0 1px, rgba(0,0,0,.04) 1px 2px),
+      radial-gradient(circle at 48% 40%, #eef0f2, #b9bdc1 70%, #989da2 100%);
+    box-shadow: inset 0 1px 1px rgba(255,255,255,.9), inset 0 -3px 5px rgba(0,0,0,.25);
+  }
+  .knob .pointer {
+    position: absolute; top: 19px; left: 50%; width: 3px; height: 13px; margin-left: -1.5px; border-radius: 2px;
+    background: linear-gradient(180deg, var(--accent-2), var(--accent));
+    box-shadow: 0 0 6px rgba(239,106,30,.6); transform-origin: 50% 18px; transform: rotate(38deg);
+  }
+  .knob-lab { font: 8.5px/1.4 var(--mono); letter-spacing: 1.5px; color: var(--ink-soft); text-transform: uppercase; }
+  .knob-lab b { display:block; font-size: 13px; color: var(--ink); letter-spacing: 0; }
+
+  /* ============ BOTTOM RANK: seek groove + keycaps + signal ============ */
+  .botrank { position: relative; z-index: 2; margin: 4px 6px 2px; }
+
+  /* milled seek groove */
+  .seekwrap { display: flex; align-items: center; gap: 13px; margin-bottom: 18px; }
+  .tt { font: 10px/1 var(--mono); letter-spacing: .5px; color: var(--ink-soft); min-width: 38px; text-shadow: 0 1px 0 rgba(255,255,255,.6); }
+  .tt.r { text-align: right; }
+  .groove {
+    position: relative; flex: 1; height: 14px; border-radius: 999px; cursor: pointer;
+    background: linear-gradient(180deg, #b4b8bc, #cdd1d4);
+    box-shadow: inset 0 2px 4px rgba(0,0,0,.4), inset 0 -1px 0 rgba(255,255,255,.7), inset 0 0 0 1px rgba(0,0,0,.08);
+  }
+  .groove .fillg {
+    position: absolute; top: 0; left: 0; bottom: 0; width: 34%; border-radius: 999px;
+    background: linear-gradient(180deg, rgba(255,131,56,.5), rgba(239,106,30,.32));
+    box-shadow: inset 0 0 6px rgba(239,106,30,.4);
+  }
+  .groove .slider {
+    position: absolute; top: 50%; left: 34%; width: 26px; height: 22px; border-radius: 7px;
+    transform: translate(-50%,-50%);
+    background:
+      repeating-linear-gradient(90deg, rgba(255,255,255,.5) 0 1px, transparent 1px 3px),
+      linear-gradient(180deg, #f2f4f5, #c2c6ca 60%, #a4a9ae 100%);
+    box-shadow: inset 0 1px 1px rgba(255,255,255,.95), inset 0 -2px 3px rgba(0,0,0,.28), 0 3px 6px -1px rgba(0,0,0,.4);
+  }
+  .groove .slider::after { content:""; position:absolute; inset:0; margin:auto; width:2px; height:11px; border-radius:2px;
+    background: var(--accent); box-shadow: 0 0 5px rgba(239,106,30,.6); }
+
+  /* keycap transport */
+  .keys { display: flex; align-items: center; justify-content: center; gap: 12px; }
+  .key {
+    position: relative; width: 56px; height: 50px; border-radius: 13px; cursor: pointer; border: 0;
+    display: grid; place-items: center; color: var(--ink-soft);
+    background: linear-gradient(180deg, #fbfcfd 0%, #dfe2e5 46%, #c2c6ca 100%);
+    box-shadow:
+      inset 0 1px 1px rgba(255,255,255,.95), inset 0 -3px 4px rgba(0,0,0,.16),
+      0 4px 8px -2px rgba(20,24,30,.4), 0 0 0 1px rgba(255,255,255,.4);
+    transition: transform .07s ease, box-shadow .07s ease;
+  }
+  .key:hover { color: var(--ink); }
+  .key:active { transform: translateY(2px); box-shadow: inset 0 1px 1px rgba(255,255,255,.8), inset 0 2px 5px rgba(0,0,0,.28), 0 1px 2px rgba(0,0,0,.3); }
+  .key svg { width: 20px; height: 20px; }
+  .key.sm { width: 48px; height: 44px; border-radius: 12px; }
+  .key.sm svg { width: 16px; height: 16px; }
+  /* the play key is orange-anodized */
+  .key.play {
+    width: 66px; height: 58px; border-radius: 15px;
+    background: linear-gradient(180deg, #ff9a4f 0%, #ef6a1e 52%, #cf5510 100%);
+    color: #fff;
+    box-shadow:
+      inset 0 1px 1px rgba(255,255,255,.6), inset 0 -3px 6px rgba(120,40,0,.4),
+      0 6px 14px -4px rgba(239,106,30,.6), 0 0 0 1px rgba(180,70,10,.5);
+  }
+  .key.play svg { width: 24px; height: 24px; }
+  .playing .key.play { box-shadow: inset 0 1px 1px rgba(255,255,255,.6), inset 0 -3px 6px rgba(120,40,0,.4), 0 6px 20px -2px rgba(239,106,30,.75), 0 0 0 1px rgba(180,70,10,.5); }
+
+  /* engraved signal path strip */
+  .signal {
+    margin-top: 18px; display: flex; align-items: center; justify-content: center; gap: 12px;
+    font: 9.5px/1 var(--mono); letter-spacing: 1.4px; color: var(--ink-soft); text-transform: uppercase;
+    text-shadow: 0 1px 0 rgba(255,255,255,.6); flex-wrap: wrap;
+  }
+  .signal .lab { color: #8b9096; margin-right: 6px; }
+  .signal .arrow { color: var(--accent); }
+  .seal {
+    display: inline-flex; align-items: center; gap: 7px; padding: 5px 11px 5px 8px; border-radius: 7px;
+    color: var(--accent); letter-spacing: 1.6px; font-weight: 700;
+    background: linear-gradient(180deg, rgba(255,255,255,.5), rgba(0,0,0,.03));
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.8), inset 0 -1px 2px rgba(0,0,0,.12), 0 0 0 1px rgba(239,106,30,.3);
+  }
+  .seal .led { width: 7px; height: 7px; border-radius: 50%; background: var(--accent);
+    box-shadow: 0 0 8px var(--accent); animation: pulse 3s ease-in-out infinite; }
+
+  @media (max-width: 680px) {
+    .midrank { grid-template-columns: 1fr; justify-items: center; }
+    .side { width: 268px; align-items: center; text-align: center; }
+    .nowmeta { text-align: center; }
+    .oled { display: none; }
+  }
+</style>
+</head>
+<body>
+  <div class="device playing" id="device">
+    <span class="screw tl"></span><span class="screw tr"></span>
+    <span class="screw bl"></span><span class="screw br"></span>
+
+    <!-- TOP -->
+    <div class="toprank">
+      <div class="wordmark">
+        <span class="bars"><i></i><i></i><i></i><i></i></span>
+        <span class="eng">EKO</span>
+        <span class="model">TP·1</span>
+      </div>
+      <div class="oled">
+        <div class="col">
+          <span class="rate">96·24</span>
+          <span class="sub">FLAC LOSSLESS</span>
+        </div>
+        <div class="mini" id="mini"></div>
+        <span class="lock-led" title="bit-perfect"></span>
+      </div>
+    </div>
+
+    <!-- MID -->
+    <div class="midrank">
+      <div class="platter-wrap">
+        <div class="platter" id="platter">
+          <div class="ref"></div>
+          <div class="ring" id="ring"></div>
+          <div class="cue" id="cue"></div>
+          <div class="art-well"><div class="art"></div></div>
+          <div class="hub"></div>
+        </div>
+      </div>
+
+      <div class="side">
+        <div class="nowmeta">
+          <div class="t">Flamenco Sketches</div>
+          <div class="a">Miles Davis — Kind of Blue</div>
+          <div class="f">FLAC · 96 kHz · 24-bit</div>
+        </div>
+        <div class="knob-row">
+          <div class="knob" id="knob">
+            <span class="cap"></span>
+            <span class="pointer" id="kpointer"></span>
+          </div>
+          <div class="knob-lab">VOLUME<b>−6 dB</b></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- BOTTOM -->
+    <div class="botrank">
+      <div class="seekwrap">
+        <span class="tt">3:18</span>
+        <div class="groove" id="groove">
+          <div class="fillg" id="fillg"></div>
+          <div class="slider" id="slider"></div>
+        </div>
+        <span class="tt r">−2:09</span>
+      </div>
+
+      <div class="keys">
+        <button class="key sm" title="Shuffle">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5M4 20 21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg>
+        </button>
+        <button class="key" title="Previous">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 5v14h2V5H6zm3 7 10 7V5L9 12z"/></svg>
+        </button>
+        <button class="key play" id="play" title="Play / Pause">
+          <svg id="playIcon" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
+        </button>
+        <button class="key" title="Next">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M18 5v14h-2V5h2zM15 12 5 5v14l10-7z"/></svg>
+        </button>
+        <button class="key sm" title="Repeat">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M17 2l4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg>
+        </button>
+      </div>
+
+      <div class="signal">
+        <span><span class="lab">SRC</span>FLAC 96/24</span>
+        <span class="arrow">→</span>
+        <span><span class="lab">OUT</span>Chord Mojo 2 · 96 kHz</span>
+        <span class="arrow">→</span>
+        <span class="seal"><span class="led"></span>BIT-PERFECT</span>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ---- tiny OLED analyser ----
+    const mini = document.getElementById('mini');
+    const N = 18, mbars = [];
+    for (let i=0;i<N;i++){ const el=document.createElement('i'); mini.appendChild(el); mbars.push(el); }
+    const ph = mbars.map(()=>Math.random()*Math.PI*2);
+    const sp = mbars.map(()=>.6+Math.random()*1.1);
+    let playing = true, t = 0;
+    function tick(){
+      t += .05;
+      for(let i=0;i<N;i++){
+        const c = 1 - Math.abs(i-N/2)/(N/2);
+        let v = playing ? (Math.sin(t*sp[i]+ph[i])*.5+.5) : .04;
+        v = playing ? (.12 + v*.88)*(.4+c*.6) : .05+c*.03;
+        mbars[i].style.height = (v*100)+'%';
+      }
+      requestAnimationFrame(tick);
+    }
+    tick();
+
+    // ---- play / pause ----
+    const device = document.getElementById('device');
+    const play = document.getElementById('play');
+    const icon = document.getElementById('playIcon');
+    play.addEventListener('click', ()=>{
+      playing = !playing;
+      device.classList.toggle('playing', playing);
+      icon.innerHTML = playing
+        ? '<rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/>'
+        : '<path d="M7 4v16l13-8z"/>';
+    });
+
+    // ---- seek: groove + jog ring stay in sync ----
+    const groove = document.getElementById('groove');
+    const fillg  = document.getElementById('fillg');
+    const slider = document.getElementById('slider');
+    const ring   = document.getElementById('ring');
+    const cue    = document.getElementById('cue');
+    function setSeek(p){
+      p = Math.max(0, Math.min(1, p));
+      fillg.style.width = (p*100)+'%';
+      slider.style.left = (p*100)+'%';
+      ring.style.setProperty('--p', (p*100)+'%');
+      cue.style.setProperty('--a', (p*360 - 0)+'deg');
+    }
+    setSeek(.34);
+    function scrub(e){ const r=groove.getBoundingClientRect(); setSeek((e.clientX-r.left)/r.width); }
+    let down=false;
+    groove.addEventListener('pointerdown', e=>{ down=true; groove.setPointerCapture(e.pointerId); scrub(e); });
+    groove.addEventListener('pointermove', e=>{ if(down) scrub(e); });
+    groove.addEventListener('pointerup', ()=> down=false);
+
+    // also let the jog platter scrub by angle
+    const platter = document.getElementById('platter');
+    platter.addEventListener('pointerdown', e=>{
+      const r = platter.getBoundingClientRect();
+      const cx = r.left+r.width/2, cy = r.top+r.height/2;
+      let a = Math.atan2(e.clientY-cy, e.clientX-cx)*180/Math.PI + 90;
+      if(a<0) a+=360;
+      setSeek(a/360);
+    });
+
+    // ---- volume knob (visual drag) ----
+    const knob = document.getElementById('knob');
+    const kp = document.getElementById('kpointer');
+    let kv = .7;
+    function setVol(v){ kv=Math.max(0,Math.min(1,v)); kp.style.transform='rotate('+(-135+kv*270)+'deg)'; }
+    setVol(.62);
+    let kdown=false, ky=0, kstart=0;
+    knob.addEventListener('pointerdown', e=>{ kdown=true; ky=e.clientY; kstart=kv; knob.setPointerCapture(e.pointerId); });
+    knob.addEventListener('pointermove', e=>{ if(kdown) setVol(kstart + (ky-e.clientY)/160); });
+    knob.addEventListener('pointerup', ()=> kdown=false);
+  </script>
+</body>
+</html>

@@ -90,6 +90,80 @@
   opacity: 0.35;
 }
 
+/* ---- Accent presets: user-selectable via [data-accent]. The default
+   (orange) lives in :root; these override only the accent tokens, so they
+   apply equally in light + dark. Keep in sync with ACCENTS in useUiStore.ts. ---- */
+[data-accent="violet"] {
+  --accent: #6a5cf0;
+  --accent-2: #8d7dff;
+  --accent-ink: #fbfaff;
+}
+[data-accent="blue"] {
+  --accent: #2f8fff;
+  --accent-2: #5cabff;
+  --accent-ink: #f6fbff;
+}
+[data-accent="teal"] {
+  --accent: #13b5a6;
+  --accent-2: #3ed6c7;
+  --accent-ink: #f3fffd;
+}
+[data-accent="graphite"] {
+  --accent: #8a8780;
+  --accent-2: #a8a59d;
+  --accent-ink: #ffffff;
+}
+
+/* ============================================================
+   SKIN: "Studio" — matte, softer-shadow take on the porcelain
+   surface (the first built-in `data-skin`). Token-level only: it
+   re-tones surfaces, ink and the neumorphic shadow recipe to the
+   flatter, matte Studio feel. The default skin ("porcelain") is
+   :root and needs no block. Theme-aware via the dark override.
+   NOTE: this changes the *palette*; the Studio control geometry
+   (flat-top knobs, gauge arcs) is a further, component-level pass.
+   ============================================================ */
+[data-skin="studio"] {
+  --bg: #f1efe9;
+  --bg2: #f6f4ef;
+  --light: #ffffff;
+  --dark: #d9d5cb; /* softer shadow colour → flatter, matte */
+  --ink: #3b3933;
+  --ink-2: #6d6a61;
+  --ink-3: #a4a096;
+  --line: rgba(60, 58, 50, 0.06);
+  --art-bg: #e7e3da;
+  --hover: rgba(60, 58, 50, 0.045);
+  /* softer/flatter neumorphism (matte) */
+  --out: 6px 6px 14px rgba(60, 58, 50, 0.16), -5px -5px 12px #ffffff;
+  --out-sm: 4px 4px 9px rgba(60, 58, 50, 0.14), -3px -3px 8px #ffffff;
+  --out-xs: 2px 2px 5px rgba(60, 58, 50, 0.13), -2px -2px 4px #ffffff;
+  --bevel: inset 1px 1px 1.5px rgba(255, 255, 255, 0.7),
+    inset -1px -1px 1.5px rgba(60, 58, 50, 0.05);
+  --in: inset 3px 3px 7px rgba(60, 58, 50, 0.15), inset -3px -3px 7px #ffffff;
+  --in-deep: inset 5px 5px 11px rgba(60, 58, 50, 0.17),
+    inset -4px -4px 9px #ffffff;
+}
+[data-skin="studio"][data-theme="dark"] {
+  --bg: #21242a;
+  --bg2: #25282e;
+  --light: #2e3138;
+  --dark: #121317;
+  --ink: #e9e7e2;
+  --ink-2: #a8a59d;
+  --ink-3: #6f6c64;
+  --line: rgba(255, 255, 255, 0.05);
+  --art-bg: #2a2d33;
+  --hover: rgba(255, 255, 255, 0.05);
+  --out: 5px 5px 13px #0e0f12, -3px -3px 9px #2e3138;
+  --out-sm: 3px 3px 8px #0e0f12, -2px -2px 6px #2e3138;
+  --out-xs: 2px 2px 5px #0e0f12, -2px -2px 4px #2e3138;
+  --bevel: inset 1px 1px 1px rgba(255, 255, 255, 0.06),
+    inset -1px -1px 1px rgba(0, 0, 0, 0.3);
+  --in: inset 3px 3px 8px #0e0f12, inset -2px -2px 6px #2e3138;
+  --in-deep: inset 5px 5px 12px #0c0d10, inset -3px -3px 8px #2e3138;
+}
+
 * {
   box-sizing: border-box;
   margin: 0;
@@ -274,6 +348,55 @@ body {
   border-radius: 50%;
   background: var(--accent);
   box-shadow: 0 0 5px var(--accent);
+}
+/* accent picker (topbar) */
+.accent-pick {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 4px;
+}
+.acc-sw {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  background: var(--c, var(--accent));
+  box-shadow: var(--out-xs), inset 0 1px 1px rgba(255, 255, 255, 0.4);
+  transition: transform 0.14s var(--ec);
+}
+.acc-sw:hover {
+  transform: scale(1.16);
+}
+.acc-sw.on {
+  box-shadow:
+    0 0 0 2px var(--bg),
+    0 0 0 3px var(--c);
+}
+/* skin picker (topbar) — compact segmented control */
+.skinseg {
+  display: flex;
+  background: var(--bg);
+  border-radius: 999px;
+  box-shadow: var(--in);
+  padding: 3px;
+}
+.skinseg b {
+  font-size: 10px;
+  letter-spacing: 0.5px;
+  font-weight: 600;
+  padding: 6px 11px;
+  border-radius: 999px;
+  color: var(--ink-2);
+  cursor: pointer;
+  transition: 0.2s var(--ec);
+}
+.skinseg b.on {
+  color: var(--ink);
+  background: var(--bg);
+  box-shadow: var(--out-xs), var(--bevel);
 }
 .icon-btn {
   width: 36px;
@@ -1802,4 +1925,63 @@ body {
 }
 [data-theme="dark"] .ctrack {
   background: #1d1f23;
+}
+
+/* ---- Right-click context menu ---- */
+.ctxmenu {
+  position: fixed;
+  z-index: 9000;
+  min-width: 184px;
+  padding: 6px;
+  border-radius: 12px;
+  background: var(--bg2);
+  box-shadow: var(--lift), var(--bevel);
+  border: 1px solid var(--line);
+  animation: ctx-in 0.09s var(--ec);
+  user-select: none;
+}
+@keyframes ctx-in {
+  from {
+    opacity: 0;
+    transform: translateY(-3px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.ctx-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 8px 12px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  font: 500 13px/1.2 var(--font);
+  color: var(--ink);
+  cursor: pointer;
+  transition: background 0.1s var(--ec);
+}
+.ctx-item:hover {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+.ctx-item.danger {
+  color: var(--r);
+}
+.ctx-item.danger:hover {
+  background: var(--r);
+  color: #fff;
+}
+.ctx-item:disabled {
+  opacity: 0.4;
+  cursor: default;
+  background: transparent;
+  color: var(--ink-3);
+}
+.ctx-sep {
+  height: 1px;
+  margin: 5px 8px;
+  background: var(--line);
 }

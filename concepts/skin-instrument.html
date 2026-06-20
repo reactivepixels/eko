@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>EKO — Instrument</title>
+<style>
+  /* ============================================================
+     EKO — "INSTRUMENT"
+     The whole player IS the display. A reference-DAC front panel:
+     a near-black, matte chassis with ONE deeply-recessed pane of
+     glowing glass. Everything lives inside it as phosphor — the
+     spectrum (with falling peak-holds), the VFD readouts, the
+     title, transport, and the bit-perfect lock. Scanlines, top
+     bloom, a slow refresh sweep and the faintest flicker make the
+     glass feel alive. Built up from the one element that worked.
+     Toggle the phosphor: green VFD · McIntosh blue · amber tube.
+     ============================================================ */
+  :root {
+    /* phosphor (defaults to green VFD; the toggle rewrites these) */
+    --phos:      #74f0a4;
+    --phos-rgb:  116, 240, 164;
+    --glass-1:   #07160d;
+    --glass-2:   #03100a;
+    --glass-3:   #020a06;
+    --live:      #ff6a1e;          /* the one warm accent — "live / locked" */
+    --live-rgb:  255, 106, 30;
+    --chassis-0: #2a2c2f;
+    --chassis-1: #1c1e21;
+    --chassis-2: #141517;
+    --chassis-3: #0c0d0e;
+    --mono: "SF Mono", ui-monospace, "Roboto Mono", "Menlo", monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; width: 100%; overflow: hidden; }
+  body {
+    font-family: var(--mono); color: var(--phos); -webkit-font-smoothing: antialiased;
+    display: grid; place-items: center;
+    background:
+      radial-gradient(120% 90% at 50% 0%, #16181b 0%, transparent 50%),
+      radial-gradient(120% 120% at 50% 120%, #050506 0%, transparent 55%),
+      #0a0b0c;
+  }
+  body::after { content:""; position: fixed; inset: 0; pointer-events: none;
+    background: radial-gradient(120% 100% at 50% 42%, transparent 48%, rgba(0,0,0,.6) 100%); }
+
+  /* ============ CHASSIS ============ */
+  .unit {
+    position: relative; width: min(820px, 95vw); border-radius: 20px; padding: 16px 16px 13px;
+    background: linear-gradient(180deg, var(--chassis-0) 0%, var(--chassis-1) 12%, var(--chassis-2) 80%, var(--chassis-3) 100%);
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,.10), inset 0 0 0 1px rgba(0,0,0,.6),
+      inset 0 -2px 4px rgba(0,0,0,.6),
+      0 44px 90px -30px rgba(0,0,0,.9), 0 16px 34px -20px rgba(0,0,0,.8);
+    isolation: isolate;
+  }
+  /* hairline machined seam just inside the top edge */
+  .unit::before {
+    content:""; position:absolute; left:16px; right:16px; top:9px; height:1px; border-radius:1px;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,.08) 18%, rgba(255,255,255,.08) 82%, transparent);
+  }
+
+  /* ============ THE GLASS ============ */
+  .glass {
+    position: relative; border-radius: 11px; overflow: hidden;
+    /* recessed dark glass with a top phosphor bloom */
+    background:
+      radial-gradient(130% 96% at 50% -14%, rgba(var(--phos-rgb), .10), transparent 56%),
+      radial-gradient(90% 120% at 12% 30%, rgba(var(--phos-rgb), .05), transparent 60%),
+      linear-gradient(180deg, var(--glass-1) 0%, var(--glass-2) 58%, var(--glass-3) 100%);
+    box-shadow:
+      inset 0 3px 9px rgba(0,0,0,.95), inset 0 -2px 7px rgba(0,0,0,.85),
+      inset 0 0 0 1px rgba(0,0,0,.9),
+      /* the polished bezel rim that makes it read as real glass */
+      0 0 0 1.5px rgba(220,228,232,.34), 0 1px 0 rgba(255,255,255,.06),
+      0 -1px 1px rgba(0,0,0,.5);
+  }
+  /* inner content grid */
+  .scr {
+    position: relative; z-index: 2;
+    display: grid; grid-template-columns: 190px 1fr; gap: 22px;
+    padding: 20px 24px 18px;
+  }
+
+  /* ---------- on-glass album art ---------- */
+  .art-cell { align-self: center; }
+  .art {
+    position: relative; width: 190px; height: 190px; border-radius: 5px; overflow: hidden;
+    background:
+      radial-gradient(60% 60% at 30% 26%, #6ad6ff 0%, transparent 56%),
+      radial-gradient(70% 70% at 78% 28%, #3a6bff 0%, transparent 58%),
+      radial-gradient(80% 80% at 60% 90%, #101a33 0%, transparent 64%),
+      linear-gradient(150deg, #0b1530 0%, #1b2f5c 52%, #0a1322 100%);
+    box-shadow: inset 0 0 0 1px rgba(var(--phos-rgb), .22), inset 0 0 26px rgba(0,0,0,.5);
+    -webkit-box-reflect: below 2px linear-gradient(transparent 62%, rgba(0,0,0,.28));
+  }
+  /* phosphor wash + scanlines so the cover lives ON the glass, not on top of it */
+  .art::after {
+    content:""; position:absolute; inset:0;
+    background:
+      repeating-linear-gradient(0deg, rgba(0,0,0,.34) 0 1px, transparent 1px 3px),
+      linear-gradient(160deg, rgba(var(--phos-rgb), .14), transparent 60%);
+    mix-blend-mode: screen; opacity: .55;
+  }
+  .art-tag {
+    margin-top: 12px; font-size: 9px; letter-spacing: 2.5px; text-transform: uppercase;
+    color: rgba(var(--phos-rgb), .5); text-shadow: 0 0 6px rgba(var(--phos-rgb), .35);
+  }
+
+  /* ---------- readout column ---------- */
+  .main { display: flex; flex-direction: column; min-width: 0; }
+
+  .row-top { display: flex; align-items: center; gap: 12px; }
+  .bars { display: flex; align-items: flex-end; gap: 3px; height: 16px; }
+  .bars i { width: 3px; border-radius: 1px; transform-origin: bottom; background: var(--phos);
+    box-shadow: 0 0 6px rgba(var(--phos-rgb), .7); }
+  .bars i:nth-child(1){ height: 7px; } .bars i:nth-child(2){ height: 16px; }
+  .bars i:nth-child(3){ height: 10px; } .bars i:nth-child(4){ height: 13px; }
+  .playing .bars i { animation: bob 1.5s ease-in-out infinite; }
+  .playing .bars i:nth-child(2){ animation-delay:.18s; } .playing .bars i:nth-child(3){ animation-delay:.36s; } .playing .bars i:nth-child(4){ animation-delay:.1s; }
+  @keyframes bob { 0%,100%{ transform: scaleY(1);} 50%{ transform: scaleY(.5);} }
+  .wm { font-size: 12px; letter-spacing: .42em; color: var(--phos); text-shadow: 0 0 8px rgba(var(--phos-rgb), .6); }
+  .rate { margin-left: auto; font-size: 11px; letter-spacing: 1.5px; color: rgba(var(--phos-rgb), .82);
+    text-shadow: 0 0 8px rgba(var(--phos-rgb), .5); }
+  .lock {
+    width: 8px; height: 8px; border-radius: 50%; background: var(--live);
+    box-shadow: 0 0 9px var(--live), 0 0 3px #fff inset; flex: 0 0 auto;
+    animation: lock 2.6s ease-in-out infinite;
+  }
+  @keyframes lock { 0%,100%{ opacity: 1;} 50%{ opacity: .45;} }
+
+  /* title — same VFD type as everything, for cohesion */
+  .title { margin-top: 20px; font-size: 34px; line-height: 1; letter-spacing: .03em; font-weight: 500; text-transform: uppercase;
+    color: var(--phos); text-shadow: 0 0 14px rgba(var(--phos-rgb), .55), 0 0 2px rgba(var(--phos-rgb), .9);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .sub { margin-top: 9px; font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: rgba(var(--phos-rgb), .55);
+    text-shadow: 0 0 6px rgba(var(--phos-rgb), .3); }
+
+  /* spectrum analyser — the hero, with falling peak-holds + reflection */
+  .analyser {
+    margin-top: 18px; display: flex; align-items: flex-end; gap: 3px; height: 60px;
+    -webkit-box-reflect: below 2px linear-gradient(transparent 55%, rgba(255,255,255,.16));
+  }
+  .analyser .bar { position: relative; flex: 1; height: 6%; border-radius: 1px 1px 0 0;
+    background: linear-gradient(180deg, var(--phos) 0%, rgba(var(--phos-rgb), .55) 55%, rgba(var(--phos-rgb), .12) 100%);
+    box-shadow: 0 0 6px rgba(var(--phos-rgb), .4); }
+  .analyser .bar .pk { position: absolute; left: 0; right: 0; top: 0; height: 2px; border-radius: 1px;
+    background: var(--phos); box-shadow: 0 0 7px rgba(var(--phos-rgb), .9); transform: translateY(-3px); }
+
+  /* seek line */
+  .seek { margin-top: 18px; display: flex; align-items: center; gap: 13px; }
+  .tt { font-size: 10.5px; letter-spacing: 1px; color: rgba(var(--phos-rgb), .7); min-width: 40px;
+    text-shadow: 0 0 6px rgba(var(--phos-rgb), .3); }
+  .tt.r { text-align: right; }
+  .rail { position: relative; flex: 1; height: 12px; display: flex; align-items: center; cursor: pointer; }
+  .rail .bg { position: absolute; left: 0; right: 0; height: 2px; background: rgba(var(--phos-rgb), .18); border-radius: 2px; }
+  .rail .fl { position: absolute; left: 0; height: 2px; width: 38%; border-radius: 2px; background: var(--phos);
+    box-shadow: 0 0 9px rgba(var(--phos-rgb), .7); }
+  .rail .hd { position: absolute; left: 38%; width: 9px; height: 9px; border-radius: 50%; transform: translateX(-50%);
+    background: var(--live); box-shadow: 0 0 10px var(--live), 0 0 2px #fff; }
+
+  /* transport — screen-native glowing glyphs, no chunky buttons */
+  .foot { margin-top: 16px; display: flex; align-items: center; gap: 22px; }
+  .tx { background: none; border: 0; cursor: pointer; color: rgba(var(--phos-rgb), .68); padding: 4px; line-height: 0;
+    filter: drop-shadow(0 0 5px rgba(var(--phos-rgb), .4)); transition: color .2s, transform .2s; }
+  .tx:hover { color: var(--phos); transform: scale(1.08); }
+  .tx svg { width: 17px; height: 17px; }
+  .tx.play svg { width: 24px; height: 24px; }
+  .tx.play { color: var(--phos); }
+  .seal { margin-left: auto; display: flex; align-items: center; gap: 8px; font-size: 10px; letter-spacing: 2px;
+    text-transform: uppercase; color: rgba(var(--phos-rgb), .72); text-shadow: 0 0 6px rgba(var(--phos-rgb), .3); }
+  .seal .d { width: 7px; height: 7px; border-radius: 50%; background: var(--live); box-shadow: 0 0 8px var(--live); animation: lock 2.6s ease-in-out infinite; }
+
+  /* ---------- glass overlays (above content, non-interactive) ---------- */
+  .ov { position: absolute; inset: 0; z-index: 4; pointer-events: none; border-radius: 11px; }
+  .ov.scan { background: repeating-linear-gradient(0deg, rgba(0,0,0,.20) 0 1px, transparent 1px 3px); mix-blend-mode: multiply; opacity: .7; }
+  .ov.grid { background: repeating-linear-gradient(90deg, rgba(0,0,0,.10) 0 1px, transparent 1px 3px); mix-blend-mode: multiply; opacity: .5; }
+  .ov.glare { background: linear-gradient(150deg, rgba(255,255,255,.07) 0%, transparent 26%, transparent 100%); }
+  .ov.vig { box-shadow: inset 0 0 60px rgba(0,0,0,.7), inset 0 0 18px rgba(0,0,0,.5); }
+  .ov.flick { background: rgba(var(--phos-rgb), .03); mix-blend-mode: screen; animation: flick 5s steps(2) infinite; }
+  @keyframes flick { 0%,97%,100%{ opacity: .5; } 98%{ opacity: .2; } 99%{ opacity: .8; } }
+  /* slow CRT refresh sweep */
+  .ov.sweep { background: linear-gradient(180deg, transparent 0%, rgba(var(--phos-rgb), .05) 48%, rgba(var(--phos-rgb), .08) 50%, transparent 52%);
+    background-size: 100% 220px; animation: sweep 7s linear infinite; opacity: .8; }
+  @keyframes sweep { 0%{ background-position: 0 -240px; } 100%{ background-position: 0 360px; } }
+
+  /* ============ BEZEL STRIP (below the glass) ============ */
+  .strip { display: flex; align-items: center; justify-content: space-between; padding: 11px 8px 3px; }
+  .etch { font-size: 9px; letter-spacing: 3px; text-transform: uppercase; color: #6c7075;
+    text-shadow: 0 1px 0 rgba(255,255,255,.06); }
+  .etch b { color: #9aa0a6; font-weight: 600; letter-spacing: 4px; }
+  /* phosphor selector — a discreet DAC-style segmented control */
+  .phossel { display: flex; gap: 6px; align-items: center; }
+  .phossel .lab { font-size: 8.5px; letter-spacing: 2px; color: #5d6166; margin-right: 4px; text-transform: uppercase; }
+  .ps { width: 16px; height: 16px; border-radius: 50%; cursor: pointer; border: 1px solid rgba(255,255,255,.10);
+    background: #131416; box-shadow: inset 0 1px 2px rgba(0,0,0,.7); position: relative; transition: transform .15s; }
+  .ps:hover { transform: scale(1.12); }
+  .ps::after { content:""; position:absolute; inset:0; margin:auto; width:7px; height:7px; border-radius:50%;
+    background: var(--c); box-shadow: 0 0 8px var(--c); }
+  .ps.on { border-color: rgba(255,255,255,.4); box-shadow: inset 0 1px 2px rgba(0,0,0,.7), 0 0 0 2px rgba(255,255,255,.12); }
+  .ps.g { --c: #74f0a4; } .ps.b { --c: #6fd0ff; } .ps.a { --c: #ffc163; }
+
+  @media (max-width: 680px) {
+    .scr { grid-template-columns: 1fr; }
+    .art-cell { justify-self: center; }
+    .title { font-size: 26px; }
+  }
+</style>
+</head>
+<body>
+  <div class="unit playing" id="unit">
+    <div class="glass">
+      <div class="scr">
+        <!-- on-glass art -->
+        <div class="art-cell">
+          <div class="art"></div>
+          <div class="art-tag">Mezzanine · 1998</div>
+        </div>
+
+        <!-- readouts -->
+        <div class="main">
+          <div class="row-top">
+            <span class="bars"><i></i><i></i><i></i><i></i></span>
+            <span class="wm">EKO</span>
+            <span class="rate">PCM 96.0kHz · 24BIT</span>
+            <span class="lock" title="locked"></span>
+          </div>
+
+          <div class="title">Teardrop</div>
+          <div class="sub">Massive Attack</div>
+
+          <div class="analyser" id="analyser"></div>
+
+          <div class="seek">
+            <span class="tt">2:14</span>
+            <div class="rail" id="rail"><div class="bg"></div><div class="fl" id="fl"></div><div class="hd" id="hd"></div></div>
+            <span class="tt r">−3:15</span>
+          </div>
+
+          <div class="foot">
+            <button class="tx" title="Previous"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 5v14h2V5H6zm3 7 10 7V5L9 12z"/></svg></button>
+            <button class="tx play" id="play" title="Play / Pause"><svg id="playIcon" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg></button>
+            <button class="tx" title="Next"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M18 5v14h-2V5h2zM15 12 5 5v14l10-7z"/></svg></button>
+            <span class="seal"><span class="d"></span>Bit-Perfect · Locked</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- glass overlays -->
+      <div class="ov grid"></div>
+      <div class="ov scan"></div>
+      <div class="ov sweep"></div>
+      <div class="ov flick"></div>
+      <div class="ov glare"></div>
+      <div class="ov vig"></div>
+    </div>
+
+    <!-- bezel strip -->
+    <div class="strip">
+      <div class="etch"><b>EKO</b> &nbsp;REFERENCE&nbsp;DAC · R1</div>
+      <div class="phossel">
+        <span class="lab">Phosphor</span>
+        <button class="ps g on" data-p="g" title="Green VFD"></button>
+        <button class="ps b"    data-p="b" title="McIntosh blue"></button>
+        <button class="ps a"    data-p="a" title="Amber tube"></button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ---- spectrum analyser with falling peak-holds ----
+    const analyser = document.getElementById('analyser');
+    const N = 34, bars = [];
+    for (let i=0;i<N;i++){
+      const b = document.createElement('div'); b.className='bar';
+      const pk = document.createElement('div'); pk.className='pk'; b.appendChild(pk);
+      analyser.appendChild(b); bars.push({ b, pk, peak: 0 });
+    }
+    const ph = bars.map(()=>Math.random()*Math.PI*2), sp = bars.map(()=>.55+Math.random()*1.15);
+    let playing = true, t = 0;
+    function tick(){
+      t += .045;
+      for (let i=0;i<N;i++){
+        const c = 1 - Math.abs(i-N/2)/(N/2);
+        let v = playing ? (Math.sin(t*sp[i]+ph[i])*.5+.5) : .03;
+        v = playing ? (.1 + v*.9)*(.4 + c*.6) : .04 + c*.02;
+        const o = bars[i];
+        o.b.style.height = (v*100)+'%';
+        // peak-hold: jump up instantly, decay slowly
+        o.peak = Math.max(o.peak - 0.9, v*100);
+        o.pk.style.bottom = 'calc(' + o.peak + '% - 2px)';
+      }
+      requestAnimationFrame(tick);
+    }
+    tick();
+
+    // ---- play / pause ----
+    const unit = document.getElementById('unit'), play = document.getElementById('play'), icon = document.getElementById('playIcon');
+    play.addEventListener('click', ()=>{
+      playing = !playing; unit.classList.toggle('playing', playing);
+      icon.innerHTML = playing
+        ? '<rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/>'
+        : '<path d="M7 4v16l13-8z"/>';
+    });
+
+    // ---- seek scrub ----
+    const rail = document.getElementById('rail'), fl = document.getElementById('fl'), hd = document.getElementById('hd');
+    function setSeek(p){ p=Math.max(0,Math.min(1,p)); fl.style.width=(p*100)+'%'; hd.style.left=(p*100)+'%'; }
+    setSeek(.38);
+    let down=false;
+    rail.addEventListener('pointerdown', e=>{ down=true; rail.setPointerCapture(e.pointerId); s(e); });
+    rail.addEventListener('pointermove', e=>{ if(down) s(e); });
+    rail.addEventListener('pointerup', ()=> down=false);
+    function s(e){ const r=rail.getBoundingClientRect(); setSeek((e.clientX-r.left)/r.width); }
+
+    // ---- phosphor color toggle ----
+    const PH = {
+      g: { phos:'#74f0a4', rgb:'116, 240, 164', g1:'#07160d', g2:'#03100a', g3:'#020a06' },
+      b: { phos:'#6fd0ff', rgb:'111, 208, 255', g1:'#061320', g2:'#030d18', g3:'#020912' },
+      a: { phos:'#ffc163', rgb:'255, 193, 99',  g1:'#1a1206', g2:'#120c03', g3:'#0c0802' },
+    };
+    const root = document.documentElement;
+    document.querySelectorAll('.ps').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        document.querySelectorAll('.ps').forEach(x=>x.classList.remove('on'));
+        btn.classList.add('on');
+        const p = PH[btn.dataset.p];
+        root.style.setProperty('--phos', p.phos);
+        root.style.setProperty('--phos-rgb', p.rgb);
+        root.style.setProperty('--glass-1', p.g1);
+        root.style.setProperty('--glass-2', p.g2);
+        root.style.setProperty('--glass-3', p.g3);
+      });
+    });
+  </script>
+</body>
+</html>
