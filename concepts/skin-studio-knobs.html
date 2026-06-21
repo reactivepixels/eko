@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>EKO — Studio · Knob Lab</title>
+<style>
+  /* ============================================================
+     EKO — STUDIO · KNOB LAB
+     Goal: bring the knob back in line with the originals (the synth
+     inspiration + the R1 first concept) — machined convex cap, a
+     HIGH-CONTRAST dark gauge track, a GLOWING accent value arc with
+     real bloom, crisp specular, and a clear indicator.
+     Four candidates, live-draggable, on switchable surfaces + accents.
+     Layout stays as-is; this is a component swap, not a redesign.
+     ============================================================ */
+  :root {
+    /* warm = the CURRENT studio surface */
+    --bg-1:#e4e0d8; --face:#f3f1ec; --face-lo:#e7e3da;
+    --sh:62,58,50; --ink:#3b3933; --ink-2:#6d6a61; --label:#a4a096;
+    /* cap material (cool-neutral by default — reads "machined", not "beige") */
+    --cap-hi:#ffffff; --cap-mid:#eef0f6; --cap-lo:#cdd2e0; --cap-edge:#b4bacb;
+    --ac:#6a5cf0; --ac-2:#8d7dff; --ac-rgb:106,92,240;
+    --gauge:#1b1c24;
+    --font:"Helvetica Neue","Inter",-apple-system,Helvetica,Arial,sans-serif;
+    --mono:"SF Mono",ui-monospace,"Roboto Mono",Menlo,monospace;
+    --ease:cubic-bezier(.34,.02,.2,1);
+    --in:inset 2px 2px 5px rgba(var(--sh),.16), inset -2px -2px 5px rgba(255,255,255,.92);
+  }
+  /* surface temperature */
+  body[data-surface="cool"]{ --bg-1:#cfd3e2; --face:#eef0f6; --face-lo:#e1e4ef; --sh:60,64,86;
+    --ink:#2c2e3a; --ink-2:#5d6175; --label:#9498ad; }
+  body[data-surface="dark"]{ --bg-1:#1a1b22; --face:#23242e; --face-lo:#1d1e26; --sh:0,0,0;
+    --ink:#eef0f6; --ink-2:#b6b9c8; --label:#7e8294; --gauge:#0d0e13;
+    --cap-hi:#f4f6fb; --cap-mid:#cfd3e0; --cap-lo:#8990a3; --cap-edge:#6b7184; }
+
+  [data-accent="violet"]{ --ac:#6a5cf0; --ac-2:#8d7dff; --ac-rgb:106,92,240; }
+  [data-accent="orange"]{ --ac:#ef6a1e; --ac-2:#ff8a42; --ac-rgb:239,106,30; }
+  [data-accent="blue"]{ --ac:#2f8fff; --ac-2:#5cabff; --ac-rgb:47,143,255; }
+  [data-accent="teal"]{ --ac:#13b5a6; --ac-2:#3ed6c7; --ac-rgb:19,181,166; }
+
+  * { box-sizing:border-box; margin:0; padding:0; }
+  html,body { min-height:100%; }
+  body { font-family:var(--font); color:var(--ink); -webkit-font-smoothing:antialiased; padding:34px 24px 80px;
+    transition:background .3s var(--ease), color .3s var(--ease);
+    background:radial-gradient(120% 70% at 50% -4%, color-mix(in srgb, var(--face) 70%, #fff), transparent 55%),
+      radial-gradient(120% 80% at 50% 104%, color-mix(in srgb, var(--bg-1) 70%, #000 6%), transparent 55%), var(--bg-1); }
+
+  .wrap { width:min(1080px,96vw); margin:0 auto; }
+
+  /* header */
+  .top { display:flex; align-items:center; gap:18px; flex-wrap:wrap; margin-bottom:30px; }
+  .brand { display:flex; align-items:flex-end; gap:9px; }
+  .brand b { font-size:16px; letter-spacing:.3em; font-weight:600; color:var(--ink-2); }
+  .brand .sub { font:9px/1 var(--mono); letter-spacing:.18em; color:var(--label); align-self:center; }
+  .ttl { font:9px/1.4 var(--mono); letter-spacing:3px; text-transform:uppercase; color:var(--ink-2); }
+  .controls { display:flex; align-items:center; gap:20px; margin-left:auto; flex-wrap:wrap; }
+  .grp { display:flex; align-items:center; gap:8px; }
+  .glab { font:8px/1 var(--mono); letter-spacing:2px; color:var(--label); text-transform:uppercase; }
+  .sw { width:16px; height:16px; border-radius:50%; border:0; cursor:pointer; padding:0; background:var(--c);
+    box-shadow:inset 0 1px 1px rgba(255,255,255,.45), 0 1px 2px rgba(var(--sh),.3), 0 0 0 1px rgba(0,0,0,.06); transition:transform .12s; }
+  .sw:hover{ transform:scale(1.15) } .sw.on{ box-shadow:0 0 0 2px var(--face), 0 0 0 3.5px var(--c); }
+  .seg { display:flex; padding:3px; border-radius:999px; background:var(--face); box-shadow:var(--in); }
+  .seg button{ border:0; cursor:pointer; background:transparent; padding:7px 13px; border-radius:999px; font:8px/1 var(--mono);
+    letter-spacing:1.4px; text-transform:uppercase; color:var(--ink-2); transition:.18s; }
+  .seg button.on{ color:var(--ink); background:linear-gradient(180deg,color-mix(in srgb,var(--face) 70%,#fff),var(--face));
+    box-shadow:0 2px 5px -1px rgba(var(--sh),.28), inset 0 1px 1px rgba(255,255,255,.6); }
+
+  /* lab grid */
+  .lab { display:grid; grid-template-columns:repeat(2,1fr); gap:22px; }
+  @media (max-width:760px){ .lab{ grid-template-columns:1fr } }
+  .panel { border-radius:20px; padding:30px 24px 22px; position:relative;
+    background:linear-gradient(180deg, color-mix(in srgb,var(--face) 70%,#fff), var(--face));
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.7), inset 0 0 0 1px rgba(var(--sh),.05),
+      0 2px 5px rgba(var(--sh),.14), 0 26px 48px -28px rgba(var(--sh),.42); }
+  /* corner screws — studio hardware detail */
+  .panel::before,.panel::after{ content:""; position:absolute; width:7px; height:7px; border-radius:50%; top:13px;
+    background:radial-gradient(120% 120% at 40% 30%, #fff, color-mix(in srgb,var(--face) 60%,#999) 90%);
+    box-shadow:inset 0 1px 1px rgba(255,255,255,.8), inset 0 -1px 1px rgba(var(--sh),.4), 0 1px 1px rgba(255,255,255,.4); }
+  .panel::before{ left:13px } .panel::after{ right:13px }
+  .ptitle { text-align:center; font:9px/1 var(--mono); letter-spacing:2px; text-transform:uppercase; color:var(--ac); margin-bottom:4px; }
+  .pdesc { text-align:center; font:9px/1.5 var(--mono); letter-spacing:.4px; text-transform:uppercase; color:var(--label); margin-bottom:24px; min-height:26px; }
+  .hero { display:flex; flex-direction:column; align-items:center; gap:13px; }
+  .klabel { font:10px/1.3 var(--mono); letter-spacing:1px; text-transform:uppercase; color:var(--label); text-align:center; }
+  .klabel b { display:block; color:var(--ink-2); font-size:12px; letter-spacing:0; margin-top:3px; }
+  .eqrow { display:flex; justify-content:center; gap:22px; margin-top:26px; padding-top:22px;
+    border-top:1px dashed rgba(var(--sh),.14); }
+  .eqcell { display:flex; flex-direction:column; align-items:center; gap:9px; }
+  .eqcell .kl { font:9px/1 var(--mono); letter-spacing:.5px; color:var(--label); }
+
+  /* =========================================================
+     KNOB — shared anatomy
+     ========================================================= */
+  .knob { position:relative; width:var(--kd,92px); aspect-ratio:1/1; flex:0 0 auto; cursor:grab; touch-action:none;
+    --kd:92px; }
+  .knob.big{ --kd:138px } .knob.eq{ --kd:74px }
+  .knob.dragging{ cursor:grabbing }
+
+  /* recessed seat the cap sits in (the "well") */
+  .knob .seat{ position:absolute; inset:6%; border-radius:50%;
+    background:radial-gradient(120% 120% at 50% 38%, color-mix(in srgb,var(--face) 60%,#000 7%), var(--face) 70%);
+    box-shadow:inset 0 2px 4px rgba(var(--sh),.30), inset 0 -1px 2px rgba(255,255,255,.7); }
+
+  /* gauge */
+  .knob .arc{ position:absolute; inset:-2%; width:104%; height:104%; transform:rotate(135deg); overflow:visible; }
+  .knob .trk{ fill:none; stroke:var(--gauge); stroke-width:5.5; stroke-linecap:round; stroke-dasharray:75 100; opacity:.92; }
+  .knob .glow{ fill:none; stroke:var(--ac); stroke-width:9; stroke-linecap:round; stroke-dasharray:0 100;
+    filter:blur(5px); opacity:.75; }
+  .knob .val{ fill:none; stroke:var(--ac); stroke-width:5.5; stroke-linecap:round; stroke-dasharray:0 100;
+    filter:drop-shadow(0 0 3px rgba(var(--ac-rgb),.85)); }
+
+  /* convex machined cap */
+  .knob .cap{ position:absolute; inset:15%; border-radius:50%; z-index:2;
+    background:radial-gradient(125% 125% at 36% 28%, var(--cap-hi) 0%, var(--cap-mid) 40%, var(--cap-lo) 80%, var(--cap-edge) 100%);
+    box-shadow:
+      0 2px 3px rgba(var(--sh),.3),
+      0 14px 22px -8px rgba(var(--sh),.42),
+      0 6px 11px -5px rgba(var(--sh),.28),
+      inset 0 2px 2px rgba(255,255,255,.95),
+      inset 0 -7px 9px rgba(var(--sh),.24); }
+  /* specular streak */
+  .knob .cap::after{ content:""; position:absolute; inset:0; border-radius:50%; pointer-events:none;
+    background:radial-gradient(42% 34% at 33% 24%, rgba(255,255,255,.95), rgba(255,255,255,0) 70%); mix-blend-mode:screen; }
+
+  /* indicator carrier */
+  .knob .dial{ position:absolute; inset:15%; z-index:3; border-radius:50%; transform:rotate(0deg); }
+  .knob.dragging .dial,.knob.dragging .val,.knob.dragging .glow{ transition:none; }
+  .knob .dial,.knob .val,.knob .glow{ transition:transform .4s var(--ease), stroke-dasharray .4s var(--ease); }
+
+  /* dot indicator */
+  .knob .dot{ position:absolute; top:11%; left:50%; width:8px; height:8px; margin-left:-4px; border-radius:50%;
+    background:radial-gradient(120% 120% at 40% 30%, #6f7488, #2b2d36); box-shadow:inset 0 1px 1px rgba(0,0,0,.5), 0 1px 0 rgba(255,255,255,.6); }
+  .knob.big .dot{ width:10px; height:10px; margin-left:-5px; }
+  /* line indicator */
+  .knob .line{ position:absolute; top:10%; left:50%; width:3px; height:26%; margin-left:-1.5px; border-radius:2px;
+    background:linear-gradient(180deg, var(--ink-2), color-mix(in srgb,var(--ink-2) 50%,transparent));
+    box-shadow:0 1px 0 rgba(255,255,255,.5); }
+  /* accent indicator (lit) */
+  .knob .line.acc{ background:linear-gradient(180deg, var(--ac-2), var(--ac)); box-shadow:0 0 5px rgba(var(--ac-rgb),.7); }
+  .knob .dot.acc{ background:radial-gradient(120% 120% at 40% 30%, var(--ac-2), var(--ac)); box-shadow:0 0 6px rgba(var(--ac-rgb),.8); }
+
+  /* ---- Variant B "RIM": accent-tinted machined collar around the cap (inspiration's smaller knobs) ---- */
+  .v-rim .knob .ring{ position:absolute; inset:8%; border-radius:50%; z-index:1;
+    background:conic-gradient(from 220deg, var(--ac) 0deg, color-mix(in srgb,var(--ac) 30%, var(--face)) 230deg, var(--face) 231deg);
+    box-shadow:0 0 10px rgba(var(--ac-rgb),.45), inset 0 0 0 1px rgba(var(--sh),.06); opacity:.0; transition:opacity .3s; }
+  .v-rim .knob{ }
+  .v-rim .knob .cap{ inset:18%; }
+  .v-rim .knob .dial{ inset:18%; }
+  /* In RIM the gauge sits tighter + the collar carries the colour */
+  .v-rim .knob .arc{ inset:2%; width:96%; height:96%; }
+
+  /* ---- Variant C "PURE": clean glossy white, faint gauge, dot — inspiration's Master EQ / Global knobs ---- */
+  .v-pure .knob .trk{ stroke:var(--ink-2); opacity:.28; stroke-width:4; }
+  .v-pure .knob .glow{ opacity:.5; }
+  .v-pure .knob .cap{ inset:12%; box-shadow:
+      0 2px 4px rgba(var(--sh),.32), 0 18px 30px -10px rgba(var(--sh),.45), 0 8px 14px -6px rgba(var(--sh),.3),
+      inset 0 2px 3px rgba(255,255,255,.98), inset 0 -9px 12px rgba(var(--sh),.22); }
+  .v-pure .knob .dial{ inset:12%; }
+
+  /* ---- Variant D "DEEP": darker dished cap + bright accent dial, most "instrument" ---- */
+  .v-deep .knob .cap{ background:radial-gradient(125% 125% at 38% 26%, color-mix(in srgb,var(--cap-hi) 80%,#dfe3ee) 0%,
+      color-mix(in srgb,var(--cap-mid) 70%,#c4c9d8) 46%, var(--cap-lo) 82%, var(--cap-edge) 100%); }
+  .v-deep .knob .cap::before{ content:""; position:absolute; inset:26%; border-radius:50%;
+    background:radial-gradient(120% 120% at 50% 40%, color-mix(in srgb,var(--face) 60%,#000 5%), var(--face));
+    box-shadow:inset 0 2px 4px rgba(var(--sh),.3), inset 0 -1px 1px rgba(255,255,255,.6); }
+  .v-deep .knob .trk{ stroke-width:6.5 } .v-deep .knob .val{ stroke-width:6.5 } .v-deep .knob .glow{ stroke-width:11 }
+
+  /* legend / current-for-reference panel */
+  .ref { margin-top:22px; border-radius:18px; padding:20px 22px;
+    background:linear-gradient(180deg, color-mix(in srgb,var(--face) 70%,#fff), var(--face));
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.7), 0 2px 5px rgba(var(--sh),.12), 0 18px 36px -26px rgba(var(--sh),.4);
+    display:flex; align-items:center; gap:26px; flex-wrap:wrap; justify-content:center; }
+  .ref .rl { font:9px/1.5 var(--mono); letter-spacing:1px; text-transform:uppercase; color:var(--label); max-width:30ch; }
+  .foot { margin-top:26px; text-align:center; font:9px/1.7 var(--mono); letter-spacing:.5px; text-transform:uppercase; color:var(--label); }
+  .foot b{ color:var(--ink-2) }
+
+  /* the OLD knob (current studio-app recipe) for honest side-by-side */
+  .old .knob .cap{ background:linear-gradient(155deg,#fff 0%,#f3efe8 44%,#d4cfc4 100%); inset:16%;
+    box-shadow:0 3px 4px rgba(var(--sh),.30), 0 16px 26px -8px rgba(var(--sh),.34), inset 0 1.5px 1.5px rgba(255,255,255,.95), inset 0 -3px 4px rgba(150,144,132,.18); }
+  .old .knob .trk{ stroke:#26252b; stroke-width:5; opacity:1 }
+  .old .knob .glow{ display:none }
+  .old .knob .val{ stroke-width:5; filter:drop-shadow(0 0 2px rgba(var(--ac-rgb),.5)) }
+  .old .knob .seat{ display:none }
+  .old .knob .dial{ inset:16% }
+</style>
+</head>
+<body data-accent="violet" data-surface="warm">
+  <div class="wrap">
+    <div class="top">
+      <div class="brand"><b>EKO</b><span class="sub">studio</span></div>
+      <span class="ttl">Knob Lab · R2</span>
+      <div class="controls">
+        <div class="grp"><span class="glab">Surface</span>
+          <div class="seg" id="surf">
+            <button data-s="warm" class="on">Warm</button>
+            <button data-s="cool">Cool</button>
+            <button data-s="dark">Dark</button>
+          </div>
+        </div>
+        <div class="grp"><span class="glab">Accent</span>
+          <button class="sw on" data-ac="violet" style="--c:#6a5cf0"></button>
+          <button class="sw" data-ac="orange" style="--c:#ef6a1e"></button>
+          <button class="sw" data-ac="blue" style="--c:#2f8fff"></button>
+          <button class="sw" data-ac="teal" style="--c:#13b5a6"></button>
+        </div>
+      </div>
+    </div>
+
+    <div class="lab" id="lab"></div>
+
+    <div class="ref old" id="refOld">
+      <span class="rl">For honest comparison —<br>the CURRENT studio knob</span>
+      <div class="hero"><div class="knob big" data-val="0.46"></div><div class="klabel">Volume<b>−6 dB</b></div></div>
+      <div style="display:flex;gap:20px">
+        <div class="eqcell"><div class="knob eq" data-val="0.62"></div><div class="kl">1K</div></div>
+        <div class="eqcell"><div class="knob eq" data-val="0.4"></div><div class="kl">4K</div></div>
+      </div>
+    </div>
+
+    <div class="foot">
+      Drag any knob to turn it · <b>Surface</b> + <b>Accent</b> match the live picker ·
+      Pick the winner and it propagates into the current layout — the layout itself doesn't change.
+    </div>
+  </div>
+
+  <script>
+    const VARIANTS = [
+      { cls:'v-r1',   name:'A · R1',    desc:'Dark track · glowing arc · glossy cap · dot',           ind:'dot' },
+      { cls:'v-deep', name:'B · Deep',  desc:'Dished instrument cap · thick gauge · accent dot',      ind:'dot-acc' },
+      { cls:'v-rim',  name:'C · Rim',   desc:'Accent collar (inspiration) · line indicator',          ind:'line-acc', ring:true },
+      { cls:'v-pure', name:'D · Pure',  desc:'Clean white · faint gauge · Master-EQ style · dot',     ind:'dot' },
+    ];
+
+    function knobHTML(val, size, ind, ring){
+      const indHTML =
+        ind==='line'     ? '<i class="line"></i>' :
+        ind==='line-acc' ? '<i class="line acc"></i>' :
+        ind==='dot-acc'  ? '<i class="dot acc"></i>' :
+                           '<i class="dot"></i>';
+      return `<div class="knob ${size}" data-val="${val}">
+        <svg class="arc" viewBox="0 0 100 100"><circle class="trk" cx="50" cy="50" r="45" pathLength="100"/><circle class="glow" cx="50" cy="50" r="45" pathLength="100"/><circle class="val" cx="50" cy="50" r="45" pathLength="100"/></svg>
+        ${ring?'<div class="ring"></div>':''}
+        <div class="seat"></div>
+        <div class="cap"></div>
+        <div class="dial">${indHTML}</div>
+      </div>`;
+    }
+
+    const lab = document.getElementById('lab');
+    const EQ = [['60','0.6'],['1K','0.72'],['12K','0.42']];
+    VARIANTS.forEach(v=>{
+      const p = document.createElement('div'); p.className='panel '+v.cls;
+      p.innerHTML = `
+        <div class="ptitle">${v.name}</div>
+        <div class="pdesc">${v.desc}</div>
+        <div class="hero">${knobHTML('0.46','big',v.ind,v.ring)}<div class="klabel">Volume<b>−6 dB</b></div></div>
+        <div class="eqrow">${EQ.map(([l,val])=>`<div class="eqcell">${knobHTML(val,'eq',v.ind,v.ring)}<div class="kl">${l}</div></div>`).join('')}</div>`;
+      lab.appendChild(p);
+    });
+
+    // bind every knob (render + drag) — same recipe the app will use
+    function bindKnob(knob){
+      const val = knob.querySelector('.val'), glow = knob.querySelector('.glow'),
+            dial = knob.querySelector('.dial'), ring = knob.querySelector('.ring');
+      let v = parseFloat(knob.dataset.val || '0.5');
+      function render(){
+        const dash = (v*75).toFixed(2)+' 100';
+        val.style.strokeDasharray = dash; glow.style.strokeDasharray = dash;
+        dial.style.transform = 'rotate('+(v*270-135)+'deg)';
+        if(ring){ ring.style.opacity = (0.35 + v*0.65).toFixed(2);
+          ring.style.transform = 'rotate('+(v*270-135)+'deg)'; }
+      }
+      render();
+      let down=false, sy=0, sv=0;
+      knob.addEventListener('pointerdown', e=>{ down=true; knob.classList.add('dragging'); sy=e.clientY; sv=v; knob.setPointerCapture(e.pointerId); e.preventDefault(); });
+      knob.addEventListener('pointermove', e=>{ if(!down) return; v=Math.max(0,Math.min(1, sv+(sy-e.clientY)/170)); render(); });
+      function up(){ down=false; knob.classList.remove('dragging'); }
+      knob.addEventListener('pointerup', up); knob.addEventListener('pointercancel', up);
+    }
+    document.querySelectorAll('.knob').forEach(bindKnob);
+
+    // surface + accent pickers
+    document.querySelectorAll('#surf button').forEach(b=> b.addEventListener('click', ()=>{
+      document.querySelectorAll('#surf button').forEach(x=>x.classList.remove('on')); b.classList.add('on');
+      document.body.dataset.surface = b.dataset.s; }));
+    document.querySelectorAll('.sw').forEach(s=> s.addEventListener('click', ()=>{
+      document.querySelectorAll('.sw').forEach(x=>x.classList.remove('on')); s.classList.add('on');
+      document.body.dataset.accent = s.dataset.ac; }));
+
+    // url params for quick sharing
+    const q = new URLSearchParams(location.search);
+    if(q.get('ac')) document.querySelector(`.sw[data-ac="${q.get('ac')}"]`)?.click();
+    if(q.get('s')) document.querySelector(`#surf button[data-s="${q.get('s')}"]`)?.click();
+  </script>
+</body>
+</html>

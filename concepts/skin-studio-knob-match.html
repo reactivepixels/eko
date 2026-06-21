@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>EKO — Studio · Knob match (Modulation)</title>
+<style>
+  /* ============================================================
+     EKO — STUDIO · single-knob match
+     Target: the "Modulation" knob from the inspiration.
+     Soft cool-white dome cap, a thin DELICATE violet value arc on the
+     filled side only (with soft glow), a short engraved vertical line
+     indicator. Cool lavender ground. Match first, expand later.
+     ============================================================ */
+  :root{
+    --ac:#7a6ed6; --ac-glow:122,110,214;
+    --font:"Helvetica Neue","Inter",-apple-system,Helvetica,Arial,sans-serif;
+    --mono:"SF Mono",ui-monospace,Menlo,monospace;
+    --ease:cubic-bezier(.34,.02,.2,1);
+  }
+  *{ box-sizing:border-box; margin:0; padding:0; }
+  html,body{ height:100%; }
+  body{
+    font-family:var(--font); -webkit-font-smoothing:antialiased;
+    min-height:100%; display:grid; place-items:center; gap:40px; padding:60px;
+    background:
+      radial-gradient(135% 120% at 50% 14%, #e0e1ec 0%, #d2d3e0 46%, #c6c8d8 78%, #bcbecf 100%);
+  }
+
+  .stage{ display:flex; gap:64px; align-items:flex-start; flex-wrap:wrap; justify-content:center; }
+  .cell{ display:flex; flex-direction:column; align-items:center; gap:18px; }
+  .label{ font-size:15px; letter-spacing:.2px; color:#7f8092; }
+
+  /* ===================== KNOB ===================== */
+  .knob{ position:relative; width:var(--kd,190px); aspect-ratio:1/1; cursor:grab; touch-action:none; --kd:190px; }
+  .knob.sm{ --kd:120px; }
+  .knob.dragging{ cursor:grabbing; }
+
+  /* gauge — thin, delicate, glows only on the filled side */
+  .arc{ position:absolute; inset:0; width:100%; height:100%; transform:rotate(135deg); overflow:visible; }
+  .arc .trk{ fill:none; stroke:#6d6a90; opacity:.13; stroke-width:2.6; stroke-linecap:round; stroke-dasharray:75 100; }
+  .arc .glow{ fill:none; stroke:var(--ac); stroke-width:6; stroke-linecap:round; stroke-dasharray:0 100;
+    filter:blur(4px); opacity:.55; transition:stroke-dasharray .4s var(--ease); }
+  .arc .val{ fill:none; stroke:url(#vg); stroke-width:3; stroke-linecap:round; stroke-dasharray:0 100;
+    filter:drop-shadow(0 0 1.5px rgba(var(--ac-glow),.7)); transition:stroke-dasharray .4s var(--ease); }
+  .knob.dragging .arc .val,.knob.dragging .arc .glow{ transition:none; }
+
+  /* soft contact shadow under the cap */
+  .knob::after{ content:""; position:absolute; left:14%; right:14%; bottom:1%; height:14%; border-radius:50%; z-index:0;
+    background:radial-gradient(60% 100% at 50% 50%, rgba(70,72,104,.34), rgba(70,72,104,0) 72%); filter:blur(4px); }
+
+  /* the dome cap */
+  .cap{ position:absolute; inset:6.5%; border-radius:50%; z-index:2;
+    background:
+      radial-gradient(78% 64% at 50% 20%, rgba(255,255,255,.96), rgba(255,255,255,0) 62%),
+      linear-gradient(178deg, #fdfdff 0%, #f3f3fa 34%, #e2e3ee 70%, #d3d4e2 88%, #cccddc 100%);
+    box-shadow:
+      0 1px 1px rgba(60,62,96,.18),
+      0 16px 26px -10px rgba(52,54,86,.42),
+      0 6px 12px -6px rgba(52,54,86,.3),
+      inset 0 3px 4px rgba(255,255,255,.95),
+      inset 0 1px 0 rgba(255,255,255,.9),
+      inset 0 -13px 18px -6px rgba(120,124,162,.34),
+      inset 0 0 0 1px rgba(255,255,255,.5); }
+  /* faint cool rim just inside the edge */
+  .cap::before{ content:""; position:absolute; inset:0; border-radius:50%; pointer-events:none;
+    box-shadow:inset 0 0 0 1px rgba(120,122,158,.08), inset 0 -2px 3px rgba(120,124,162,.12); }
+  /* broad soft sheen, top */
+  .cap::after{ content:""; position:absolute; inset:0; border-radius:50%; pointer-events:none;
+    background:radial-gradient(46% 30% at 50% 16%, rgba(255,255,255,.85), rgba(255,255,255,0) 72%); }
+
+  /* indicator carrier rotates; default value 0.5 -> straight up */
+  .dial{ position:absolute; inset:6.5%; z-index:3; border-radius:50%; transition:transform .4s var(--ease); }
+  .knob.dragging .dial{ transition:none; }
+  /* short engraved vertical line with a faint violet tint */
+  .ind{ position:absolute; top:7.5%; left:50%; transform:translateX(-50%); width:5px; height:20%; border-radius:3px;
+    background:linear-gradient(180deg, #b7b2d4 0%, #908bb0 55%, #7f7aa0 100%);
+    box-shadow:
+      inset 0 1px 1px rgba(255,255,255,.55),
+      inset 0 -1px 1px rgba(70,68,100,.35),
+      0 1px 1px rgba(255,255,255,.6),
+      0 0 4px rgba(var(--ac-glow),.35); }
+  .knob.sm .ind{ width:4px; }
+</style>
+</head>
+<body>
+  <svg width="0" height="0" style="position:absolute"><defs>
+    <linearGradient id="vg" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="#6c5fce"/><stop offset="0.6" stop-color="#8478d8"/><stop offset="1" stop-color="#9b91e0"/>
+    </linearGradient>
+  </defs></svg>
+
+  <div class="stage">
+    <div class="cell">
+      <div class="knob" data-val="0.5">
+        <svg class="arc" viewBox="0 0 100 100"><circle class="trk" cx="50" cy="50" r="45" pathLength="100"/><circle class="glow" cx="50" cy="50" r="45" pathLength="100"/><circle class="val" cx="50" cy="50" r="45" pathLength="100"/></svg>
+        <div class="cap"></div>
+        <div class="dial"><i class="ind"></i></div>
+      </div>
+      <div class="label">Modulation</div>
+    </div>
+
+    <div class="cell">
+      <div class="knob sm" data-val="0.5">
+        <svg class="arc" viewBox="0 0 100 100"><circle class="trk" cx="50" cy="50" r="45" pathLength="100"/><circle class="glow" cx="50" cy="50" r="45" pathLength="100"/><circle class="val" cx="50" cy="50" r="45" pathLength="100"/></svg>
+        <div class="cap"></div>
+        <div class="dial"><i class="ind"></i></div>
+      </div>
+      <div class="label">Envelope</div>
+    </div>
+  </div>
+
+  <script>
+    function bindKnob(knob){
+      const val=knob.querySelector('.val'), glow=knob.querySelector('.glow'), dial=knob.querySelector('.dial');
+      let v=parseFloat(knob.dataset.val||'0.5');
+      function render(){ const d=(v*75).toFixed(2)+' 100'; val.style.strokeDasharray=d; glow.style.strokeDasharray=d;
+        dial.style.transform='rotate('+(v*270-135)+'deg)'; }
+      render();
+      let down=false, sy=0, sv=0;
+      knob.addEventListener('pointerdown', e=>{ down=true; knob.classList.add('dragging'); sy=e.clientY; sv=v; knob.setPointerCapture(e.pointerId); e.preventDefault(); });
+      knob.addEventListener('pointermove', e=>{ if(!down) return; v=Math.max(0,Math.min(1, sv+(sy-e.clientY)/180)); render(); });
+      function up(){ down=false; knob.classList.remove('dragging'); }
+      knob.addEventListener('pointerup', up); knob.addEventListener('pointercancel', up);
+    }
+    document.querySelectorAll('.knob').forEach(bindKnob);
+  </script>
+</body>
+</html>
