@@ -31,3 +31,6 @@ dev-keys/
 src/pro/
 src-tauri/src/pro/
 src-tauri/examples/
+
+# AI context — local only, never in the public repo
+CLAUDE.md
