@@ -39,7 +39,9 @@ export function SignalPath() {
     <div
       className={`sigpath${sp.pure ? " pure" : ""}`}
       title={
-        sp.pure ? "Untouched signal path — bit-for-bit to your DAC" : `Processing: ${sp.engineLabel}`
+        sp.pure
+          ? "Untouched signal path — bit-for-bit to your DAC"
+          : `Processing: ${sp.engineLabel}`
       }
     >
       <div className="sp-node sp-source">
@@ -47,9 +49,22 @@ export function SignalPath() {
         <span className="sp-v">{sp.src}</span>
       </div>
       <span className="sp-link" />
-      <div className="sp-node sp-out" onClick={openPicker} title="Choose output device">
+      <div
+        className="sp-node sp-out"
+        onClick={openPicker}
+        title="Choose output device"
+        role="button"
+        tabIndex={0}
+        aria-label="Choose output device"
+        aria-expanded={open}
+        aria-haspopup="listbox"
+        onKeyDown={(e) => (e.key === "Enter" || e.key === " " ? void openPicker() : undefined)}
+      >
         <span className="sp-k">
-          OUTPUT <span className="sp-caret">▾</span>
+          OUTPUT{" "}
+          <span className="sp-caret" aria-hidden="true">
+            ▾
+          </span>
         </span>
         <span className="sp-v">
           {info.device || "Output"} · {khz(info.rate)}
@@ -87,9 +102,18 @@ export function SignalPath() {
         className="sp-node sp-rg"
         onClick={() => setRgOpen((v) => !v)}
         title="ReplayGain — volume normalisation (off keeps the bit-perfect path)"
+        role="button"
+        tabIndex={0}
+        aria-label={`ReplayGain: ${sp.rgLabel}`}
+        aria-expanded={rgOpen}
+        aria-haspopup="listbox"
+        onKeyDown={(e) => (e.key === "Enter" || e.key === " " ? setRgOpen((v) => !v) : undefined)}
       >
         <span className="sp-k">
-          RG <span className="sp-caret">▾</span>
+          RG{" "}
+          <span className="sp-caret" aria-hidden="true">
+            ▾
+          </span>
         </span>
         <span className="sp-v">{sp.rgLabel}</span>
         {rgOpen && (
@@ -128,9 +152,18 @@ export function SignalPath() {
         className="sp-node sp-rg"
         onClick={() => setXfOpen((v) => !v)}
         title="Crossfade between tracks — off keeps the bit-perfect path; only the overlap is mixed"
+        role="button"
+        tabIndex={0}
+        aria-label={`Crossfade: ${sp.xfLabel}`}
+        aria-expanded={xfOpen}
+        aria-haspopup="listbox"
+        onKeyDown={(e) => (e.key === "Enter" || e.key === " " ? setXfOpen((v) => !v) : undefined)}
       >
         <span className="sp-k">
-          XFADE <span className="sp-caret">▾</span>
+          XFADE{" "}
+          <span className="sp-caret" aria-hidden="true">
+            ▾
+          </span>
         </span>
         <span className="sp-v">{sp.xfLabel}</span>
         {xfOpen && (

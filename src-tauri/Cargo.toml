@@ -14,6 +14,19 @@ edition = "2021"
 name = "eko_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
+# ── Open-core feature flags ────────────────────────────────────────────────────
+#
+# `pro` (default OFF) gates:
+#   - license validation / trial management (license.rs)
+#   - offline cache / encrypted playback (offline.rs + engine Source::Cached)
+#   - parametric EQ + AutoEQ (ParamBand* types + engine_set_param_eq etc.)
+#
+# The free (default) build compiles and runs without any Pro source present.
+# `keyring` (Keychain) is FREE — secure credential storage for multi-server is a
+# free table-stakes feature, not a Pro feature.
+[features]
+pro = ["dep:ed25519-dalek", "dep:rand", "dep:aes-gcm"]
+
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 
@@ -34,7 +47,18 @@ url = "2"
 cpal = "0.15"
 symphonia = { version = "0.5", features = ["all"] }
 rustfft = "6"
+tauri-plugin-updater = "2.10.1"
+tauri-plugin-process = "2.3.1"
+triple_buffer = "9.0.0"
+# Keychain integration — always compiled (multi-server credential storage is a free feature).
 keyring = "3"
+# Pro-only deps — pulled in only when the `pro` feature is enabled.
+ed25519-dalek = { version = "2", features = ["rand_core"], optional = true }
+rand = { version = "0.8", optional = true }
+aes-gcm = { version = "0.10", optional = true }
+
+[dev-dependencies]
+tempfile = "3"
 
 # System "Now Playing" + hardware media keys (macOS MPNowPlayingInfoCenter /
 # MPRemoteCommandCenter; cross-platform under the hood).

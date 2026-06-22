@@ -29,12 +29,34 @@ export function QueuePanel() {
             {q.tracks.length} {q.tracks.length === 1 ? "track" : "tracks"}
           </span>
           {q.tracks.length > 0 && (
-            <div className="q-clear" onClick={q.clear} title="Clear queue">
+            <div
+              className="q-clear"
+              onClick={q.clear}
+              title="Clear queue"
+              role="button"
+              tabIndex={0}
+              aria-label="Clear queue"
+              onKeyDown={(e) => (e.key === "Enter" || e.key === " " ? q.clear() : undefined)}
+            >
               Clear
             </div>
           )}
-          <div className="q-close icon-btn" onClick={q.close} title="Close">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <div
+            className="q-close icon-btn"
+            onClick={q.close}
+            title="Close"
+            role="button"
+            tabIndex={0}
+            aria-label="Close Up Next panel"
+            onKeyDown={(e) => (e.key === "Enter" || e.key === " " ? q.close() : undefined)}
+          >
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              aria-hidden="true"
+            >
               <path d="M6 6l12 12M18 6L6 18" />
             </svg>
           </div>
@@ -49,6 +71,9 @@ export function QueuePanel() {
                 <div
                   key={t.id}
                   className={`qrow${i === q.currentIndex ? " playing" : ""}${over === i ? " drop-over" : ""}${drag === i ? " dragging" : ""}`}
+                  role="listitem"
+                  tabIndex={0}
+                  aria-label={`${t.title ?? "Unknown"} by ${t.artist ?? "Unknown"}${i === q.currentIndex ? " — now playing" : ""}`}
                   draggable
                   onDragStart={() => setDrag(i)}
                   onDragOver={(e) => {
@@ -64,6 +89,7 @@ export function QueuePanel() {
                     drop(i);
                   }}
                   onClick={() => q.playAt(i)}
+                  onKeyDown={(e) => (e.key === "Enter" || e.key === " " ? q.playAt(i) : undefined)}
                   onContextMenu={openMenu(q.rowMenuItems(t.id, i))}
                 >
                   <div className="qart">
@@ -83,9 +109,24 @@ export function QueuePanel() {
                       e.stopPropagation();
                       q.remove(t.id);
                     }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.stopPropagation();
+                        q.remove(t.id);
+                      }
+                    }}
                     title="Remove"
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`Remove ${t.title ?? "track"} from queue`}
                   >
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      aria-hidden="true"
+                    >
                       <path d="M6 6l12 12M18 6L6 18" />
                     </svg>
                   </div>

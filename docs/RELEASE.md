@@ -75,16 +75,22 @@ The Tauri auto-updater uses a keypair to verify that update artifacts haven't be
 The **public key** goes in `tauri.conf.json` (committed to the repo). The **private key** is
 a secret used only in CI to sign artifacts.
 
+A **DEV keypair** has already been generated and committed to `dev-keys/updater_dev.key`
+(gitignored). The matching public key is embedded in `tauri.conf.json`. This keeps the build
+green locally. Before shipping publicly, replace it with a prod keypair — see
+[Updater Plugin Configuration](#updater-plugin-configuration).
+
+To generate a fresh keypair (e.g. for production):
+
 1. Generate the keypair:
    ```sh
-   npm run tauri signer generate
+   npm run tauri signer generate -w dev-keys/updater_dev.key --password "" --ci
    ```
-   This prints a public key and a private key. Optionally set a password when prompted.
+   The public key is written to `dev-keys/updater_dev.key.pub`.
 
-2. Add the public key to `src-tauri/tauri.conf.json` — see the
-   [Updater plugin config block](#updater-plugin-configuration) section below.
+2. Copy the public key into the `plugins.updater.pubkey` field in `src-tauri/tauri.conf.json`.
 
-3. Add the private key (the full PEM block including `-----BEGIN...` headers) as
+3. Add the private key (full contents of `dev-keys/updater_dev.key`) as
    `TAURI_SIGNING_PRIVATE_KEY`. Add the password (or an empty string) as
    `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`.
 
@@ -95,41 +101,44 @@ a secret used only in CI to sign artifacts.
 
 ## Updater Plugin Configuration
 
-The Tauri auto-updater requires two things:
-1. The **`tauri-plugin-updater`** Rust crate added to `src-tauri/Cargo.toml` and registered
-   in `src-tauri/src/lib.rs`.
-2. A **`plugins.updater`** config block in `src-tauri/tauri.conf.json`.
+The Tauri auto-updater is **fully wired** as of the `feat/pro-licensing` branch:
 
-Because installing the plugin requires runtime code changes (not just config), the block is
-documented here rather than committed prematurely. Add it when you are ready to wire up
-the plugin in Rust.
+- `tauri-plugin-updater` + `tauri-plugin-process` Rust crates are in `src-tauri/Cargo.toml`.
+- Both plugins are registered in `src-tauri/src/lib.rs`.
+- `updater:default` + `process:default` permissions are granted in `src-tauri/capabilities/default.json`.
+- The `plugins.updater` block is in `src-tauri/tauri.conf.json` with a **DEV public key**.
+- The frontend store (`src/store/useUpdaterStore.ts`) handles check / download / install / relaunch.
+- The `UpdatePanel` sidebar component (`src/pro/UpdatePanel.tsx`) surfaces a "Check for Updates"
+  control and an install prompt when an update is available.
+- A silent background check runs on app launch from `src/App.tsx`.
 
-**Step 1 — Add the Cargo dependency** (`src-tauri/Cargo.toml`):
-```toml
-tauri-plugin-updater = "2"
-```
+### Swapping the DEV key for production
 
-**Step 2 — Register the plugin** (`src-tauri/src/lib.rs`, inside `tauri::Builder`):
-```rust
-.plugin(tauri_plugin_updater::Builder::new().build())
-```
+The committed public key in `tauri.conf.json` is a **DEV key** — it was generated locally and
+the private key lives in `dev-keys/updater_dev.key` (gitignored). It keeps the build green but
+**signed release artifacts require the matching private key**.
 
-**Step 3 — Add the config block** (`src-tauri/tauri.conf.json`, at the top level):
-```json
-"plugins": {
-  "updater": {
-    "pubkey": "<paste the public key from npm run tauri signer generate>",
-    "endpoints": [
-      "https://github.com/reactivepixels/eko/releases/latest/download/latest.json"
-    ]
-  }
-}
-```
+Before the first public release:
 
-Replace `reactivepixels/eko` with the actual `owner/repo` slug once the repository is public.
+1. Generate a **new, dedicated prod keypair** on a secure machine:
+   ```sh
+   npm run tauri signer generate -w /path/to/secure/updater_prod.key
+   ```
 
-The `latest.json` file is produced automatically by `tauri-action` when it builds the
-`.app.tar.gz` update artifact — you do not need to create it manually.
+2. Replace the `pubkey` value in `src-tauri/tauri.conf.json` with the new **public** key
+   (contents of `updater_prod.key.pub`). Commit this change.
+
+3. Add the **private** key (full contents of `updater_prod.key`) as the
+   `TAURI_SIGNING_PRIVATE_KEY` GitHub Actions secret.
+   Add the password (empty string if none) as `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`.
+
+4. Delete or archive the local prod private key file — CI is the only place it should live.
+
+> The private key signs `.app.tar.gz` update artifacts. Anyone with it can ship a
+> malicious update. Treat it like a deploy key — never commit it.
+
+The `latest.json` file is produced automatically by `tauri-action` when `TAURI_SIGNING_PRIVATE_KEY`
+is set and the build produces an `.app.tar.gz` updater artifact — you do not need to create it manually.
 
 ---
 

@@ -4,10 +4,13 @@ import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { listen } from "@tauri-apps/api/event";
 import { PlayerApp } from "./player/PlayerApp";
 import { ConnectPanel } from "./windows/ConnectPanel";
+import { ManageServersPanel } from "./windows/ManageServersPanel";
 import { useSubsonic } from "./subsonic/useSubsonic";
 import { useLocal } from "./local/useLocal";
 import { useUiStore } from "./store/useUiStore";
 import { usePlayerStore, pauseMainPoll, resumeMainPoll } from "./store/usePlayerStore";
+import { useLicenseStore, useOfflineStore } from "@pro";
+import { useUpdaterStore } from "./store/useUpdaterStore";
 import { restoreState, startAutosave } from "./store/persist";
 import { AUDIO_EXTENSIONS } from "./audio/loader";
 import "./App.css";
@@ -23,6 +26,16 @@ function App() {
     restoreState().finally(() => {
       stopAutosave = startAutosave();
     });
+
+    // Load license status on boot (also starts the 14-day trial on first launch).
+    void useLicenseStore.getState().loadStatus();
+
+    // Silent background update check — fails gracefully if offline or no latest.json yet.
+    void useUpdaterStore.getState().checkSilent();
+
+    // Offline cache: load the entry list and subscribe to download-progress events.
+    void useOfflineStore.getState().load();
+    void useOfflineStore.getState().listenForProgress();
 
     void useSubsonic.getState().autoConnect();
     void useLocal.getState().autoRestore();
@@ -170,6 +183,7 @@ function App() {
     <>
       <PlayerApp />
       {source === "server" && !connected && <ConnectPanel />}
+      <ManageServersPanel />
     </>
   );
 }

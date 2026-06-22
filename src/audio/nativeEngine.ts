@@ -14,6 +14,31 @@ export interface EngineStatus {
   seg: number; // playing-track index within the current gapless session (0 = first track)
 }
 
+/** Filter type for one parametric EQ band. Mirrors the Rust `ParamBandType` enum. */
+export type ParamBandType = "peaking" | "lowShelf" | "highShelf" | "lowPass" | "highPass" | "notch";
+
+/** One parametric EQ band. Mirrors the Rust `ParamBand` struct. */
+export interface ParamBand {
+  filterType: ParamBandType;
+  /** Centre / corner frequency in Hz. */
+  freq: number;
+  /** Gain in dB (peaking / shelf only; ignored for LP/HP/notch). */
+  gainDb: number;
+  /** Quality factor. 0.707 = Butterworth; 1.0 = broad bell. */
+  q: number;
+  /** Whether this band is active. */
+  enabled: boolean;
+}
+
+/** Which EQ is routed to DSP. Mirrors the Rust `EqMode` enum. */
+export type EqMode = "graphic" | "parametric";
+
+/** Parsed AutoEQ result returned by `engine_parse_autoeq`. */
+export interface AutoEqResult {
+  preamp: number;
+  bands: ParamBand[];
+}
+
 export interface NowPlaying {
   title: string;
   artist: string;
@@ -36,12 +61,30 @@ export const nativeEngine = {
   seek: (secs: number) => invoke("engine_seek", { secs }),
   setEq: (enabled: boolean, preamp: number, gains: number[]) =>
     invoke("engine_set_eq", { enabled, preamp, gains }),
+  /** Switch the active EQ mode (graphic = free 10-band; parametric = Pro N-band). */
+  setEqMode: (mode: EqMode) => invoke("engine_set_eq_mode", { mode }),
+  /** Push the parametric EQ configuration to the engine. */
+  setParamEq: (enabled: boolean, preamp: number, bands: ParamBand[]) =>
+    invoke("engine_set_param_eq", { enabled, preamp, bands }),
+  /** Parse an AutoEQ ParametricEQ.txt text. Throws on parse failure. */
+  parseAutoEq: (text: string) => invoke<AutoEqResult>("engine_parse_autoeq", { text }),
+  /** Read + parse an AutoEQ ParametricEQ.txt file at an absolute path. Throws on I/O or parse failure. */
+  importAutoEqFile: (path: string) => invoke<AutoEqResult>("engine_import_autoeq_file", { path }),
   setVolume: (vol: number) => invoke("engine_set_volume", { vol }),
   // ReplayGain (off by default): pass the chosen gain in dB, or null/0 to disable.
   // Any non-zero value takes playback off the bit-perfect path (honestly reflected in the seal).
   setReplayGain: (gainDb: number | null) => invoke("engine_set_replaygain", { gainDb }),
-  // Queue the next track for gapless continuation (same-rate → no seam). null/null clears it.
-  enqueue: (path: string | null, url: string | null) => invoke("engine_enqueue", { path, url }),
+  // Queue the next track for gapless continuation (same-rate → no seam). null/null/null clears it.
+  enqueue: (
+    path: string | null,
+    url: string | null,
+    trackId?: string | null,
+    plainLen?: number | null,
+  ) =>
+    invoke("engine_enqueue", { path, url, trackId: trackId ?? null, plainLen: plainLen ?? null }),
+  // Play a cached offline track (bit-perfect: EncryptedFileSource → symphonia, same path as local).
+  playCached: (trackId: string, plainLen: number) =>
+    invoke<EngineStatus>("engine_play_cached", { trackId, plainLen }),
   // Crossfade duration (ms; 0 = off). Re-pushed per track. Off keeps the bit-perfect path.
   setCrossfade: (ms: number) => invoke("engine_set_crossfade", { ms }),
   setNowPlaying: (np: NowPlaying) => invoke("engine_set_now_playing", { np }),

@@ -142,7 +142,11 @@ export function StudioLibrary() {
           ["year", "Year"],
         ] as const
       ).map(([k, label]) => (
-        <button key={k} className={`${styles.pill}${sort === k ? ` ${styles.on}` : ""}`} onClick={() => setSort(k)}>
+        <button
+          key={k}
+          className={`${styles.pill}${sort === k ? ` ${styles.on}` : ""}`}
+          onClick={() => setSort(k)}
+        >
           {label}
         </button>
       ))}

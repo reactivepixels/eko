@@ -106,6 +106,7 @@ use symphonia::core::formats::FormatOptions;
 use symphonia::core::io::{MediaSource, MediaSourceStream};
 use symphonia::core::meta::MetadataOptions;
 use symphonia::core::probe::Hint;
+use triple_buffer::triple_buffer;
 
 /// A [`symphonia::core::io::MediaSource`] backed by an in-progress HTTP download.
 ///
@@ -206,6 +207,14 @@ const EQ_FREQS: [f32; 10] = [
 /// conservative; real-world content is ≤ 8 channels.
 const MAX_CH: usize = 8;
 
+/// Maximum number of biquad stages in the unified band_state array. When Pro is
+/// disabled this is 10 (graphic EQ). When Pro is enabled it grows to MAX_PARAM_BANDS
+/// to also serve the parametric EQ cascade — the same array serves both paths.
+#[cfg(not(feature = "pro"))]
+const MAX_BAND_STATE: usize = 10;
+#[cfg(feature = "pro")]
+const MAX_BAND_STATE: usize = crate::pro::param_eq::MAX_PARAM_BANDS;
+
 /// Snapshot of the EQ parameters written by `engine_set_eq` and read by the cpal
 /// callback. Cloned in full each time the callback enters the DSP path.
 #[derive(Clone)]
@@ -247,27 +256,16 @@ struct Biquad {
     a1: f32,
     a2: f32,
 }
+// shelf/pass/notch constructors are used only in the Pro build (param_eq) and in unit tests.
+// Allow dead_code in the free build so clippy stays clean without -D warnings breakage.
+#[allow(dead_code)]
 impl Biquad {
     /// Compute RBJ peaking EQ coefficients.
-    ///
-    /// A peaking filter boosts or cuts by `gain_db` dB at `freq` Hz with bandwidth
-    /// controlled by `q`. At `gain_db = 0.0` the filter is an identity (H(z) = 1).
-    ///
-    /// Formula: RBJ Audio EQ Cookbook, §"Peaking EQ filter".
-    ///
-    /// - `freq`    — centre frequency in Hz
-    /// - `q`       — quality factor (narrowness of the bell); 1.0 is a gentle broad shape
-    /// - `gain_db` — boost (+) or cut (−) in dB
-    /// - `fs`      — sample rate in Hz
     fn peaking(freq: f32, q: f32, gain_db: f32, fs: f32) -> Biquad {
-        // A = 10^(gain_dB/40) so that A² = linear amplitude ratio at the peak.
         let a = 10f32.powf(gain_db / 40.0);
-        // ω₀ = 2π·freq/fs — the normalised angular frequency.
         let w0 = 2.0 * PI * freq / fs;
         let (sw, cw) = (w0.sin(), w0.cos());
-        // α = sin(ω₀)/(2Q) — controls the bandwidth of the peak.
         let alpha = sw / (2.0 * q);
-        // a0 is the normalisation denominator (divided out of all other coefficients).
         let a0 = 1.0 + alpha / a;
         Biquad {
             b0: (1.0 + alpha * a) / a0,
@@ -278,11 +276,84 @@ impl Biquad {
         }
     }
 
+    /// Compute RBJ low-shelf coefficients.
+    fn low_shelf(freq: f32, q: f32, gain_db: f32, fs: f32) -> Biquad {
+        let a = 10f32.powf(gain_db / 40.0);
+        let w0 = 2.0 * PI * freq / fs;
+        let (sw, cw) = (w0.sin(), w0.cos());
+        let alpha = sw / 2.0 * ((a + 1.0 / a) * (1.0 / q - 1.0) + 2.0).sqrt();
+        let a0 = (a + 1.0) + (a - 1.0) * cw + 2.0 * alpha * a.sqrt();
+        Biquad {
+            b0: a * ((a + 1.0) - (a - 1.0) * cw + 2.0 * alpha * a.sqrt()) / a0,
+            b1: 2.0 * a * ((a - 1.0) - (a + 1.0) * cw) / a0,
+            b2: a * ((a + 1.0) - (a - 1.0) * cw - 2.0 * alpha * a.sqrt()) / a0,
+            a1: -2.0 * ((a - 1.0) + (a + 1.0) * cw) / a0,
+            a2: ((a + 1.0) + (a - 1.0) * cw - 2.0 * alpha * a.sqrt()) / a0,
+        }
+    }
+
+    /// Compute RBJ high-shelf coefficients.
+    fn high_shelf(freq: f32, q: f32, gain_db: f32, fs: f32) -> Biquad {
+        let a = 10f32.powf(gain_db / 40.0);
+        let w0 = 2.0 * PI * freq / fs;
+        let (sw, cw) = (w0.sin(), w0.cos());
+        let alpha = sw / 2.0 * ((a + 1.0 / a) * (1.0 / q - 1.0) + 2.0).sqrt();
+        let a0 = (a + 1.0) - (a - 1.0) * cw + 2.0 * alpha * a.sqrt();
+        Biquad {
+            b0: a * ((a + 1.0) + (a - 1.0) * cw + 2.0 * alpha * a.sqrt()) / a0,
+            b1: -2.0 * a * ((a - 1.0) + (a + 1.0) * cw) / a0,
+            b2: a * ((a + 1.0) + (a - 1.0) * cw - 2.0 * alpha * a.sqrt()) / a0,
+            a1: 2.0 * ((a - 1.0) - (a + 1.0) * cw) / a0,
+            a2: ((a + 1.0) - (a - 1.0) * cw - 2.0 * alpha * a.sqrt()) / a0,
+        }
+    }
+
+    /// Compute RBJ 2nd-order Butterworth low-pass coefficients.
+    fn low_pass(freq: f32, q: f32, fs: f32) -> Biquad {
+        let w0 = 2.0 * PI * freq / fs;
+        let (sw, cw) = (w0.sin(), w0.cos());
+        let alpha = sw / (2.0 * q);
+        let a0 = 1.0 + alpha;
+        Biquad {
+            b0: (1.0 - cw) / 2.0 / a0,
+            b1: (1.0 - cw) / a0,
+            b2: (1.0 - cw) / 2.0 / a0,
+            a1: -2.0 * cw / a0,
+            a2: (1.0 - alpha) / a0,
+        }
+    }
+
+    /// Compute RBJ 2nd-order Butterworth high-pass coefficients.
+    fn high_pass(freq: f32, q: f32, fs: f32) -> Biquad {
+        let w0 = 2.0 * PI * freq / fs;
+        let (sw, cw) = (w0.sin(), w0.cos());
+        let alpha = sw / (2.0 * q);
+        let a0 = 1.0 + alpha;
+        Biquad {
+            b0: (1.0 + cw) / 2.0 / a0,
+            b1: -(1.0 + cw) / a0,
+            b2: (1.0 + cw) / 2.0 / a0,
+            a1: -2.0 * cw / a0,
+            a2: (1.0 - alpha) / a0,
+        }
+    }
+
+    /// Compute RBJ notch (band-reject) coefficients.
+    fn notch(freq: f32, q: f32, fs: f32) -> Biquad {
+        let w0 = 2.0 * PI * freq / fs;
+        let (sw, cw) = (w0.sin(), w0.cos());
+        let alpha = sw / (2.0 * q);
+        let a0 = 1.0 + alpha;
+        Biquad {
+            b0: 1.0 / a0,
+            b1: -2.0 * cw / a0,
+            b2: 1.0 / a0,
+            a1: -2.0 * cw / a0,
+            a2: (1.0 - alpha) / a0,
+        }
+    }
+
     /// Process one sample through the filter using direct-form II transposed state.
-    ///
-    /// `z` is the two-element delay state `(w[n-1], w[n-2])` which must be
-    /// maintained between calls (one state pair per channel per band). Returns the
-    /// filtered sample `y[n]`.
     #[inline]
     fn process(&self, z: &mut (f32, f32), x: f32) -> f32 {
         let y = self.b0 * x + z.0;
@@ -291,59 +362,78 @@ impl Biquad {
         y
     }
 }
-/// Build the 10 biquad coefficient sets for the current EQ gains at sample rate `fs`.
-///
-/// Called once at the start of each cpal callback invocation when the EQ is active.
-/// Computing coefficients per-callback (rather than caching them) keeps the callback
-/// code simple and the cost is negligible — 10 `powf` + trig calls takes < 1 µs.
-fn eq_coeffs(gains: &[f32; 10], fs: u32) -> [Biquad; 10] {
-    let mut c = [Biquad::default(); 10];
-    for i in 0..10 {
-        c[i] = Biquad::peaking(EQ_FREQS[i], 1.0, gains[i], fs as f32);
-    }
-    c
+
+// ── EQ mode (free: Graphic only; pro: Graphic | Parametric) ──────────────────
+
+/// Which EQ is routed to the DSP path. Only one can be active at a time so the
+/// bypass (bit-perfect) condition remains unambiguous.
+#[derive(Clone, Copy, Default, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum EqMode {
+    /// 10-band graphic EQ (the free / default mode).
+    #[default]
+    Graphic,
+    /// N-band parametric EQ (Pro feature).
+    #[cfg(feature = "pro")]
+    Parametric,
 }
 
-/// Decide whether the cpal callback may take the untouched-samples bypass.
+// ── Lock-free DSP parameter handoff ───────────────────────────────────────────
+//
+// The cpal audio callback runs on a high-priority thread and must never block.
+// All DSP parameters that the callback reads (EQ mode, graphic params, parametric
+// params) are published through a `triple_buffer::Input` / `Output` pair:
+//
+//   Control side (Tauri command handlers):
+//     Build a fresh `DspSnapshot` → `dsp_input.write(snapshot)` — wait-free.
+//
+//   Audio side (cpal callback):
+//     `dsp_output.read()` — always returns the latest snapshot, wait-free.
+
+/// A snapshot of all DSP parameters consumed by the cpal audio callback.
 ///
-/// Bit-perfect playback requires that *nothing* alters the decoded PCM: the EQ must be
-/// inactive, software volume must be exactly unity, and any ReplayGain adjustment must be
-/// exactly unity (off / 0 dB). Any deviation forces the per-sample DSP path. (On macOS the
-/// device-rate match is enforced separately by [`crate::coreaudio`] before playback starts,
-/// and surfaced via [`EngineStatus::dev_rate`].)
-///
-/// Extracted as a pure function so the invariant is unit-tested rather than living only
-/// inline in the realtime callback.
-#[inline]
-fn is_bitperfect(eq_active: bool, vol: f32, rg_gain: f32) -> bool {
-    !eq_active && vol == 1.0 && rg_gain == 1.0
+/// Written atomically by Tauri command handlers via a triple-buffer `Input`.
+/// Read on the audio thread via `Output::read()` — wait-free, no allocation, no lock.
+#[derive(Clone, Default)]
+struct DspSnapshot {
+    /// Which EQ is routed to DSP.
+    mode: EqMode,
+    /// Graphic EQ parameters (10-band).
+    graphic: EqParams,
+    /// Parametric EQ parameters (Pro). Only populated when `feature = "pro"`.
+    #[cfg(feature = "pro")]
+    parametric: crate::pro::param_eq::ParamEqParams,
 }
 
-/// Convert an optional ReplayGain value in dB to a clamped linear multiplier.
-///
-/// `None` or `Some(0.0)` → `1.0` (off / 0 dB → no change → the bit-perfect bypass stays
-/// available). Otherwise `10^(dB/20)`, clamped to `0.0..=4.0` to guard against malformed
-/// tags producing extreme or invalid gains.
-fn rg_db_to_linear(gain_db: Option<f32>) -> f32 {
-    match gain_db {
-        Some(db) if db != 0.0 => 10f32.powf(db / 20.0).clamp(0.0, 4.0),
-        _ => 1.0,
+impl DspSnapshot {
+    /// True when the currently-routed EQ is doing anything to the signal.
+    /// Mirrors the per-type `active()` predicates; drives the bit-perfect bypass.
+    fn eq_active(&self) -> bool {
+        match self.mode {
+            EqMode::Graphic => self.graphic.active(),
+            #[cfg(feature = "pro")]
+            EqMode::Parametric => self.parametric.active(),
+        }
     }
 }
 
 /// A queued next source for gapless continuation, set via [`engine_enqueue`] and consumed
 /// by the decode loop at end-of-track when its sample rate matches the open stream.
+///
+/// `Source::Cached` is a Pro feature — it plays from the offline encrypted cache.
 enum Source {
     File(String),
     Url(String),
+    /// Play from the offline encrypted cache (Pro only). `plain_len` is the original
+    /// plaintext file size stored in the cache index (required for seek).
+    #[cfg(feature = "pro")]
+    Cached {
+        track_id: String,
+        plain_len: u64,
+    },
 }
 
 /// Index of the segment (track) that contains interleaved sample position `pos`.
-///
-/// `starts` is the ascending list of per-track start offsets in the concatenated buffer
-/// (always begins with `0`). Returns the index of the last start that is `<= pos`. Used to
-/// report position/duration relative to the current track during gapless playback. For a
-/// single track (`starts == [0]`) this is always `0`, so non-gapless behaviour is unchanged.
 fn segment_at(starts: &[usize], pos: usize) -> usize {
     let mut i = 0;
     for (k, &s) in starts.iter().enumerate() {
@@ -356,179 +446,90 @@ fn segment_at(starts: &[usize], pos: usize) -> usize {
     i
 }
 
-/// Commands sent from the Tauri command handlers to the decode/playback thread via an
-/// `mpsc` channel. The thread drains all pending commands each loop iteration so that
-/// a burst of seek events during a scrub collapses to the final position.
+/// Commands sent from the Tauri command handlers to the decode/playback thread.
 enum Cmd {
     Pause,
     Resume,
-    /// Seek to the given output-rate frame index (not seconds — the sender converts).
     Seek(usize),
     Stop,
 }
 
 /// State shared between the Tauri command handlers, the decode thread, and the cpal
-/// audio callback. All fields are individually synchronised (atomics or `Mutex`) so
-/// that the three concurrent actors can read and write without a single coarse lock.
+/// audio callback.
 struct Shared {
-    /// Current read position in `samples`, as an interleaved sample index.
-    /// Written exclusively by the cpal callback; read by status queries and seek.
     pos: AtomicUsize,
-    /// Estimated (during decode) or exact (after decode) total interleaved sample count.
-    /// Used to compute `dur_ms` in [`EngineStatus`].
     total: AtomicUsize,
-    /// Output sample rate in Hz — the rate cpal was opened at (may differ from
-    /// `src_rate` if the hardware can't match the file's rate).
     rate: AtomicU32,
-    /// Number of interleaved channels in `samples` and in the cpal output stream.
     channels: AtomicU32,
-    /// The file's own native sample rate in Hz. When `src_rate == rate` AND
-    /// `dev_rate == rate`, the full bit-perfect signal path is confirmed.
     src_rate: AtomicU32,
-    /// The OS device's actual nominal rate after [`crate::coreaudio::match_device_rate`]
-    /// runs. If this differs from `rate` macOS is resampling despite our best effort.
     dev_rate: AtomicU32,
-    /// Bit depth of the source file (e.g. 16, 24, 32). `0` for lossy/compressed
-    /// formats where the concept doesn't apply.
     bits: AtomicU32,
-    /// Short codec identifier string (e.g. `"flac"`, `"mp3"`, `"aac"`, `"pcm"`).
     codec: Mutex<String>,
-    /// `true` while the stream is paused (callback outputs silence).
     paused: AtomicBool,
-    /// `false` once the track finishes or `engine_stop` is called.
     playing: AtomicBool,
-    /// `true` once the decode thread has pushed the last packet into `samples`.
     done: AtomicBool,
-    /// Display name of the cpal output device chosen for this track.
     device: Mutex<String>,
-    /// Latest 32-band spectrum magnitudes (0.0–1.0), updated at ~30 fps by the
-    /// decode thread's FFT loop and read by `engine_bands`.
     bands: Mutex<Vec<f32>>,
-    /// Growing interleaved PCM buffer (f32, output rate/channels). Appended to by
-    /// the decode thread; read (never mutated) by the cpal callback and the FFT.
-    /// See the module-level docs for the realtime-safety discussion of this lock.
     samples: Mutex<Vec<f32>>,
-    /// Current EQ parameters, written by `engine_set_eq` and snapshotted at the
-    /// start of each cpal callback. Protected by a `Mutex` (not atomics) because
-    /// `EqParams` is 44 bytes and needs to be read atomically as a unit.
+    /// Current graphic EQ parameters, kept for command-handler reads.
     eq: Mutex<EqParams>,
-    /// Playback gain stored as raw `f32` bits in an `AtomicU32` for lock-free access
-    /// from the cpal callback. `1.0f32.to_bits()` = unity gain = bit-perfect bypass.
+    /// Parametric EQ parameters (Pro feature). Kept for command-handler reads.
+    #[cfg(feature = "pro")]
+    param_eq: Mutex<crate::pro::param_eq::ParamEqParams>,
+    /// Which EQ is routed to DSP.
+    eq_mode: Mutex<EqMode>,
+    /// Lock-free DSP parameter handoff.
+    dsp_input: Mutex<triple_buffer::Input<DspSnapshot>>,
     vol: AtomicU32,
-    /// ReplayGain adjustment as a linear multiplier, stored as raw `f32` bits in an
-    /// `AtomicU32` for lock-free access from the cpal callback. `1.0` = off / 0 dB = no
-    /// change, so the bit-perfect bypass remains available. Set via
-    /// [`engine_set_replaygain`]; **off (unity) by default**.
     rg_gain: AtomicU32,
-    /// Queued next track for gapless continuation, set by the frontend ~10 s before the
-    /// current track ends. Consumed at decode-EOF only when its sample rate matches the open
-    /// stream (else the frontend does a normal track change and the stream rebuilds).
     next_src: Mutex<Option<Source>>,
-    /// Interleaved sample offsets where each track begins in `samples` (gapless segments).
-    /// Always starts `[0]`; a boundary is pushed on each gapless continuation. Lets
-    /// [`engine_status`] report position/duration — and the playing-track index — relative to
-    /// the *current* track. A single track keeps this `[0]`, so non-gapless math is unchanged.
     seg_starts: Mutex<Vec<usize>>,
-    /// Crossfade duration in milliseconds (**0 = off**, the default). When non-zero, a
-    /// same-rate gapless continuation overlaps the two tracks: the decode thread fades the
-    /// outgoing track's tail down and mixes the incoming track's head up over this window,
-    /// in-place in `samples`. The cpal callback is unchanged — it still reads one contiguous
-    /// buffer — so steady-state playback (and the bit-perfect bypass) is untouched; only the
-    /// short overlap region holds pre-mixed samples (inherent to crossfading).
     xfade_ms: AtomicU32,
 }
 
-/// The Tauri-managed engine state, registered once at startup via `tauri::Builder::manage`.
-///
-/// A single `Engine` instance lives for the lifetime of the app. Each call to
-/// `engine_play` / `engine_play_url` tears down the previous session and starts a fresh
-/// one, replacing `cmd` and `shared` atomically under their respective `Mutex` guards.
+/// The Tauri-managed engine state, registered once at startup.
 #[derive(Default)]
 pub struct Engine {
-    /// Channel sender to the active decode thread. `None` when nothing is playing.
     cmd: Mutex<Option<Sender<Cmd>>>,
-    /// Live shared state for the current track. Wrapped in an `Arc<Mutex<Option<…>>>`
-    /// so that command handlers can safely check whether a session is active.
     shared: Arc<SharedHolder>,
-    /// Current track metadata (title, artist, cover, theme, index). Written by the
-    /// main window and read by the mini-player window directly from Rust, so it stays
-    /// live even when the main window is hidden and its JS timers are throttled.
     now: Mutex<NowPlaying>,
-    /// Preferred output device name (`None` = system default). Stored here so that
-    /// `engine_set_device` can be called at any time and takes effect on the next track.
     device_pref: Mutex<Option<String>>,
 }
 
-/// Now-playing metadata, set by the main window and read by any window (e.g. the mini
-/// player) directly from Rust — so it stays live even when the main window is hidden
-/// and its JS timers are throttled by macOS.
+/// Now-playing metadata, set by the main window and read by any window.
 #[derive(Default, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct NowPlaying {
-    /// Track title (from the library, not the file tags).
     pub title: String,
-    /// Artist name.
     pub artist: String,
-    /// Remote cover art URL (Navidrome cover endpoint), if available.
     pub cover_url: String,
-    /// Local file path to the cover image, if available (used when offline).
     pub cover_path: String,
-    /// UI theme token for this track's accent colour (e.g. `"amber"`, `"violet"`).
     pub theme: String,
-    /// Zero-based index of this track in the active playlist.
     pub index: i64,
-    /// Total number of tracks in the active playlist.
     pub total: i64,
 }
 
 #[derive(Default)]
 struct SharedHolder(Mutex<Option<Arc<Shared>>>);
 
-/// Snapshot of engine state returned by [`engine_status`] and polled by the UI at
-/// ~4 Hz to update the progress bar, signal-path badge, and device display.
+/// Snapshot of engine state returned by [`engine_status`].
 #[derive(serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct EngineStatus {
-    /// `true` while audio is actively playing (i.e. not paused and not finished).
     pub playing: bool,
-    /// Playback position in milliseconds.
     pub pos_ms: u64,
-    /// Track duration in milliseconds (estimated during decode, exact afterwards).
     pub dur_ms: u64,
-    /// Output sample rate in Hz — the rate cpal and the DAC are running at.
     pub rate: u32,
-    /// Number of output channels.
     pub channels: u32,
-    /// Display name of the active cpal output device.
     pub device: String,
-    /// Native sample rate of the source file in Hz.
-    ///
-    /// When `src_rate == rate` the engine is not resampling internally.
-    /// The UI uses `src_rate == rate == dev_rate` as the "bit-perfect confirmed" signal.
     pub src_rate: u32,
-    /// Actual nominal rate of the OS output device in Hz, read back after
-    /// [`crate::coreaudio::match_device_rate`] runs.
-    ///
-    /// When `dev_rate == rate` macOS is not resampling at the HAL layer.
-    /// A mismatch (e.g. `dev_rate = 44100` while `rate = 96000`) means the OS
-    /// couldn't switch — typically because the device doesn't support that rate.
     pub dev_rate: u32,
-    /// Bit depth of the source file (16, 24, 32). `0` for compressed/lossy formats.
     pub bits: u32,
-    /// Short codec name (e.g. `"flac"`, `"alac"`, `"mp3"`, `"aac"`, `"pcm"`).
     pub codec: String,
-    /// Index of the track currently *playing* within this gapless session (0 = the track the
-    /// session started on, +1 for each gaplessly-continued track). The frontend adds this to
-    /// the queue index it started playback from to keep the UI in sync without a restart.
-    /// Always `0` for normal (non-gapless) playback.
     pub seg: u32,
 }
 
 /// Re-channel `data` from `from`-channel interleaved PCM to `to`-channel interleaved PCM.
-///
-/// Strategy: when `to > from`, new channels are filled with the mono mix of the
-/// source. When `to < from` or `from == to`, the data is returned as-is (no remix).
-/// This keeps stereo content stereo on stereo devices without summation artefacts.
 fn remix(data: &[f32], from: usize, to: usize) -> Vec<f32> {
     if from == to || from == 0 {
         return data.to_vec();
@@ -550,11 +551,6 @@ fn remix(data: &[f32], from: usize, to: usize) -> Vec<f32> {
 
 /// Linear-interpolation resampler for the uncommon case where the hardware can't run
 /// at the file's native rate.
-///
-/// This is a fallback, not the normal path — when [`crate::coreaudio::match_device_rate`]
-/// succeeds there is nothing to resample. Linear interpolation introduces audible
-/// high-frequency roll-off on wideband content; a polyphase FIR would be cleaner but
-/// this codepath should rarely activate in practice.
 fn resample(data: &[f32], ch: usize, from: u32, to: u32) -> Vec<f32> {
     if from == to || ch == 0 {
         return data.to_vec();
@@ -581,11 +577,6 @@ fn resample(data: &[f32], ch: usize, from: u32, to: u32) -> Vec<f32> {
 }
 
 /// Select a cpal `StreamConfig` that matches the file's native rate and channel count.
-///
-/// Iterates the device's supported configs looking for an F32 config that covers
-/// `rate`. Falls back to the device's default config if no exact match exists —
-/// in that case the `resample` pass will compensate, but OS-level resampling may
-/// still occur and the signal-path seal will flag a mismatch.
 fn pick_config(
     device: &cpal::Device,
     rate: u32,
@@ -609,7 +600,6 @@ fn pick_config(
 }
 
 /// FFT a window of the currently-playing audio into 32 log-spaced band magnitudes.
-// Index-based loops are clearer than iterator chains for this windowed-FFT + log-banding math.
 #[allow(clippy::needless_range_loop)]
 fn analyze(shared: &Shared, fft: &StdArc<dyn Fft<f32>>, fbuf: &mut [Complex<f32>]) {
     if !shared.playing.load(Ordering::Relaxed) || shared.paused.load(Ordering::Relaxed) {
@@ -660,7 +650,7 @@ fn analyze(shared: &Shared, fft: &StdArc<dyn Fft<f32>>, fbuf: &mut [Complex<f32>
     *shared.bands.lock().unwrap() = bands;
 }
 
-/// Everything the decode loop needs for one source, produced by [`open_source`].
+/// Everything the decode loop needs for one source.
 struct OpenSource {
     format: Box<dyn symphonia::core::formats::FormatReader>,
     decoder: Box<dyn symphonia::core::codecs::Decoder>,
@@ -672,9 +662,8 @@ struct OpenSource {
     n_frames: Option<u64>,
 }
 
-/// Open a local file or server URL: start any download, probe the container, and build a
-/// decoder. Returns `None` on any failure. Used for both the first track and each gapless
-/// continuation, so the two share one code path.
+/// Open a local file, server URL, or cached encrypted file: start any download, probe the
+/// container, and build a decoder. Returns `None` on any failure.
 fn open_source(src: Source) -> Option<OpenSource> {
     let (mss, ext): (MediaSourceStream, Option<String>) = match src {
         Source::File(path) => {
@@ -688,16 +677,62 @@ fn open_source(src: Source) -> Option<OpenSource> {
                 ext,
             )
         }
+        #[cfg(feature = "pro")]
+        Source::Cached {
+            track_id,
+            plain_len,
+        } => {
+            use crate::pro::offline::EncryptedFileSource;
+            let cache_dir = {
+                let base = std::env::var("HOME")
+                    .map(std::path::PathBuf::from)
+                    .unwrap_or_else(|_| std::env::temp_dir());
+                base.join("Library/Caches/com.reactivepixels.eko/offline")
+            };
+            let sanitized: String = track_id
+                .chars()
+                .map(|c| {
+                    if c.is_alphanumeric() || c == '-' || c == '_' {
+                        c
+                    } else {
+                        '_'
+                    }
+                })
+                .collect();
+            let enc_path = cache_dir.join(format!("{sanitized}.enc"));
+            let codec_hint = {
+                let idx_path = cache_dir.join("index.json");
+                std::fs::read_to_string(&idx_path)
+                    .ok()
+                    .and_then(|s| {
+                        let v: serde_json::Value = serde_json::from_str(&s).ok()?;
+                        v["entries"].as_array()?.iter().find_map(|e| {
+                            if e["trackId"].as_str()? == track_id {
+                                e["codec"].as_str().map(|c| c.to_string())
+                            } else {
+                                None
+                            }
+                        })
+                    })
+                    .unwrap_or_default()
+            };
+            let src = EncryptedFileSource::open(&enc_path, plain_len).ok()?;
+            let ext = if codec_hint.is_empty() {
+                None
+            } else {
+                Some(codec_hint)
+            };
+            (
+                MediaSourceStream::new(Box::new(src), Default::default()),
+                ext,
+            )
+        }
         Source::Url(url) => {
-            // Stream the body into a shared buffer the decoder reads from (see `HttpSource`).
             let buf = Arc::new(Mutex::new(Vec::<u8>::new()));
             let done = Arc::new(AtomicBool::new(false));
             {
                 let (buf, done) = (buf.clone(), done.clone());
                 std::thread::spawn(move || {
-                    // Build a client with connection + overall read timeouts so a stalled
-                    // server can't wedge the download thread (and therefore the decode thread)
-                    // indefinitely. Falls back to a plain get if the builder fails.
                     let client = reqwest::blocking::Client::builder()
                         .connect_timeout(Duration::from_secs(10))
                         .timeout(Duration::from_secs(60))
@@ -778,11 +813,35 @@ fn open_source(src: Source) -> Option<OpenSource> {
     })
 }
 
+/// Build the 10 biquad coefficient sets for the current EQ gains at sample rate `fs`.
+fn eq_coeffs(gains: &[f32; 10], fs: u32) -> [Biquad; 10] {
+    let mut c = [Biquad::default(); 10];
+    for i in 0..10 {
+        c[i] = Biquad::peaking(EQ_FREQS[i], 1.0, gains[i], fs as f32);
+    }
+    c
+}
+
+/// Decide whether the cpal callback may take the untouched-samples bypass.
+#[inline]
+fn is_bitperfect(eq_active: bool, vol: f32, rg_gain: f32) -> bool {
+    !eq_active && vol == 1.0 && rg_gain == 1.0
+}
+
+/// Convert an optional ReplayGain value in dB to a clamped linear multiplier.
+fn rg_db_to_linear(gain_db: Option<f32>) -> f32 {
+    match gain_db {
+        Some(db) if db != 0.0 => 10f32.powf(db / 20.0).clamp(0.0, 4.0),
+        _ => 1.0,
+    }
+}
+
 fn decode_and_play(
     first: Source,
     shared: Arc<Shared>,
     rx: mpsc::Receiver<Cmd>,
     device_name: Option<String>,
+    mut dsp_output: triple_buffer::Output<DspSnapshot>,
 ) {
     let fail = |shared: &Shared| shared.playing.store(false, Ordering::SeqCst);
 
@@ -821,7 +880,6 @@ fn decode_and_play(
     let dev_name = device.name().unwrap_or_else(|_| "Output".into());
     *shared.device.lock().unwrap() = dev_name.clone();
 
-    // Bit-perfect: switch the OS device to the file's own rate so macOS doesn't resample.
     #[cfg(target_os = "macos")]
     let matched_rate = crate::coreaudio::match_device_rate(Some(&dev_name), file_rate);
 
@@ -834,13 +892,11 @@ fn decode_and_play(
     };
     let out_rate = config.sample_rate.0;
     let out_ch = config.channels as usize;
-    // The device's actual rate after the switch (macOS); if it can't match, the seal flags it.
     #[cfg(target_os = "macos")]
     let dev_rate = matched_rate.unwrap_or(out_rate);
     #[cfg(not(target_os = "macos"))]
     let dev_rate = out_rate;
 
-    // Estimated total (for the duration readout) — corrected to the real length when done.
     let est_total = n_frames
         .map(|n| ((n as f64 * out_rate as f64 / file_rate as f64) as usize) * out_ch)
         .unwrap_or(0);
@@ -853,9 +909,11 @@ fn decode_and_play(
     *shared.codec.lock().unwrap() = codec_name;
 
     let cb = shared.clone();
-    // Clone for the error callback (Fix 4: device errors stop playback state).
     let err_shared = shared.clone();
-    let mut eq_state = [[(0.0f32, 0.0f32); MAX_CH]; 10];
+    // Unified per-band, per-channel biquad delay state. Sized to MAX_BAND_STATE so the
+    // same array serves the graphic EQ (free) and the parametric EQ (pro).
+    // Owned entirely by the audio thread — never shared, never locked.
+    let mut band_state = [[(0.0f32, 0.0f32); MAX_CH]; MAX_BAND_STATE];
     let stream = device.build_output_stream(
         &config,
         move |data: &mut [f32], _: &cpal::OutputCallbackInfo| {
@@ -863,28 +921,46 @@ fn decode_and_play(
                 data.iter_mut().for_each(|s| *s = 0.0);
                 return;
             }
-            // Resolve EQ once per callback (bypassed entirely when flat → bit-perfect).
-            // Use unwrap_or_else(|e| e.into_inner()) so that if another thread panicked
-            // while holding the lock (poisoning it) the audio callback recovers from the
-            // poison and keeps playing rather than aborting with a panic.
-            let (active, pre, coeffs) = {
-                let e = cb.eq.lock().unwrap_or_else(|e| e.into_inner());
-                if e.active() {
-                    (
-                        true,
-                        10f32.powf(e.preamp / 20.0),
-                        eq_coeffs(&e.gains, out_rate),
-                    )
-                } else {
-                    (false, 1.0, [Biquad::default(); 10])
+
+            // ── Lock-free DSP parameter read ──────────────────────────────────
+            // `dsp_output.read()` is wait-free (atomic index swap + pointer read).
+            let dsp = dsp_output.read();
+
+            let eq_active = dsp.eq_active();
+            let (pre, coeffs, n_coeffs): (f32, [Biquad; MAX_BAND_STATE], usize) = if eq_active {
+                match dsp.mode {
+                    EqMode::Graphic => {
+                        let c = eq_coeffs(&dsp.graphic.gains, out_rate);
+                        let mut packed = [Biquad::default(); MAX_BAND_STATE];
+                        packed[..10].copy_from_slice(&c);
+                        (10f32.powf(dsp.graphic.preamp / 20.0), packed, 10usize)
+                    }
+                    #[cfg(feature = "pro")]
+                    EqMode::Parametric => {
+                        use crate::pro::param_eq::Biquad as PBiquad;
+                        let (pc, n) = dsp.parametric.build_coeffs(out_rate as f32);
+                        // Map pro Biquad → engine Biquad (same layout, different type)
+                        let mut packed = [Biquad::default(); MAX_BAND_STATE];
+                        for (i, pb) in pc[..n].iter().enumerate() {
+                            packed[i] = Biquad {
+                                b0: pb.b0,
+                                b1: pb.b1,
+                                b2: pb.b2,
+                                a1: pb.a1,
+                                a2: pb.a2,
+                            };
+                        }
+                        let _ = PBiquad::default; // suppress unused import warning
+                        (10f32.powf(dsp.parametric.preamp / 20.0), packed, n)
+                    }
                 }
+            } else {
+                (1.0, [Biquad::default(); MAX_BAND_STATE], 0usize)
             };
+
             let vol = f32::from_bits(cb.vol.load(Ordering::Relaxed));
             let rg = f32::from_bits(cb.rg_gain.load(Ordering::Relaxed));
-            // Bit-perfect path only when nothing touches the samples: EQ flat AND unity
-            // volume AND ReplayGain off (see `is_bitperfect`).
-            let bit_perfect = is_bitperfect(active, vol, rg);
-            // Same poison recovery as eq above — keeps audio flowing on device errors.
+            let bit_perfect = is_bitperfect(eq_active, vol, rg);
             let buf = cb.samples.lock().unwrap_or_else(|e| e.into_inner());
             let len = buf.len();
             let mut p = cb.pos.load(Ordering::Relaxed);
@@ -896,10 +972,10 @@ fn decode_and_play(
                         for c in 0..out_ch {
                             let cc = c.min(MAX_CH - 1);
                             let mut x = buf[p + c];
-                            if active {
+                            if eq_active {
                                 x *= pre;
-                                for b in 0..10 {
-                                    x = coeffs[b].process(&mut eq_state[b][cc], x);
+                                for b in 0..n_coeffs {
+                                    x = coeffs[b].process(&mut band_state[b][cc], x);
                                 }
                             }
                             frame[c] = x * vol * rg;
@@ -917,8 +993,6 @@ fn decode_and_play(
             }
         },
         move |e| {
-            // A real device error (e.g. DAC unplugged mid-track) — log it and flip the
-            // playing flag so the UI stops showing "playing" rather than hanging.
             eprintln!("cpal stream error: {e}");
             err_shared.playing.store(false, Ordering::SeqCst);
             err_shared.done.store(true, Ordering::SeqCst);
@@ -943,10 +1017,6 @@ fn decode_and_play(
     let mut last_analyze = Instant::now();
     let mut decoding = true;
 
-    // Crossfade-in state. When a same-rate continuation is armed with crossfade on, the
-    // incoming track's first `xfade_len` frames are mixed (equal-power) into the overlap
-    // region [`xfade_start`, …) already present in `samples` (whose tail was faded out),
-    // rather than appended. `xfade_remaining` counts the frames still to mix.
     let mut xfade_remaining: usize = 0;
     let mut xfade_pos: usize = 0;
     let mut xfade_len: usize = 1;
@@ -991,9 +1061,8 @@ fn decode_and_play(
             }
             if !local.is_empty() {
                 let mut buf = shared.samples.lock().unwrap();
-                let mut consumed = 0usize; // samples of `local` mixed into the overlap
+                let mut consumed = 0usize;
                 if xfade_remaining > 0 {
-                    // Mix the incoming head up (equal-power) into the faded-out tail.
                     let avail_frames = local.len() / out_ch;
                     let mix_frames = xfade_remaining.min(avail_frames);
                     for i in 0..mix_frames {
@@ -1014,18 +1083,11 @@ fn decode_and_play(
                 }
             }
             if !decoding {
-                // Gapless: if a same-rate next track is queued, keep decoding into the SAME
-                // stream/buffer (the cpal callback reads one contiguous buffer, so there's no
-                // seam and the bit-perfect path is untouched). Otherwise finalize normally.
                 let mut continued = false;
-                xfade_remaining = 0; // any prior fade is complete by now
+                xfade_remaining = 0;
                 if let Some(src) = shared.next_src.lock().unwrap().take() {
                     if let Some(nd) = open_source(src) {
                         if nd.file_rate == out_rate {
-                            // Decide the seam: an overlapping crossfade (when enabled AND the
-                            // overlap region is safely ahead of playback) or the hard gapless
-                            // join. `boundary` is where the incoming track is considered to
-                            // begin in the concatenated buffer.
                             let xms = shared.xfade_ms.load(Ordering::Relaxed) as usize;
                             let buf_len = shared.samples.lock().unwrap().len();
                             let cur_seg = *shared.seg_starts.lock().unwrap().last().unwrap_or(&0);
@@ -1035,17 +1097,12 @@ fn decode_and_play(
                             let fade_frames = (out_rate as usize).saturating_mul(xms) / 1000;
                             let overlap = fade_frames.min(cur_frames);
                             let overlap_start = buf_len - overlap * out_ch;
-                            // Need the overlap meaningfully long AND comfortably ahead of the
-                            // play head, or the callback could reach it mid-mix → fall back.
                             let margin = overlap_start.saturating_sub(cur_pos) / out_ch;
                             let can_xfade = xms > 0
                                 && overlap >= out_rate as usize / 20
                                 && margin >= overlap + out_rate as usize / 4;
 
                             let boundary = if can_xfade {
-                                // Fade the outgoing tail down now (it's fully decoded + ahead
-                                // of the play head). The incoming head is mixed up later,
-                                // incrementally, as it decodes (see the append block above).
                                 let mut buf = shared.samples.lock().unwrap();
                                 for i in 0..overlap {
                                     let t = (i as f32 + 0.5) / overlap as f32;
@@ -1066,8 +1123,6 @@ fn decode_and_play(
                             };
 
                             shared.seg_starts.lock().unwrap().push(boundary);
-                            // total stays the GLOBAL concatenated estimate; status derives the
-                            // current track's duration from it minus the segment start.
                             let est = nd.n_frames.map(|n| n as usize * out_ch).unwrap_or(0);
                             shared.total.store(boundary + est, Ordering::SeqCst);
                             shared.src_rate.store(nd.file_rate, Ordering::SeqCst);
@@ -1081,7 +1136,6 @@ fn decode_and_play(
                             decoding = true;
                             continued = true;
                         }
-                        // rate mismatch → drop nd; the frontend starts it as a normal track.
                     }
                 }
                 if !continued {
@@ -1097,7 +1151,6 @@ fn decode_and_play(
             last_analyze = Instant::now();
         }
 
-        // While decoding, don't block (keep filling); when done, idle on the channel.
         let timeout = if decoding {
             Duration::from_millis(0)
         } else {
@@ -1105,18 +1158,11 @@ fn decode_and_play(
         };
         let mut stop = false;
         let mut first = rx.recv_timeout(timeout);
-        // Drain the whole backlog this pass — a burst of seeks from a drag collapses to
-        // the last one instead of being applied one-per-loop (which lags behind the user).
         loop {
             match first {
                 Ok(Cmd::Pause) => shared.paused.store(true, Ordering::SeqCst),
                 Ok(Cmd::Resume) => shared.paused.store(false, Ordering::SeqCst),
                 Ok(Cmd::Seek(frame)) => {
-                    // Seek is relative to the CURRENT track: map it into the concatenated
-                    // buffer via the segment boundaries and clamp to this track's range.
-                    // Use saturating arithmetic throughout so a huge `frame` (possible even
-                    // after the engine_seek clamp, e.g. if rate is very large) can't
-                    // overflow the usize addition/multiplication.
                     let starts = shared.seg_starts.lock().unwrap().clone();
                     let cur = shared.pos.load(Ordering::SeqCst);
                     let i = segment_at(&starts, cur);
@@ -1147,7 +1193,6 @@ fn decode_and_play(
             break;
         }
     }
-    // stream dropped here
 }
 
 fn stop_current(engine: &Engine) {
@@ -1156,8 +1201,9 @@ fn stop_current(engine: &Engine) {
     }
 }
 
-fn new_shared() -> Arc<Shared> {
-    Arc::new(Shared {
+fn new_shared() -> (Arc<Shared>, triple_buffer::Output<DspSnapshot>) {
+    let (dsp_input, dsp_output) = triple_buffer(&DspSnapshot::default());
+    let shared = Arc::new(Shared {
         pos: AtomicUsize::new(0),
         total: AtomicUsize::new(0),
         rate: AtomicU32::new(0),
@@ -1173,21 +1219,32 @@ fn new_shared() -> Arc<Shared> {
         bands: Mutex::new(vec![0.0; N_BANDS]),
         samples: Mutex::new(Vec::new()),
         eq: Mutex::new(EqParams::default()),
+        #[cfg(feature = "pro")]
+        param_eq: Mutex::new(crate::pro::param_eq::ParamEqParams::default()),
+        eq_mode: Mutex::new(EqMode::default()),
+        dsp_input: Mutex::new(dsp_input),
         vol: AtomicU32::new(1.0f32.to_bits()),
         rg_gain: AtomicU32::new(1.0f32.to_bits()),
         next_src: Mutex::new(None),
         seg_starts: Mutex::new(vec![0]),
         xfade_ms: AtomicU32::new(0),
-    })
+    });
+    (shared, dsp_output)
 }
 
-fn start_session(engine: &Engine) -> (Arc<Shared>, mpsc::Receiver<Cmd>) {
+fn start_session(
+    engine: &Engine,
+) -> (
+    Arc<Shared>,
+    mpsc::Receiver<Cmd>,
+    triple_buffer::Output<DspSnapshot>,
+) {
     stop_current(engine);
-    let shared = new_shared();
+    let (shared, dsp_output) = new_shared();
     *engine.shared.0.lock().unwrap() = Some(shared.clone());
     let (tx, rx) = mpsc::channel();
     *engine.cmd.lock().unwrap() = Some(tx);
-    (shared, rx)
+    (shared, rx, dsp_output)
 }
 
 fn stub() -> EngineStatus {
@@ -1209,18 +1266,43 @@ fn stub() -> EngineStatus {
 /// Play a local file.
 #[tauri::command]
 pub fn engine_play(path: String, engine: tauri::State<Engine>) -> EngineStatus {
-    let (shared, rx) = start_session(&engine);
+    let (shared, rx, dsp_out) = start_session(&engine);
     let dev = engine.device_pref.lock().unwrap().clone();
-    std::thread::spawn(move || decode_and_play(Source::File(path), shared, rx, dev));
+    std::thread::spawn(move || decode_and_play(Source::File(path), shared, rx, dev, dsp_out));
     stub()
 }
 
 /// Play a remote URL (Navidrome stream) — downloaded + decoded natively (bit-perfect).
 #[tauri::command]
 pub fn engine_play_url(url: String, engine: tauri::State<Engine>) -> EngineStatus {
-    let (shared, rx) = start_session(&engine);
+    let (shared, rx, dsp_out) = start_session(&engine);
     let dev = engine.device_pref.lock().unwrap().clone();
-    std::thread::spawn(move || decode_and_play(Source::Url(url), shared, rx, dev));
+    std::thread::spawn(move || decode_and_play(Source::Url(url), shared, rx, dev, dsp_out));
+    stub()
+}
+
+/// Play a cached offline track by Subsonic track ID (Pro only).
+#[cfg(feature = "pro")]
+#[tauri::command]
+pub fn engine_play_cached(
+    track_id: String,
+    plain_len: u64,
+    engine: tauri::State<Engine>,
+) -> EngineStatus {
+    let (shared, rx, dsp_out) = start_session(&engine);
+    let dev = engine.device_pref.lock().unwrap().clone();
+    std::thread::spawn(move || {
+        decode_and_play(
+            Source::Cached {
+                track_id,
+                plain_len,
+            },
+            shared,
+            rx,
+            dev,
+            dsp_out,
+        )
+    });
     stub()
 }
 
@@ -1233,8 +1315,7 @@ pub fn engine_list_devices() -> Vec<String> {
         .unwrap_or_default()
 }
 
-/// Choose the output device by name (None / empty = system default). Applies to the next
-/// track that starts (the frontend re-arms the current track for an immediate switch).
+/// Choose the output device by name (None / empty = system default).
 #[tauri::command]
 pub fn engine_set_device(name: Option<String>, engine: tauri::State<Engine>) {
     *engine.device_pref.lock().unwrap() = name.filter(|s| !s.is_empty());
@@ -1246,7 +1327,7 @@ fn send(engine: &Engine, cmd: Cmd) {
     }
 }
 
-/// Pause playback (the cpal callback outputs silence while paused).
+/// Pause playback.
 #[tauri::command]
 pub fn engine_pause(engine: tauri::State<Engine>) {
     send(&engine, Cmd::Pause);
@@ -1259,18 +1340,10 @@ pub fn engine_resume(engine: tauri::State<Engine>) {
 }
 
 /// Seek to `secs` seconds from the beginning of the track.
-///
-/// Converts the timestamp to an output-rate frame index and enqueues a [`Cmd::Seek`].
-/// The decode thread applies seeks in bulk (draining the command backlog each loop)
-/// so scrubbing fast doesn't queue up stale positions.
 #[tauri::command]
 pub fn engine_seek(secs: f64, engine: tauri::State<Engine>) {
     if let Some(sh) = engine.shared.0.lock().unwrap().as_ref() {
         let rate = sh.rate.load(Ordering::SeqCst);
-        // Guard NaN and clamp to a sane finite range before converting to usize.
-        // 1e7 seconds (~115 days) is far beyond any realistic track length; this
-        // prevents overflow in both the multiplication and the downstream saturating
-        // arithmetic in the Cmd::Seek handler.
         let clamped = if secs.is_nan() {
             0.0
         } else {
@@ -1280,10 +1353,8 @@ pub fn engine_seek(secs: f64, engine: tauri::State<Engine>) {
         send(&engine, Cmd::Seek(frame));
     }
 }
+
 /// Stop playback and tear down the current session.
-///
-/// Sends [`Cmd::Stop`] to the decode thread (which exits its loop and drops the cpal
-/// stream) and marks the shared state as not-playing so the UI clears immediately.
 #[tauri::command]
 pub fn engine_stop(engine: tauri::State<Engine>) {
     stop_current(&engine);
@@ -1292,28 +1363,94 @@ pub fn engine_stop(engine: tauri::State<Engine>) {
     }
 }
 
-/// Update the 10-band EQ parameters.
-///
-/// - `enabled` — master EQ on/off switch; when `false` the callback bypasses DSP entirely.
-/// - `preamp`  — pre-amplifier gain in dB (typically −12..+12).
-/// - `gains`   — per-band peak gain in dB, one value per [`EQ_FREQS`] centre frequency.
-///   Missing values default to 0 dB (flat).
-///
-/// The new parameters take effect on the very next cpal callback invocation.
+/// Update the 10-band graphic EQ parameters.
 #[tauri::command]
 pub fn engine_set_eq(enabled: bool, preamp: f64, gains: Vec<f32>, engine: tauri::State<Engine>) {
     if let Some(sh) = engine.shared.0.lock().unwrap().as_ref() {
-        let mut e = sh.eq.lock().unwrap();
-        e.enabled = enabled;
-        e.preamp = preamp as f32;
-        for i in 0..10 {
-            e.gains[i] = gains.get(i).copied().unwrap_or(0.0);
+        {
+            let mut e = sh.eq.lock().unwrap();
+            e.enabled = enabled;
+            e.preamp = preamp as f32;
+            for i in 0..10 {
+                e.gains[i] = gains.get(i).copied().unwrap_or(0.0);
+            }
         }
+        let snapshot = DspSnapshot {
+            mode: *sh.eq_mode.lock().unwrap(),
+            graphic: sh.eq.lock().unwrap().clone(),
+            #[cfg(feature = "pro")]
+            parametric: sh.param_eq.lock().unwrap().clone(),
+        };
+        sh.dsp_input.lock().unwrap().write(snapshot);
     }
 }
 
-/// Set playback volume from the dial position (0..1). Square-law taper for a natural
-/// feel; exactly 1.0 at the top → unity gain → the callback stays bit-perfect.
+/// Switch which EQ mode is routed to the DSP path.
+#[tauri::command]
+pub fn engine_set_eq_mode(mode: EqMode, engine: tauri::State<Engine>) {
+    if let Some(sh) = engine.shared.0.lock().unwrap().as_ref() {
+        *sh.eq_mode.lock().unwrap() = mode;
+        let snapshot = DspSnapshot {
+            mode,
+            graphic: sh.eq.lock().unwrap().clone(),
+            #[cfg(feature = "pro")]
+            parametric: sh.param_eq.lock().unwrap().clone(),
+        };
+        sh.dsp_input.lock().unwrap().write(snapshot);
+    }
+}
+
+/// Set the parametric EQ configuration (Pro only).
+#[cfg(feature = "pro")]
+#[tauri::command]
+pub fn engine_set_param_eq(
+    enabled: bool,
+    preamp: f64,
+    bands: Vec<crate::pro::param_eq::ParamBand>,
+    engine: tauri::State<Engine>,
+) {
+    if let Some(sh) = engine.shared.0.lock().unwrap().as_ref() {
+        {
+            let mut p = sh.param_eq.lock().unwrap();
+            p.enabled = enabled;
+            p.preamp = preamp as f32;
+            p.bands = [None; crate::pro::param_eq::MAX_PARAM_BANDS];
+            let count = bands.len().min(crate::pro::param_eq::MAX_PARAM_BANDS);
+            for (i, b) in bands.into_iter().take(crate::pro::param_eq::MAX_PARAM_BANDS).enumerate() {
+                p.bands[i] = Some(b);
+            }
+            p.count = count;
+        }
+        let snapshot = DspSnapshot {
+            mode: *sh.eq_mode.lock().unwrap(),
+            graphic: sh.eq.lock().unwrap().clone(),
+            parametric: sh.param_eq.lock().unwrap().clone(),
+        };
+        sh.dsp_input.lock().unwrap().write(snapshot);
+    }
+}
+
+/// Parse an AutoEQ `ParametricEQ.txt` text and return the bands + preamp (Pro only).
+#[cfg(feature = "pro")]
+#[tauri::command]
+pub fn engine_parse_autoeq(text: String) -> Result<serde_json::Value, String> {
+    let (preamp, bands) = crate::pro::param_eq::parse_autoeq(&text)?;
+    let v = serde_json::json!({ "preamp": preamp, "bands": bands });
+    Ok(v)
+}
+
+/// Read an AutoEQ `ParametricEQ.txt` file at the given absolute path and parse it (Pro only).
+#[cfg(feature = "pro")]
+#[tauri::command]
+pub fn engine_import_autoeq_file(path: String) -> Result<serde_json::Value, String> {
+    let text = std::fs::read_to_string(&path)
+        .map_err(|e| format!("Failed to read file '{}': {}", path, e))?;
+    let (preamp, bands) = crate::pro::param_eq::parse_autoeq(&text)?;
+    let v = serde_json::json!({ "preamp": preamp, "bands": bands });
+    Ok(v)
+}
+
+/// Set playback volume from the dial position (0..1).
 #[tauri::command]
 pub fn engine_set_volume(vol: f64, engine: tauri::State<Engine>) {
     if let Some(sh) = engine.shared.0.lock().unwrap().as_ref() {
@@ -1323,13 +1460,7 @@ pub fn engine_set_volume(vol: f64, engine: tauri::State<Engine>) {
     }
 }
 
-/// Apply a ReplayGain adjustment, in dB, as an output gain (**off by default**).
-///
-/// `None` or `Some(0.0)` disables it (unity / 0 dB) — the bit-perfect bypass stays
-/// available. A non-zero value applies `10^(dB/20)` (clamped to a sane range) as a linear
-/// multiplier folded into the volume stage. Like any non-unity gain this takes playback off
-/// the bit-perfect path, and the signal-path seal reflects that honestly. The frontend
-/// chooses the value (track vs album gain, peak-limited) and calls this per track.
+/// Apply a ReplayGain adjustment, in dB, as an output gain (off by default).
 #[tauri::command]
 pub fn engine_set_replaygain(gain_db: Option<f32>, engine: tauri::State<Engine>) {
     if let Some(sh) = engine.shared.0.lock().unwrap().as_ref() {
@@ -1338,10 +1469,7 @@ pub fn engine_set_replaygain(gain_db: Option<f32>, engine: tauri::State<Engine>)
     }
 }
 
-/// Set the crossfade duration in milliseconds (**0 = off**, the default). Re-pushed by the
-/// frontend on each track start (a fresh session resets it). Clamped to 12 s. When non-zero,
-/// same-rate track transitions overlap with an equal-power fade; steady-state playback and
-/// the bit-perfect bypass are unaffected (see [`Shared::xfade_ms`]).
+/// Set the crossfade duration in milliseconds (0 = off, the default).
 #[tauri::command]
 pub fn engine_set_crossfade(ms: u32, engine: tauri::State<Engine>) {
     if let Some(sh) = engine.shared.0.lock().unwrap().as_ref() {
@@ -1349,16 +1477,42 @@ pub fn engine_set_crossfade(ms: u32, engine: tauri::State<Engine>) {
     }
 }
 
-/// Queue the next track for gapless continuation. Pass either a local `path` or a server
-/// `url`; the decode loop continues into it at end-of-track **only if its sample rate matches
-/// the open stream** (otherwise it's left for the frontend to start as a normal track change,
-/// rebuilding the stream — a tiny gap, but bit-perfect preserved). Passing neither clears it.
+/// Queue the next track for gapless continuation (free build: file + URL only).
+#[cfg(not(feature = "pro"))]
 #[tauri::command]
-pub fn engine_enqueue(path: Option<String>, url: Option<String>, engine: tauri::State<Engine>) {
+pub fn engine_enqueue(
+    path: Option<String>,
+    url: Option<String>,
+    engine: tauri::State<Engine>,
+) {
     if let Some(sh) = engine.shared.0.lock().unwrap().as_ref() {
         let src = match (path, url) {
             (Some(p), _) if !p.is_empty() => Some(Source::File(p)),
             (_, Some(u)) if !u.is_empty() => Some(Source::Url(u)),
+            _ => None,
+        };
+        *sh.next_src.lock().unwrap() = src;
+    }
+}
+
+/// Queue the next track for gapless continuation (Pro build: file + URL + cached).
+#[cfg(feature = "pro")]
+#[tauri::command]
+pub fn engine_enqueue(
+    path: Option<String>,
+    url: Option<String>,
+    track_id: Option<String>,
+    plain_len: Option<u64>,
+    engine: tauri::State<Engine>,
+) {
+    if let Some(sh) = engine.shared.0.lock().unwrap().as_ref() {
+        let src = match (path, url, track_id, plain_len) {
+            (Some(p), _, _, _) if !p.is_empty() => Some(Source::File(p)),
+            (_, Some(u), _, _) if !u.is_empty() => Some(Source::Url(u)),
+            (_, _, Some(id), Some(pl)) if !id.is_empty() => Some(Source::Cached {
+                track_id: id,
+                plain_len: pl,
+            }),
             _ => None,
         };
         *sh.next_src.lock().unwrap() = src;
@@ -1378,10 +1532,6 @@ pub fn engine_now_playing(engine: tauri::State<Engine>) -> NowPlaying {
 }
 
 /// Return the latest 32-band spectrum magnitudes (0.0–1.0, log-spaced).
-///
-/// The values are updated by the decode thread at ~30 fps via the FFT loop in
-/// `decode_and_play`. The UI polls this at the same cadence to animate the visualiser.
-/// Returns an empty `Vec` when nothing is playing.
 #[tauri::command]
 pub fn engine_bands(engine: tauri::State<Engine>) -> Vec<f32> {
     let guard = engine.shared.0.lock().unwrap();
@@ -1391,12 +1541,7 @@ pub fn engine_bands(engine: tauri::State<Engine>) -> Vec<f32> {
         .unwrap_or_default()
 }
 
-/// Return an [`EngineStatus`] snapshot for the currently-active session, or `None`
-/// when no session exists.
-///
-/// The UI polls this at ~4 Hz to update the progress bar and signal-path badge.
-/// All reads are from atomics or short `Mutex` critical sections and complete in
-/// microseconds.
+/// Return an [`EngineStatus`] snapshot for the currently-active session.
 #[tauri::command]
 pub fn engine_status(engine: tauri::State<Engine>) -> Option<EngineStatus> {
     let guard = engine.shared.0.lock().unwrap();
@@ -1412,9 +1557,6 @@ pub fn engine_status(engine: tauri::State<Engine>) -> Option<EngineStatus> {
     let dev_rate = sh.dev_rate.load(Ordering::SeqCst);
     let bits = sh.bits.load(Ordering::SeqCst);
 
-    // Report position/duration relative to the CURRENT gapless segment (track). For a single
-    // track `seg_starts == [0]`, so `track_start == 0` and `track_total == total` — identical
-    // to the pre-gapless math.
     let starts = sh.seg_starts.lock().unwrap().clone();
     let seg = segment_at(&starts, pos);
     let track_start = starts[seg];
@@ -1467,12 +1609,11 @@ mod tests {
         let d: Vec<f32> = (0..100).map(|i| i as f32).collect();
         let up = resample(&d, 1, 1000, 2000);
         assert!((up.len() as i32 - 200).abs() <= 2, "len={}", up.len());
-        assert!(up[0].abs() < 1e-3); // first sample preserved
+        assert!(up[0].abs() < 1e-3);
     }
 
     #[test]
     fn biquad_0db_is_unity() {
-        // A 0 dB peaking filter has H(z) = 1, so steady DC passes unchanged.
         let bq = Biquad::peaking(1000.0, 1.0, 0.0, 48_000.0);
         let mut z = (0.0f32, 0.0f32);
         let mut y = 0.0;
@@ -1506,24 +1647,11 @@ mod tests {
 
     #[test]
     fn bitperfect_only_when_nothing_touches_samples() {
-        // The sacred invariant: bypass ONLY with flat EQ, unity volume, and RG off.
         assert!(is_bitperfect(false, 1.0, 1.0));
-        assert!(
-            !is_bitperfect(true, 1.0, 1.0),
-            "active EQ must not be bit-perfect"
-        );
-        assert!(
-            !is_bitperfect(false, 0.5, 1.0),
-            "non-unity volume must not be bit-perfect"
-        );
-        assert!(
-            !is_bitperfect(false, 1.0, 0.5),
-            "ReplayGain cut must not be bit-perfect"
-        );
-        assert!(
-            !is_bitperfect(false, 1.0, 1.9),
-            "ReplayGain boost must not be bit-perfect"
-        );
+        assert!(!is_bitperfect(true, 1.0, 1.0));
+        assert!(!is_bitperfect(false, 0.5, 1.0));
+        assert!(!is_bitperfect(false, 1.0, 0.5));
+        assert!(!is_bitperfect(false, 1.0, 1.9));
     }
 
     #[test]
@@ -1546,31 +1674,22 @@ mod tests {
 
     #[test]
     fn segment_at_maps_position_to_track() {
-        // single track → always segment 0 (non-gapless math unchanged)
         assert_eq!(segment_at(&[0], 0), 0);
         assert_eq!(segment_at(&[0], 999), 0);
-        // gapless: boundaries at 0, 100, 250
         let starts = [0usize, 100, 250];
         assert_eq!(segment_at(&starts, 0), 0);
         assert_eq!(segment_at(&starts, 99), 0);
-        assert_eq!(segment_at(&starts, 100), 1); // exactly on a boundary = the new track
+        assert_eq!(segment_at(&starts, 100), 1);
         assert_eq!(segment_at(&starts, 249), 1);
         assert_eq!(segment_at(&starts, 250), 2);
-        assert_eq!(segment_at(&starts, 10_000), 2); // past the end clamps to the last track
+        assert_eq!(segment_at(&starts, 10_000), 2);
     }
 
     #[test]
     fn replaygain_clamps_extremes() {
-        assert_eq!(
-            rg_db_to_linear(Some(100.0)),
-            4.0,
-            "extreme boost clamps to 4.0"
-        );
+        assert_eq!(rg_db_to_linear(Some(100.0)), 4.0);
         let low = rg_db_to_linear(Some(-300.0));
-        assert!(
-            (0.0..=4.0).contains(&low) && low.is_finite(),
-            "extreme cut stays finite & in range"
-        );
+        assert!((0.0..=4.0).contains(&low) && low.is_finite());
     }
 
     #[test]
@@ -1589,7 +1708,73 @@ mod tests {
         let mut out2 = [0u8; 8];
         assert_eq!(src.read(&mut out2).unwrap(), 1);
         assert_eq!(out2[0], 4);
-        assert_eq!(src.read(&mut out2).unwrap(), 0); // EOF (download done)
+        assert_eq!(src.read(&mut out2).unwrap(), 0);
+    }
+
+    #[test]
+    fn low_shelf_0db_is_unity() {
+        let bq = Biquad::low_shelf(200.0, 0.707, 0.0, 48_000.0);
+        let mut z = (0.0f32, 0.0f32);
+        let mut y = 0.0f32;
+        for _ in 0..2000 {
+            y = bq.process(&mut z, 1.0);
+        }
+        assert!((y - 1.0).abs() < 1e-3, "low_shelf 0dB steady state y={y}");
+    }
+
+    #[test]
+    fn low_shelf_boost_raises_dc() {
+        let bq = Biquad::low_shelf(200.0, 0.707, 12.0, 48_000.0);
+        let mut z = (0.0f32, 0.0f32);
+        let mut y = 0.0f32;
+        for _ in 0..4000 {
+            y = bq.process(&mut z, 1.0);
+        }
+        assert!(y > 2.5, "low_shelf +12dB DC should be >2.5, got {y}");
+    }
+
+    #[test]
+    fn high_shelf_0db_is_unity() {
+        let bq = Biquad::high_shelf(8000.0, 0.707, 0.0, 48_000.0);
+        let mut z = (0.0f32, 0.0f32);
+        let mut y = 0.0f32;
+        for _ in 0..2000 {
+            y = bq.process(&mut z, 1.0);
+        }
+        assert!((y - 1.0).abs() < 1e-3, "high_shelf 0dB steady state y={y}");
+    }
+
+    #[test]
+    fn low_pass_passes_dc() {
+        let bq = Biquad::low_pass(1000.0, 0.707, 48_000.0);
+        let mut z = (0.0f32, 0.0f32);
+        let mut y = 0.0f32;
+        for _ in 0..2000 {
+            y = bq.process(&mut z, 1.0);
+        }
+        assert!((y - 1.0).abs() < 0.1, "low_pass DC passthrough y={y}");
+    }
+
+    #[test]
+    fn high_pass_attenuates_dc() {
+        let bq = Biquad::high_pass(1000.0, 0.707, 48_000.0);
+        let mut z = (0.0f32, 0.0f32);
+        let mut y = 0.0f32;
+        for _ in 0..2000 {
+            y = bq.process(&mut z, 1.0);
+        }
+        assert!(y.abs() < 0.01, "high_pass DC should be ≈0, got {y}");
+    }
+
+    #[test]
+    fn notch_passes_dc() {
+        let bq = Biquad::notch(1000.0, 10.0, 48_000.0);
+        let mut z = (0.0f32, 0.0f32);
+        let mut y = 0.0f32;
+        for _ in 0..2000 {
+            y = bq.process(&mut z, 1.0);
+        }
+        assert!((y - 1.0).abs() < 0.05, "notch passes DC y={y}");
     }
 
     #[test]
@@ -1604,7 +1789,55 @@ mod tests {
         };
         assert_eq!(src.seek(SeekFrom::Start(4)).unwrap(), 4);
         assert_eq!(src.seek(SeekFrom::End(0)).unwrap(), 10);
-        assert_eq!(src.seek(SeekFrom::Start(999)).unwrap(), 10); // clamped to len
+        assert_eq!(src.seek(SeekFrom::Start(999)).unwrap(), 10);
         assert_eq!(src.seek(SeekFrom::Current(-3)).unwrap(), 7);
+    }
+
+    // ── Lock-free DSP snapshot tests (free mode) ─────────────────────────────
+
+    #[test]
+    fn dsp_snapshot_default_is_bitperfect() {
+        let snap = DspSnapshot::default();
+        assert!(!snap.eq_active());
+        assert!(is_bitperfect(snap.eq_active(), 1.0, 1.0));
+    }
+
+    #[test]
+    fn dsp_snapshot_triple_buffer_roundtrip() {
+        use triple_buffer::triple_buffer;
+
+        let (mut input, mut output) = triple_buffer(&DspSnapshot::default());
+        {
+            let snap = output.read();
+            assert!(!snap.eq_active());
+            assert!(is_bitperfect(snap.eq_active(), 1.0, 1.0));
+        }
+
+        let mut gains = [0.0f32; 10];
+        gains[3] = 6.0;
+        let active_snap = DspSnapshot {
+            mode: EqMode::Graphic,
+            graphic: EqParams {
+                enabled: true,
+                gains,
+                ..Default::default()
+            },
+            #[cfg(feature = "pro")]
+            parametric: crate::pro::param_eq::ParamEqParams::default(),
+        };
+        input.write(active_snap);
+
+        {
+            let snap = output.read();
+            assert!(snap.eq_active());
+            assert!(!is_bitperfect(snap.eq_active(), 1.0, 1.0));
+        }
+
+        input.write(DspSnapshot::default());
+        {
+            let snap = output.read();
+            assert!(!snap.eq_active());
+            assert!(is_bitperfect(snap.eq_active(), 1.0, 1.0));
+        }
     }
 }

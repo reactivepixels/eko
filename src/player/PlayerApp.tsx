@@ -1,20 +1,14 @@
 import { useUiStore } from "../store/useUiStore";
 import { useMusicSource } from "../hooks/useMusicSource";
-import { useNativeMenu } from "../hooks/useNativeMenu";
+import { useNativeMenu, StudioApp } from "@pro";
 import { TopBar } from "./TopBar";
-import { StudioTopBar } from "./studio/StudioTopBar";
 import { Sidebar } from "./Sidebar";
-import { StudioSidebar } from "./studio/StudioSidebar";
 import { LibraryView } from "./LibraryView";
-import { StudioLibrary } from "./studio/StudioLibrary";
-import { StudioTransport } from "./studio/StudioTransport";
-import { StudioDeck } from "./studio/StudioDeck";
 import { DeckView } from "./DeckView";
 import { TransportBar } from "./TransportBar";
 import { QueuePanel } from "./QueuePanel";
-import { StudioQueue } from "./studio/StudioQueue";
+import { LyricsPanel } from "./LyricsPanel";
 import "./neu.css";
-import "./studio/studio-tokens.css";
 
 export function PlayerApp() {
   const playerView = useUiStore((s) => s.playerView);
@@ -23,47 +17,61 @@ export function PlayerApp() {
   const theme = useUiStore((s) => s.theme);
   const accent = useUiStore((s) => s.accent);
   const skin = useUiStore((s) => s.skin);
+  const lyricsOpen = useUiStore((s) => s.lyricsOpen);
+  const toggleLyrics = useUiStore((s) => s.toggleLyrics);
   const count = useMusicSource().albumCount;
-  useNativeMenu(); // bridge the native "Skins" menu ↔ the UI store
+  useNativeMenu(); // Pro: bridges the native "Skins" menu ↔ the UI store; no-op in free.
 
   // ONE app, themed. `data-skin` selects the theme layer (Porcelain | Studio) over the same
   // shell + views — never a separate app.
+  //
+  // StudioApp (Pro): when skin === "studio" it renders the Studio layout entirely,
+  // ignoring children. When skin !== "studio" (or in the free build) it renders
+  // children — the standard Porcelain layout below.
   return (
     <div className="app" data-theme={theme} data-accent={accent} data-skin={skin}>
-      {skin === "studio" ? <StudioTopBar /> : <TopBar />}
-      {skin === "studio" ? <StudioSidebar /> : <Sidebar />}
-      <main className="main">
-        <div className="main-head">
-          <div className="viewseg">
-            <b
-              className={playerView === "library" ? "on" : ""}
-              onClick={() => setPlayerView("library")}
-            >
-              Library
-            </b>
-            <b className={playerView === "deck" ? "on" : ""} onClick={() => setPlayerView("deck")}>
-              Now Playing
-            </b>
+      <StudioApp>
+        <TopBar />
+        <Sidebar />
+        <main className="main">
+          <div className="main-head">
+            <div className="viewseg" role="group" aria-label="Main view">
+              <b
+                className={playerView === "library" ? "on" : ""}
+                onClick={() => setPlayerView("library")}
+                role="button"
+                tabIndex={0}
+                aria-pressed={playerView === "library"}
+                onKeyDown={(e) =>
+                  e.key === "Enter" || e.key === " " ? setPlayerView("library") : undefined
+                }
+              >
+                Library
+              </b>
+              <b
+                className={playerView === "deck" ? "on" : ""}
+                onClick={() => setPlayerView("deck")}
+                role="button"
+                tabIndex={0}
+                aria-pressed={playerView === "deck"}
+                onKeyDown={(e) =>
+                  e.key === "Enter" || e.key === " " ? setPlayerView("deck") : undefined
+                }
+              >
+                Now Playing
+              </b>
+            </div>
+            {playerView === "library" && libSection === "albums" && (
+              <span className="count">{count} albums</span>
+            )}
+            <div className="spacer" />
           </div>
-          {playerView === "library" && libSection === "albums" && (
-            <span className="count">{count} albums</span>
-          )}
-          <div className="spacer" />
-        </div>
-        {playerView === "library" ? (
-          skin === "studio" ? (
-            <StudioLibrary />
-          ) : (
-            <LibraryView />
-          )
-        ) : skin === "studio" ? (
-          <StudioDeck />
-        ) : (
-          <DeckView />
-        )}
-      </main>
-      {skin === "studio" ? <StudioTransport /> : <TransportBar />}
-      {skin === "studio" ? <StudioQueue /> : <QueuePanel />}
+          {playerView === "library" ? <LibraryView /> : <DeckView />}
+        </main>
+        <TransportBar />
+        <QueuePanel />
+        {lyricsOpen && <LyricsPanel onClose={toggleLyrics} />}
+      </StudioApp>
     </div>
   );
 }

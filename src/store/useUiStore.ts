@@ -1,8 +1,19 @@
 import { create } from "zustand";
 
+// Free build is locked to Porcelain/light — no theme or skin switching.
+// Pro build (VITE_PRO=1) enables full theme × skin switching.
+const IS_PRO = Boolean(import.meta.env.VITE_PRO);
+
 export type Source = "server" | "local";
 export type PlayerView = "library" | "deck";
-export type LibSection = "albums" | "artists" | "tracks" | "folders" | "playlists";
+export type LibSection =
+  | "albums"
+  | "artists"
+  | "tracks"
+  | "folders"
+  | "playlists"
+  | "offline"
+  | "smart-playlists";
 export type LibSort = "name" | "artist" | "year";
 export type Theme = "light" | "dark";
 export type Accent = "orange" | "violet" | "blue" | "teal" | "graphite";
@@ -18,6 +29,8 @@ export const ACCENTS: { id: Accent; label: string; swatch: string }[] = [
 ];
 
 const initialTheme = (): Theme => {
+  // Free build is always locked to Porcelain (light). Never read persisted dark preference.
+  if (!IS_PRO) return "light";
   try {
     return localStorage.getItem("eko.theme") === "dark" ? "dark" : "light";
   } catch {
@@ -45,6 +58,8 @@ export const SKINS: { id: Skin; label: string }[] = [
 ];
 
 const initialSkin = (): Skin => {
+  // Free build is always locked to Porcelain. Never restore a persisted Studio choice.
+  if (!IS_PRO) return "porcelain";
   try {
     const v = localStorage.getItem("eko.skin") as Skin | null;
     return v && SKINS.some((s) => s.id === v) ? v : "porcelain";
@@ -71,6 +86,7 @@ interface UiState {
   accent: Accent;
   skin: Skin;
   queueOpen: boolean;
+  lyricsOpen: boolean;
   compact: boolean;
 
   setZoom: (z: number) => void;
@@ -88,6 +104,7 @@ interface UiState {
   setAccent: (a: Accent) => void;
   setSkin: (s: Skin) => void;
   toggleQueue: () => void;
+  toggleLyrics: () => void;
   toggleCompact: () => void;
 }
 
@@ -107,6 +124,7 @@ export const useUiStore = create<UiState>((set) => ({
   accent: initialAccent(),
   skin: initialSkin(),
   queueOpen: false,
+  lyricsOpen: false,
   compact: false,
 
   // Zoom in 0.25 steps from 1× to 2× (snapped to the nearest quarter).
@@ -122,15 +140,18 @@ export const useUiStore = create<UiState>((set) => ({
   setLibrarySort: (s) => set({ librarySort: s }),
   setQuery: (q) => set({ query: q }),
   toggleTheme: () =>
-    set((s) => {
-      const theme: Theme = s.theme === "dark" ? "light" : "dark";
-      try {
-        localStorage.setItem("eko.theme", theme);
-      } catch {
-        /* ignore */
-      }
-      return { theme };
-    }),
+    // Free build: always Porcelain/light — switching is a Pro feature.
+    IS_PRO
+      ? set((s) => {
+          const theme: Theme = s.theme === "dark" ? "light" : "dark";
+          try {
+            localStorage.setItem("eko.theme", theme);
+          } catch {
+            /* ignore */
+          }
+          return { theme };
+        })
+      : undefined,
   setAccent: (accent) =>
     set(() => {
       try {
@@ -141,14 +162,18 @@ export const useUiStore = create<UiState>((set) => ({
       return { accent };
     }),
   setSkin: (skin) =>
-    set(() => {
-      try {
-        localStorage.setItem("eko.skin", skin);
-      } catch {
-        /* ignore */
-      }
-      return { skin };
-    }),
+    // Free build: always locked to Porcelain — Studio skin is a Pro feature.
+    IS_PRO
+      ? set(() => {
+          try {
+            localStorage.setItem("eko.skin", skin);
+          } catch {
+            /* ignore */
+          }
+          return { skin };
+        })
+      : undefined,
   toggleQueue: () => set((s) => ({ queueOpen: !s.queueOpen })),
+  toggleLyrics: () => set((s) => ({ lyricsOpen: !s.lyricsOpen })),
   toggleCompact: () => set((s) => ({ compact: !s.compact })),
 }));

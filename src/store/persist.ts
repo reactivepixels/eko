@@ -1,4 +1,5 @@
 import { usePlayerStore } from "./usePlayerStore";
+import type { EqMode, ParamBand } from "./usePlayerStore";
 import { useUiStore } from "./useUiStore";
 import type { ReplayGainMode, Track } from "../types";
 
@@ -11,6 +12,11 @@ interface Persisted {
   preamp: number;
   gains: number[];
   presetName: string | null;
+  // Parametric EQ (Pro feature)
+  eqMode?: EqMode;
+  paramEqEnabled?: boolean;
+  paramEqPreamp?: number;
+  paramEqBands?: ParamBand[];
   repeat: "off" | "all" | "one";
   shuffle: boolean;
   replayGainMode: ReplayGainMode;
@@ -21,6 +27,7 @@ interface Persisted {
   plVisible: boolean;
   mainShade: boolean;
   alwaysOnTop: boolean;
+  scrobbleEnabled?: boolean;
   // Resume: the last LOCAL queue + position. Server (Navidrome) sessions are not resumed
   // here because their stream URLs depend on a live connection (see resume-session.md).
   lastSession?: { tracks: Track[]; index: number; positionSec: number } | null;
@@ -43,6 +50,10 @@ export function saveState() {
     preamp: ps.preamp,
     gains: ps.gains,
     presetName: ps.presetName,
+    eqMode: ps.eqMode,
+    paramEqEnabled: ps.paramEqEnabled,
+    paramEqPreamp: ps.paramEqPreamp,
+    paramEqBands: ps.paramEqBands,
     repeat: ps.repeat,
     shuffle: ps.shuffle,
     replayGainMode: ps.replayGainMode,
@@ -53,6 +64,7 @@ export function saveState() {
     plVisible: ui.plVisible,
     mainShade: ui.mainShade,
     alwaysOnTop: ui.alwaysOnTop,
+    scrobbleEnabled: ps.scrobbleEnabled,
     lastSession,
   };
   try {
@@ -81,6 +93,11 @@ export async function restoreState() {
   if (Array.isArray(data.gains)) ps.setAllGains(data.gains);
   // setPreamp/setAllGains mark the EQ "Custom"; restore the real preset name last.
   usePlayerStore.setState({ presetName: data.presetName ?? null });
+  // Restore parametric EQ (Pro feature). Defaults are safe values if absent.
+  if (data.eqMode) ps.setEqMode(data.eqMode);
+  if (data.paramEqEnabled !== undefined) ps.setParamEqEnabled(data.paramEqEnabled);
+  if (typeof data.paramEqPreamp === "number") ps.setParamEqPreamp(data.paramEqPreamp);
+  if (Array.isArray(data.paramEqBands)) ps.setParamEqBands(data.paramEqBands);
   usePlayerStore.setState({
     repeat: data.repeat ?? "off",
     shuffle: !!data.shuffle,
@@ -97,6 +114,9 @@ export async function restoreState() {
 
   usePlayerStore.setState({ replayGainMode: data.replayGainMode ?? "off" });
   usePlayerStore.setState({ crossfadeMs: Math.max(0, Math.min(12000, data.crossfadeMs ?? 0)) });
+  if (data.scrobbleEnabled !== undefined) {
+    usePlayerStore.setState({ scrobbleEnabled: data.scrobbleEnabled });
+  }
 
   // Resume the last LOCAL session — paused, never auto-playing. The first play of the
   // restored track seeks to `pendingResumeSec` (see usePlayerStore.playAt). Server queues

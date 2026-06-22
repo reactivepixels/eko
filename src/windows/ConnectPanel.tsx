@@ -1,29 +1,74 @@
 import { useState, type CSSProperties, type FormEvent } from "react";
-import { useConnect } from "../hooks/useConnect";
+import { useSubsonic } from "../subsonic/useSubsonic";
+import { useUiStore } from "../store/useUiStore";
+import type { SubsonicConfig } from "../subsonic/client";
 
-/** Connection form shown when EKO isn't connected to a Navidrome/OpenSubsonic server. */
-export function ConnectPanel() {
-  const { connect, status, error, useLocalInstead } = useConnect();
+interface ConnectPanelProps {
+  /**
+   * "initial" (default) — first-time / re-connect flow; uses addAndConnect so the
+   *   server is added to the list.
+   * "add" — explicitly adding a new server from the manage panel; same underlying
+   *   call, the title text differs.
+   */
+  mode?: "initial" | "add";
+  /** Called after a successful connection in "add" mode. */
+  onSuccess?: () => void;
+  /** Called when the user dismisses the panel in "add" mode (no fallback-to-local). */
+  onCancel?: () => void;
+}
+
+/** Connection form shown when EKO isn't connected to a Navidrome/OpenSubsonic server,
+ *  or when the user is adding a new server from the manage-servers panel. */
+export function ConnectPanel({ mode = "initial", onSuccess, onCancel }: ConnectPanelProps) {
+  const addAndConnect = useSubsonic((s) => s.addAndConnect);
+  const status = useSubsonic((s) => s.status);
+  const error = useSubsonic((s) => s.error);
   const [baseUrl, setBaseUrl] = useState("http://192.168.86.50:4533");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [serverName, setServerName] = useState("");
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
-    await connect({ baseUrl: baseUrl.trim(), username: username.trim(), password });
+    const cfg: SubsonicConfig = { baseUrl: baseUrl.trim(), username: username.trim(), password };
+    const ok = await addAndConnect(serverName.trim() || undefined, cfg);
+    if (ok && onSuccess) onSuccess();
   };
-  const dismiss = () => useLocalInstead();
+
+  const dismiss = () => {
+    if (onCancel) {
+      onCancel();
+    } else {
+      // Default initial behaviour: fall back to local source.
+      useUiStore.getState().setSource("local");
+    }
+  };
+
+  const title = mode === "add" ? "ADD SERVER" : "CONNECT TO NAVIDROME";
 
   return (
     <div style={overlay} onClick={dismiss}>
       <form onSubmit={submit} style={card} onClick={(e) => e.stopPropagation()}>
         <div style={headRow}>
           <div style={brand}>EKO</div>
-          <div style={closeBtn} onClick={dismiss} title="Back to Local">
+          <div
+            style={closeBtn}
+            onClick={dismiss}
+            title={mode === "add" ? "Cancel" : "Back to Local"}
+          >
             ✕
           </div>
         </div>
-        <div style={sub}>CONNECT TO NAVIDROME</div>
+        <div style={sub}>{title}</div>
+        <label style={lbl}>
+          SERVER NAME (optional)
+          <input
+            style={input}
+            value={serverName}
+            onChange={(e) => setServerName(e.target.value)}
+            placeholder="My Navidrome"
+          />
+        </label>
         <label style={lbl}>
           SERVER URL
           <input
@@ -48,12 +93,14 @@ export function ConnectPanel() {
           />
         </label>
         <button type="submit" style={btn} disabled={status === "connecting"}>
-          {status === "connecting" ? "CONNECTING…" : "CONNECT"}
+          {status === "connecting" ? "CONNECTING…" : mode === "add" ? "ADD SERVER" : "CONNECT"}
         </button>
         {error && <div style={errStyle}>✕ {error}</div>}
-        <div style={backLink} onClick={dismiss}>
-          ← Use local files instead
-        </div>
+        {mode === "initial" && (
+          <div style={backLink} onClick={dismiss}>
+            ← Use local files instead
+          </div>
+        )}
       </form>
     </div>
   );

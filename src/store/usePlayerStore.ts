@@ -1,10 +1,64 @@
 import { create } from "zustand";
 import { toTrack } from "../audio/loader";
 import { nativeEngine } from "../audio/nativeEngine";
+import type { ParamBand, EqMode } from "../audio/nativeEngine";
 import { mediaMetadata, mediaPlayback, mediaStopped } from "../audio/media";
-import { streamSrcUrl, coverArtUrl } from "../subsonic/client";
+import { streamSrcUrl, coverArtUrl, scrobble } from "../subsonic/client";
 import { EQ_BAND_COUNT, EQ_PRESETS, FLAT_GAINS, type EqPreset } from "../audio/constants";
+import { offlineEntry, useOfflineStore } from "@pro";
 import type { ReplayGainMode, RepeatMode, Track } from "../types";
+
+// ── Scrobble threshold (Last.fm convention) ────────────────────────────────
+// A track is scrobbled after 50% of its duration has played, OR 4 minutes —
+// whichever comes first — but only once per track load.
+export const SCROBBLE_MIN_SECS = 30; // don't scrobble very short clips
+export const SCROBBLE_MAX_SECS = 4 * 60; // 4 min cap
+
+/** Return the elapsed-seconds threshold at which to fire the "submission" scrobble. */
+export function scrobbleThreshold(durationSec: number): number {
+  if (durationSec <= 0) return Infinity;
+  return Math.min(durationSec * 0.5, SCROBBLE_MAX_SECS);
+}
+
+// ── Sleep-timer state (module-level, not persisted) ────────────────────────
+/** Preset durations offered in the UI (minutes), plus the sentinel -1 = end-of-track. */
+export const SLEEP_PRESETS = [15, 30, 45, 60] as const;
+export type SleepPreset = (typeof SLEEP_PRESETS)[number] | -1; // -1 = end of track
+
+interface SleepTimer {
+  /** Wall-clock ms when the timer was started. */
+  startedAt: number;
+  /** Total duration in ms (Infinity for end-of-track mode). */
+  durationMs: number;
+  /** Whether this is "end of track" mode (pause when the current track finishes). */
+  endOfTrack: boolean;
+}
+
+// Active sleep timer and the interval that drives the countdown display.
+let _sleepTimer: SleepTimer | null = null;
+let _sleepInterval: ReturnType<typeof setInterval> | null = null;
+
+function clearSleepTimer() {
+  if (_sleepInterval) {
+    clearInterval(_sleepInterval);
+    _sleepInterval = null;
+  }
+  _sleepTimer = null;
+  usePlayerStore.setState({ sleepTimer: null });
+}
+
+/** Remaining ms on the sleep timer, or null if inactive. */
+export function sleepTimerRemaining(): number | null {
+  if (!_sleepTimer || _sleepTimer.endOfTrack) return null;
+  const remaining = _sleepTimer.durationMs - (Date.now() - _sleepTimer.startedAt);
+  return Math.max(0, remaining);
+}
+
+// ── Scrobble tracking (module-level, reset on each track) ─────────────────
+let _scrobbleId: string | null = null; // id of the track being tracked
+let _submissionSent = false;
+
+export type { ParamBand, EqMode };
 
 export interface EngineInfo {
   device: string;
@@ -90,6 +144,42 @@ function startNativePoll() {
       isPlaying: st.playing,
     });
 
+    // ── Scrobble: submission at the play threshold ──────────────────────────
+    // Fire once per track when elapsed time crosses the threshold (50% or 4 min).
+    const scrobbleState = usePlayerStore.getState();
+    if (
+      scrobbleState.scrobbleEnabled &&
+      _scrobbleId !== null &&
+      !_submissionSent &&
+      st.playing &&
+      st.posMs > 0 &&
+      st.durMs > 0
+    ) {
+      const threshold = scrobbleThreshold(st.durMs / 1000);
+      if (engTime >= threshold && st.durMs / 1000 >= SCROBBLE_MIN_SECS) {
+        _submissionSent = true;
+        void scrobble(_scrobbleId, true);
+      }
+    }
+
+    // ── Sleep timer: wall-clock countdown ──────────────────────────────────
+    if (_sleepTimer && !_sleepTimer.endOfTrack) {
+      const remaining = Math.max(0, _sleepTimer.durationMs - (Date.now() - _sleepTimer.startedAt));
+      usePlayerStore.setState({
+        sleepTimer: {
+          endOfTrack: false,
+          remainingSec: Math.ceil(remaining / 1000),
+          totalSec: Math.round(_sleepTimer.durationMs / 1000),
+        },
+      });
+      if (remaining <= 0 && st.playing) {
+        clearSleepTimer();
+        void nativeEngine.pause();
+        usePlayerStore.setState({ isPlaying: false });
+        pushPlayback();
+      }
+    }
+
     // Arm the next sequential track for gapless continuation ~12s before the current ends
     // (once per track; only when playing straight through — not shuffle / repeat-one).
     // Skip when sessionDirty and clear any previously armed next-source.
@@ -114,8 +204,16 @@ function startNativePoll() {
       ) {
         const nt = cur.tracks[nextIdx];
         enqueuedFor = cur.currentIndex;
-        if (nt.subsonicId) void nativeEngine.enqueue(null, streamSrcUrl(nt.subsonicId));
-        else void nativeEngine.enqueue(nt.path, null);
+        if (nt.subsonicId) {
+          const cached = offlineEntry(useOfflineStore.getState().entries, nt.subsonicId);
+          if (cached) {
+            void nativeEngine.enqueue(null, null, cached.trackId, cached.bytes);
+          } else {
+            void nativeEngine.enqueue(null, streamSrcUrl(nt.subsonicId));
+          }
+        } else {
+          void nativeEngine.enqueue(nt.path, null);
+        }
       }
     }
     // Signal-path info changes only per track — only write (and re-render) when it does.
@@ -144,6 +242,13 @@ function startNativePoll() {
     }
     if (ended) {
       stopNativePoll();
+      // Sleep timer "end of track": pause instead of advancing.
+      if (_sleepTimer?.endOfTrack) {
+        clearSleepTimer();
+        usePlayerStore.setState({ isPlaying: false });
+        pushPlayback();
+        return;
+      }
       void usePlayerStore.getState().next();
     }
   }, 120);
@@ -174,6 +279,11 @@ interface PlayerState {
   preamp: number; // dB
   gains: number[]; // dB, length EQ_BAND_COUNT
   presetName: string | null; // name of the applied preset, or null once edited ("Custom")
+  // Parametric EQ (Pro feature)
+  eqMode: EqMode; // "graphic" (free/default) | "parametric" (Pro)
+  paramEqEnabled: boolean;
+  paramEqPreamp: number; // dB
+  paramEqBands: ParamBand[];
 
   // Modes
   repeat: RepeatMode;
@@ -184,6 +294,16 @@ interface PlayerState {
 
   // Resume
   pendingResumeSec: number | null; // restored position to seek to on the next play
+
+  // Scrobble
+  scrobbleEnabled: boolean; // user toggle (default true)
+
+  // Sleep timer (reactive display state — the raw timer lives at module level)
+  sleepTimer: {
+    endOfTrack: boolean;
+    remainingSec: number | null; // null in end-of-track mode (no countdown)
+    totalSec: number | null;
+  } | null;
 
   // --- actions ---
   init: () => void;
@@ -212,10 +332,18 @@ interface PlayerState {
   setBandGain: (index: number, db: number) => void;
   setAllGains: (gains: number[]) => void;
   applyPreset: (preset: EqPreset) => void;
+  // Parametric EQ (Pro)
+  setEqMode: (mode: EqMode) => void;
+  setParamEqEnabled: (on: boolean) => void;
+  setParamEqPreamp: (db: number) => void;
+  setParamEqBands: (bands: ParamBand[]) => void;
   cycleRepeat: () => void;
   toggleShuffle: () => void;
   setReplayGainMode: (mode: ReplayGainMode) => void;
   setCrossfade: (ms: number) => void;
+  setScrobbleEnabled: (on: boolean) => void;
+  startSleepTimer: (preset: SleepPreset) => void;
+  cancelSleepTimer: () => void;
 }
 
 // Guards against attaching audio element listeners twice (e.g. StrictMode in dev).
@@ -225,6 +353,18 @@ let storeInitialized = false;
 function syncEq() {
   const s = usePlayerStore.getState();
   void nativeEngine.setEq(s.eqEnabled, s.preamp, s.gains);
+}
+
+/** Push the current parametric EQ config into the native engine. */
+function syncParamEq() {
+  const s = usePlayerStore.getState();
+  void nativeEngine.setParamEq(s.paramEqEnabled, s.paramEqPreamp, s.paramEqBands);
+}
+
+/** Push the EQ mode (graphic/parametric) into the native engine. */
+function syncEqMode() {
+  const s = usePlayerStore.getState();
+  void nativeEngine.setEqMode(s.eqMode);
 }
 
 /** Push the crossfade duration into the engine. A fresh session resets it to 0, so this is
@@ -334,12 +474,18 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   preamp: 0,
   gains: FLAT_GAINS(),
   presetName: "Flat",
+  eqMode: "graphic" as EqMode,
+  paramEqEnabled: false,
+  paramEqPreamp: 0,
+  paramEqBands: [],
   repeat: "off",
   shuffle: false,
   replayGainMode: "off",
   rgAppliedDb: null,
   crossfadeMs: 0,
   pendingResumeSec: null,
+  scrobbleEnabled: true,
+  sleepTimer: null,
 
   init: () => {
     if (storeInitialized) return;
@@ -347,6 +493,8 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     // Playback state is driven by the native engine poll; nothing to wire here but the
     // initial EQ push (a no-op until a track starts a session).
     syncEq();
+    syncEqMode();
+    syncParamEq();
   },
 
   addPaths: async (paths, autoplay = true) => {
@@ -380,6 +528,9 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     stopNativePoll();
     enqueuedFor = null;
     sessionDirty = false;
+    _scrobbleId = null;
+    _submissionSent = false;
+    clearSleepTimer();
     set({
       tracks: [],
       currentIndex: null,
@@ -426,16 +577,36 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       engineActive: true,
       pendingResumeSec: null,
     });
-    // Everything plays through the native bit-perfect engine: local files by path,
-    // server tracks by streaming the Navidrome URL into the decoder.
+    // ── Scrobble: reset per-track state and fire "now playing" ────────────
+    _scrobbleId = track.subsonicId ?? null;
+    _submissionSent = false;
+    if (track.subsonicId && get().scrobbleEnabled) {
+      void scrobble(track.subsonicId, false);
+    }
+
+    // ── Sleep timer: "end of track" mode — cancel on new track (pause already fired) ──
+    // Only cancel if it's the end-of-track variant; fixed-duration timers survive track changes.
+    if (_sleepTimer?.endOfTrack) {
+      clearSleepTimer();
+    }
+
+    // Route: cached offline (EncryptedFileSource, bit-perfect) → local file → server stream.
     if (track.subsonicId) {
-      void nativeEngine.playUrl(streamSrcUrl(track.subsonicId));
+      const cached = offlineEntry(useOfflineStore.getState().entries, track.subsonicId);
+      if (cached) {
+        // Play from the encrypted local cache — no network, fully bit-perfect.
+        void nativeEngine.playCached(cached.trackId, cached.bytes);
+      } else {
+        void nativeEngine.playUrl(streamSrcUrl(track.subsonicId));
+      }
     } else {
       void nativeEngine.play(track.path);
     }
     startNativePoll();
     nativeEngine.startBands();
     syncEq();
+    syncEqMode();
+    syncParamEq();
     syncVol();
     syncCrossfade();
     applyReplayGain();
@@ -639,6 +810,26 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     syncEq();
   },
 
+  setEqMode: (mode) => {
+    set({ eqMode: mode });
+    syncEqMode();
+  },
+
+  setParamEqEnabled: (on) => {
+    set({ paramEqEnabled: on });
+    syncParamEq();
+  },
+
+  setParamEqPreamp: (db) => {
+    set({ paramEqPreamp: db });
+    syncParamEq();
+  },
+
+  setParamEqBands: (bands) => {
+    set({ paramEqBands: bands });
+    syncParamEq();
+  },
+
   cycleRepeat: () =>
     set((s) => ({
       repeat: s.repeat === "off" ? "all" : s.repeat === "all" ? "one" : "off",
@@ -659,6 +850,37 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     const clamped = Math.max(0, Math.min(12000, Math.round(ms)));
     set({ crossfadeMs: clamped });
     syncCrossfade();
+  },
+
+  setScrobbleEnabled: (on) => {
+    set({ scrobbleEnabled: on });
+  },
+
+  startSleepTimer: (preset) => {
+    // Clear any existing timer first.
+    if (_sleepInterval) clearInterval(_sleepInterval);
+    _sleepInterval = null;
+
+    if (preset === -1) {
+      // End-of-track mode: no countdown, just set the flag.
+      _sleepTimer = { startedAt: Date.now(), durationMs: Infinity, endOfTrack: true };
+      set({ sleepTimer: { endOfTrack: true, remainingSec: null, totalSec: null } });
+    } else {
+      const durationMs = preset * 60 * 1000;
+      _sleepTimer = { startedAt: Date.now(), durationMs, endOfTrack: false };
+      set({
+        sleepTimer: {
+          endOfTrack: false,
+          remainingSec: preset * 60,
+          totalSec: preset * 60,
+        },
+      });
+      // The poll loop handles countdown ticks; no separate interval needed.
+    }
+  },
+
+  cancelSleepTimer: () => {
+    clearSleepTimer();
   },
 }));
 

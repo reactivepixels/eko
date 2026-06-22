@@ -55,8 +55,13 @@
 }
 
 @keyframes stBarBob {
-  0%, 100% { transform: scaleY(1); }
-  50%       { transform: scaleY(0.5); }
+  0%,
+  100% {
+    transform: scaleY(1);
+  }
+  50% {
+    transform: scaleY(0.5);
+  }
 }
 
 .bars {
@@ -76,9 +81,17 @@
 }
 
 /* heights follow the concept pattern (6 / live=16 / 10 / 13) */
-.bars i:nth-child(1) { height: 6px; }
-.bars i:nth-child(3) { height: 10px; animation-delay: 0.4s; }
-.bars i:nth-child(4) { height: 13px; animation-delay: 0.1s; }
+.bars i:nth-child(1) {
+  height: 6px;
+}
+.bars i:nth-child(3) {
+  height: 10px;
+  animation-delay: 0.4s;
+}
+.bars i:nth-child(4) {
+  height: 13px;
+  animation-delay: 0.1s;
+}
 
 .barsLive {
   height: 16px !important;
@@ -176,7 +189,10 @@
   letter-spacing: 1.2px;
   text-transform: uppercase;
   color: var(--ink-2);
-  transition: color 0.15s, background 0.15s, box-shadow 0.15s;
+  transition:
+    color 0.15s,
+    background 0.15s,
+    box-shadow 0.15s;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -222,7 +238,10 @@
   letter-spacing: 1.2px;
   text-transform: uppercase;
   color: var(--ink-2);
-  transition: color 0.15s, background 0.15s, box-shadow 0.15s;
+  transition:
+    color 0.15s,
+    background 0.15s,
+    box-shadow 0.15s;
 }
 
 .skinBtnOn {
@@ -327,7 +346,6 @@
 }
 
 /* logo stays identical across themes — no per-theme recolour of the bars */
-
 
 [data-theme="dark"] .search {
   background: var(--sl-face, #2b2824);

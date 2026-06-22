@@ -61,7 +61,9 @@
 }
 .pill.on {
   color: var(--accent);
-  box-shadow: inset 2px 2px 5px rgba(var(--sl-sh), 0.16), inset -2px -2px 5px rgba(255, 255, 255, 0.9);
+  box-shadow:
+    inset 2px 2px 5px rgba(var(--sl-sh), 0.16),
+    inset -2px -2px 5px rgba(255, 255, 255, 0.9);
 }
 [data-theme="dark"] .pill {
   box-shadow:
@@ -70,7 +72,9 @@
     0 0 0 1px rgba(255, 255, 255, 0.04);
 }
 [data-theme="dark"] .pill.on {
-  box-shadow: inset 2px 2px 5px rgba(0, 0, 0, 0.5), inset -2px -2px 5px rgba(255, 255, 255, 0.05);
+  box-shadow:
+    inset 2px 2px 5px rgba(0, 0, 0, 0.5),
+    inset -2px -2px 5px rgba(255, 255, 255, 0.05);
 }
 
 /* ---- album wall ---- */
@@ -217,7 +221,11 @@
   background: rgba(255, 255, 255, 0.05);
 }
 .row.playing {
-  background: linear-gradient(90deg, rgba(var(--accent-rgb, 239, 106, 30), 0.1), rgba(var(--accent-rgb, 239, 106, 30), 0.02));
+  background: linear-gradient(
+    90deg,
+    rgba(var(--accent-rgb, 239, 106, 30), 0.1),
+    rgba(var(--accent-rgb, 239, 106, 30), 0.02)
+  );
   box-shadow: none;
 }
 .row.playing .rowTt {

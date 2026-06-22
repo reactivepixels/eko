@@ -99,5 +99,5 @@ export function Spectrum({ bands = 36, bargap = 2, className }: Props) {
     };
   }, [bands, bargap]);
 
-  return <canvas ref={cvs} className={className} />;
+  return <canvas ref={cvs} className={className} aria-hidden="true" role="presentation" />;
 }

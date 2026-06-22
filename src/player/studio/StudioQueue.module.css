@@ -101,7 +101,9 @@
   color: var(--ink-2);
   padding: 6px 10px;
   border-radius: 8px;
-  transition: color 0.15s, background 0.15s;
+  transition:
+    color 0.15s,
+    background 0.15s;
 }
 .clearBtn:hover {
   color: var(--ink);
@@ -127,7 +129,9 @@
     0 12px 22px -10px rgba(var(--sl-sh), 0.28),
     inset 0 1px 1px rgba(255, 255, 255, 0.92),
     0 0 0 1px rgba(255, 255, 255, 0.55);
-  transition: color 0.15s, box-shadow 0.12s;
+  transition:
+    color 0.15s,
+    box-shadow 0.12s;
 }
 /* when clearBtn is absent, close needs its own left auto margin */
 .head:not(:has(.clearBtn)) .closeBtn {
@@ -191,9 +195,12 @@
 
 /* State modifier classes — applied alongside .qrow; rules live in the
    compound selectors below so the hashed class names exist for styles.* lookups. */
-.playing {}
-.dropOver {}
-.dragging {}
+.playing {
+}
+.dropOver {
+}
+.dragging {
+}
 
 /* ---- queue row ---- */
 .qrow {
@@ -296,7 +303,10 @@
   cursor: pointer;
   color: var(--sl-label);
   opacity: 0;
-  transition: opacity 0.15s, color 0.15s, background 0.15s;
+  transition:
+    opacity 0.15s,
+    color 0.15s,
+    background 0.15s;
 }
 .removeBtn svg {
   width: 12px;

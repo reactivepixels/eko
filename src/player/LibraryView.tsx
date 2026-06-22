@@ -3,6 +3,7 @@ import { LocalCover } from "./LocalCover";
 import { Marquee } from "./Marquee";
 import { useContextMenu } from "./ContextMenu";
 import { useLibrary, type LibraryCard } from "../hooks/useLibrary";
+import { OfflineView, SmartPlaylistsView } from "@pro";
 
 /**
  * Porcelain library surface — pure presentation over the shared `useLibrary()` brain.
@@ -37,6 +38,12 @@ export function LibraryView() {
     artist,
   } = lib;
 
+  // ---- offline section (Pro) ----
+  if (section === "offline") return <OfflineView />;
+
+  // ---- smart playlists section (Pro creation, free viewing) ----
+  if (section === "smart-playlists") return <SmartPlaylistsView />;
+
   // ---- empty states ----
   if (source === "server" && !connected)
     return <div className="empty">Connect to your Navidrome server to browse your library.</div>;
@@ -63,7 +70,14 @@ export function LibraryView() {
           Point Eko at a folder of music on your Mac or an external drive — it'll scan the tags and
           build your library.
         </div>
-        <div className="btn" onClick={lib.pickFolder}>
+        <div
+          className="btn"
+          onClick={lib.pickFolder}
+          role="button"
+          tabIndex={0}
+          aria-label="Choose music folder"
+          onKeyDown={(e) => (e.key === "Enter" || e.key === " " ? lib.pickFolder() : undefined)}
+        >
           Choose music folder…
         </div>
       </div>
@@ -76,7 +90,14 @@ export function LibraryView() {
   if (detail) {
     return (
       <div className="view detail">
-        <div className="back" onClick={lib.closeDetail}>
+        <div
+          className="back"
+          onClick={lib.closeDetail}
+          role="button"
+          tabIndex={0}
+          aria-label={`Back to ${detail.from ?? "Albums"}`}
+          onKeyDown={(e) => (e.key === "Enter" || e.key === " " ? lib.closeDetail() : undefined)}
+        >
           ‹ {detail.from ?? "Albums"}
         </div>
         <div className="detail-head">
@@ -94,20 +115,41 @@ export function LibraryView() {
               {formatTime(detail.tracks.reduce((a, t) => a + (t.duration || 0), 0))}
             </div>
             <div className="detail-actions">
-              <div className="btn" onClick={() => lib.playDetail(0)}>
+              <div
+                className="btn"
+                onClick={() => lib.playDetail(0)}
+                role="button"
+                tabIndex={0}
+                aria-label="Play all tracks"
+                onKeyDown={(e) =>
+                  e.key === "Enter" || e.key === " " ? lib.playDetail(0) : undefined
+                }
+              >
                 ▸ Play all
               </div>
               <div
                 className="btn ghost"
                 onClick={lib.playDetailNext}
+                role="button"
+                tabIndex={0}
+                aria-label="Play next"
                 title="Play after the current track"
+                onKeyDown={(e) =>
+                  e.key === "Enter" || e.key === " " ? lib.playDetailNext() : undefined
+                }
               >
                 Play Next
               </div>
               <div
                 className="btn ghost"
                 onClick={lib.addDetailToQueue}
+                role="button"
+                tabIndex={0}
+                aria-label="Add to queue"
                 title="Add to the end of the queue"
+                onKeyDown={(e) =>
+                  e.key === "Enter" || e.key === " " ? lib.addDetailToQueue() : undefined
+                }
               >
                 + Queue
               </div>
@@ -183,7 +225,14 @@ export function LibraryView() {
       const list = cards.filter((c) => c.artist === artist);
       return (
         <div className="view">
-          <div className="back" onClick={lib.closeArtist}>
+          <div
+            className="back"
+            onClick={lib.closeArtist}
+            role="button"
+            tabIndex={0}
+            aria-label="Back to Artists"
+            onKeyDown={(e) => (e.key === "Enter" || e.key === " " ? lib.closeArtist() : undefined)}
+          >
             ‹ Artists
           </div>
           <div className="lib-head">

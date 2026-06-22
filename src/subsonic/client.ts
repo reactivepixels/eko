@@ -135,10 +135,91 @@ export async function getPlaylist(id: string): Promise<{ name: string; songs: Su
   return { name: pl.name ?? "Playlist", songs: pl.entry ?? [] };
 }
 
-export async function getRandomSongs(size = 50): Promise<SubSong[]> {
-  const r = await call("getRandomSongs", { size: String(size) });
+export async function getRandomSongs(size = 50, genre?: string): Promise<SubSong[]> {
+  const extra: Record<string, string> = { size: String(size) };
+  if (genre) extra.genre = genre;
+  const r = await call("getRandomSongs", extra);
   const rs = r.randomSongs as { song?: SubSong[] } | undefined;
   return rs?.song ?? [];
+}
+
+/** Genre list from the server (name + songCount). */
+export interface SubGenre {
+  value: string; // genre name (the "name" field in Subsonic XML is returned as "value" in JSON)
+  songCount: number;
+  albumCount?: number;
+}
+
+export async function getGenres(): Promise<SubGenre[]> {
+  const r = await call("getGenres");
+  const gs = r.genres as
+    | { genre?: (SubGenre | { value?: string; songCount?: number })[] }
+    | undefined;
+  return (gs?.genre ?? []).map((g) => ({
+    value: (g as { value?: string }).value ?? "",
+    songCount: (g as { songCount?: number }).songCount ?? 0,
+  }));
+}
+
+/** getAlbumList2 with a given type filter — used for smart playlist rules. */
+export type AlbumListType =
+  | "newest"
+  | "recent"
+  | "frequent"
+  | "random"
+  | "starred"
+  | "alphabeticalByArtist"
+  | "alphabeticalByName"
+  | "byGenre"
+  | "byYear";
+
+export async function getAlbumList2(
+  type: AlbumListType,
+  size = 500,
+  offset = 0,
+  extra: Record<string, string> = {},
+): Promise<SubAlbum[]> {
+  const r = await call("getAlbumList2", {
+    type,
+    size: String(size),
+    offset: String(offset),
+    ...extra,
+  });
+  const list = r.albumList2 as { album?: SubAlbum[] } | undefined;
+  return list?.album ?? [];
+}
+
+/** getSimilarSongs2 — returns songs similar to the given song (by id). */
+export async function getSimilarSongs2(id: string, count = 50): Promise<SubSong[]> {
+  const r = await call("getSimilarSongs2", { id, count: String(count) });
+  const ss = r.similarSongs2 as { song?: SubSong[] } | undefined;
+  return ss?.song ?? [];
+}
+
+/** getArtistInfo2 — returns bio + list of similar artists. */
+export interface SubSimilarArtist {
+  id: string;
+  name: string;
+}
+export interface SubArtistInfo {
+  biography?: string;
+  lastFmUrl?: string;
+  similarArtist?: SubSimilarArtist[];
+}
+
+export async function getArtistInfo2(id: string): Promise<SubArtistInfo> {
+  const r = await call("getArtistInfo2", { id });
+  return (r.artistInfo2 as SubArtistInfo | undefined) ?? {};
+}
+
+/** getStarred2 — starred songs/albums/artists from the server. */
+export interface SubStarred {
+  song?: SubSong[];
+  album?: SubAlbum[];
+}
+export async function getStarred2(): Promise<SubStarred> {
+  const r = await call("getStarred2");
+  return (r.starred2 as SubStarred | undefined) ?? {};
 }
 
 /**
@@ -161,6 +242,86 @@ export function coverArtUrl(coverArt: string | undefined, size = 300): string | 
   if (!coverArt) return null;
   const upstream = apiUrl("getCoverArt", { id: coverArt, size: String(size) });
   return `stream://localhost/?src=${encodeURIComponent(upstream)}`;
+}
+
+/**
+ * Subsonic `download` endpoint URL — returns the ORIGINAL file bytes (no transcode).
+ * Used by the offline cache to store bit-perfect audio.
+ */
+export function downloadUrl(id: string): string {
+  return apiUrl("download", { id });
+}
+
+/** Send a scrobble to the server.
+ *  `submission=false` → "now playing" (called at track start).
+ *  `submission=true`  → permanent scrobble (called at the play threshold).
+ *  Failures are swallowed — scrobble must never interrupt playback. */
+export async function scrobble(id: string, submission: boolean): Promise<void> {
+  try {
+    await call("scrobble", {
+      id,
+      submission: submission ? "true" : "false",
+      time: String(Date.now()),
+    });
+  } catch {
+    // Best-effort: network/server errors must not affect playback.
+  }
+}
+
+/** OpenSubsonic `getLyricsBySongId` — returns synced lyrics with per-line timestamps (ms).
+ *  Only available on OpenSubsonic-compatible servers (Navidrome ≥ 0.52). */
+export interface SyncedLyricLine {
+  start: number; // offset in ms from track start
+  value: string; // line text
+}
+export interface LyricsResult {
+  synced: SyncedLyricLine[] | null;
+  unsynced: string | null; // plain text block (newline-separated)
+}
+
+export async function getLyricsBySongId(songId: string): Promise<LyricsResult> {
+  try {
+    const r = await call("getLyricsBySongId", { id: songId });
+    // OpenSubsonic response shape: { lyricsList: { structuredLyrics: [ { synced, line: [{start,value}] } ] } }
+    const ll = r.lyricsList as
+      | { structuredLyrics?: { synced?: boolean; line?: SyncedLyricLine[] }[] }
+      | undefined;
+    const list = ll?.structuredLyrics ?? [];
+    // Prefer synced entry first.
+    const syncedEntry = list.find((e) => e.synced && Array.isArray(e.line) && e.line.length > 0);
+    if (syncedEntry?.line && syncedEntry.line.length > 0) {
+      return { synced: syncedEntry.line, unsynced: null };
+    }
+    // Fall back to unsynced entry.
+    const unsyncedEntry = list.find((e) => !e.synced && Array.isArray(e.line) && e.line.length > 0);
+    if (unsyncedEntry?.line && unsyncedEntry.line.length > 0) {
+      const text = unsyncedEntry.line.map((l) => l.value).join("\n");
+      return { synced: null, unsynced: text };
+    }
+    return { synced: null, unsynced: null };
+  } catch {
+    // OpenSubsonic endpoint not supported — fall back to legacy getLyrics.
+    return getLyricsLegacy(null, null);
+  }
+}
+
+/** Legacy `getLyrics` endpoint — plain-text, unsynced. Falls back when the server doesn't
+ *  support `getLyricsBySongId`. Requires artist + title from the track metadata. */
+export async function getLyricsLegacy(
+  artist: string | null,
+  title: string | null,
+): Promise<LyricsResult> {
+  try {
+    const extra: Record<string, string> = {};
+    if (artist) extra.artist = artist;
+    if (title) extra.title = title;
+    const r = await call("getLyrics", extra);
+    const lyr = r.lyrics as { value?: string } | undefined;
+    const text = lyr?.value?.trim() ?? null;
+    return { synced: null, unsynced: text && text.length > 0 ? text : null };
+  } catch {
+    return { synced: null, unsynced: null };
+  }
 }
 
 export function mimeForSong(s: { contentType?: string; suffix?: string }): string {

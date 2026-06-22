@@ -18,7 +18,15 @@
     "strict": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
-    "noFallthroughCasesInSwitch": true
+    "noFallthroughCasesInSwitch": true,
+
+    /* Open-core alias — `@pro` resolves to the stub barrel for free-build
+       typechecking.  The Vite config switches this to src/pro/index.ts at
+       bundle time when VITE_PRO=1.  tsc always uses the stub path here so
+       `npm run typecheck` passes even with src/pro/ physically deleted. */
+    "paths": {
+      "@pro": ["./src/pro-stub/index.ts"]
+    }
   },
   "include": ["src"],
   "references": [{ "path": "./tsconfig.node.json" }]

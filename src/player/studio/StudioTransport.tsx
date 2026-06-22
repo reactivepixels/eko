@@ -121,7 +121,14 @@ export function StudioTransport() {
             onClick={tr.toggleShuffle}
           >
             <span className={styles.puckTop}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
                 <path d="M3 7h4l9 10h5M16 7h5v5M3 17h4l3-3.4" />
               </svg>
             </span>
@@ -137,7 +144,11 @@ export function StudioTransport() {
           </button>
 
           {/* Play / Pause */}
-          <button className={`${styles.puck} ${styles.puckPlay}`} title="Play / Pause" onClick={tr.togglePlay}>
+          <button
+            className={`${styles.puck} ${styles.puckPlay}`}
+            title="Play / Pause"
+            onClick={tr.togglePlay}
+          >
             <span className={styles.puckTop}>
               {tr.isPlaying ? (
                 <svg viewBox="0 0 24 24" fill="currentColor">
@@ -168,7 +179,14 @@ export function StudioTransport() {
             onClick={tr.cycleRepeat}
           >
             <span className={styles.puckTop}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
                 <path d="M4 9a4 4 0 0 1 4-4h9M17 5l-2-2M17 5l-2 2M20 15a4 4 0 0 1-4 4H7M7 19l2-2M7 19l2 2" />
               </svg>
             </span>
@@ -232,10 +250,7 @@ export function StudioTransport() {
             </svg>
             <div className={styles.volBody} />
             <div className={styles.volCap} />
-            <div
-              className={styles.volDial}
-              style={{ transform: `rotate(${vol.deg}deg)` }}
-            >
+            <div className={styles.volDial} style={{ transform: `rotate(${vol.deg}deg)` }}>
               <span className={styles.volInd} />
             </div>
           </div>

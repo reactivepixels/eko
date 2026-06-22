@@ -5,7 +5,7 @@
   --light: #ffffff;
   --dark: #c3c1b8;
   --ink: #2c2b27;
-  --ink-2: #6f6e67;
+  --ink-2: #686762; /* nudged from #6f6e67 — passes WCAG AA 4.5:1 on --bg */
   --ink-3: #9b9a92;
   --accent: #ef6a1e;
   --accent-2: #ff8c42;
@@ -40,7 +40,7 @@
   --dark: #141519;
   --ink: #eceef0;
   --ink-2: #a3a6ad;
-  --ink-3: #70737a;
+  --ink-3: #8e9198; /* nudged from #70737a — passes WCAG AA 4.5:1 on --bg and --bg2 */
   --line: rgba(255, 255, 255, 0.05);
   --spec-rgb: 230, 233, 236;
   --art-bg: #2f3137;
@@ -133,7 +133,7 @@
   --light: #ffffff;
   --dark: #cdc7bb;
   --ink: #3b3933;
-  --ink-2: #6d6a61;
+  --ink-2: #65625a; /* nudged from #6d6a61 — passes WCAG AA 4.5:1 on studio --bg */
   --ink-3: #a4a096;
   --line: rgba(62, 58, 50, 0.08);
   --art-bg: #e7e3da;
@@ -167,7 +167,7 @@
   --dark: #0d0b08;
   --ink: #ece8e0;
   --ink-2: #a8a39a;
-  --ink-3: #746f66;
+  --ink-3: #8a857c; /* nudged from #746f66 — passes WCAG AA 4.5:1 on studio dark --bg and --bg2 */
   --line: rgba(255, 255, 255, 0.05);
   --art-bg: #242019;
   --hover: rgba(255, 255, 255, 0.05);
@@ -610,6 +610,264 @@ body {
 }
 .dac-card .folder-actions span:hover {
   text-decoration: underline;
+}
+
+/* ---- EKO Pro panel ---- */
+.pro-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+/* Status badge */
+.pro-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  color: var(--ink-2);
+}
+.pro-status__icon {
+  width: 13px;
+  height: 13px;
+  flex: 0 0 auto;
+}
+.pro-status--licensed {
+  color: var(--accent);
+}
+.pro-status--trial {
+  color: var(--a);
+}
+.pro-status--free {
+  color: var(--ink-3);
+}
+
+/* Gated feature row */
+.pro-feature-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 0;
+  border-top: 1px solid var(--line);
+}
+.pro-feature-row--locked {
+  opacity: 0.65;
+}
+.pro-feature-row__label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.pro-lock-badge {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font: 700 8px/1 var(--mono);
+  letter-spacing: 0.5px;
+  padding: 3px 6px;
+  border-radius: 5px;
+  background: var(--bg);
+  box-shadow: var(--in);
+  color: var(--ink-3);
+}
+.pro-lock-badge svg {
+  width: 9px;
+  height: 9px;
+}
+
+/* Toggle switch */
+.pro-toggle {
+  width: 32px;
+  height: 18px;
+  border-radius: 9px;
+  background: var(--bg);
+  box-shadow: var(--in);
+  cursor: pointer;
+  position: relative;
+  border: none;
+  flex: 0 0 auto;
+  transition: background 0.18s;
+}
+.pro-toggle--on {
+  background: var(--accent);
+  box-shadow: 0 0 0 0 transparent;
+}
+.pro-toggle--disabled {
+  cursor: not-allowed;
+}
+.pro-toggle__thumb {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--light);
+  box-shadow: var(--out-xs);
+  transition: transform 0.18s var(--ec);
+}
+.pro-toggle--on .pro-toggle__thumb {
+  transform: translateX(14px);
+}
+
+/* License key input row */
+.pro-activate {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.pro-key-input {
+  flex: 1;
+  min-width: 0;
+  height: 30px;
+  border-radius: 8px;
+  border: none;
+  background: var(--bg);
+  box-shadow: var(--in);
+  padding: 0 10px;
+  font: 11px var(--mono);
+  color: var(--ink);
+  outline: none;
+}
+.pro-key-input::placeholder {
+  color: var(--ink-3);
+}
+.pro-key-input:disabled {
+  opacity: 0.5;
+}
+.pro-activate-btn {
+  flex: 0 0 auto;
+  height: 30px;
+  padding: 0 12px;
+  font-size: 10.5px;
+}
+.pro-activate-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* Error text */
+.pro-error {
+  font-size: 10.5px;
+  color: var(--r);
+  line-height: 1.4;
+}
+
+/* Deactivate / actions row */
+.dac-card__actions {
+  display: flex;
+  gap: 16px;
+}
+.pro-action-link {
+  font-size: 11px;
+  color: var(--ink-3);
+  font-weight: 600;
+  cursor: pointer;
+}
+.pro-action-link:hover {
+  color: var(--r);
+  text-decoration: underline;
+}
+
+/* CTA button */
+.pro-cta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  justify-content: center;
+  text-decoration: none;
+  color: var(--accent);
+  font-size: 11px;
+}
+.pro-cta svg {
+  width: 12px;
+  height: 12px;
+}
+
+/* ---- UpdatePanel ---- */
+.update-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 8px;
+}
+.update-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.update-status__label {
+  font-size: 11px;
+  color: var(--ink-3);
+}
+/* Simple CSS spinner matching the neumorphic palette */
+.update-spinner {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--line);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: update-spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+@keyframes update-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.update-version {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+}
+.update-notes {
+  font-size: 10.5px;
+  color: var(--ink-3);
+  line-height: 1.5;
+  max-height: 72px;
+  overflow-y: auto;
+}
+.update-actions {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.update-actions--row {
+  flex-direction: row;
+}
+.update-install-btn {
+  color: var(--accent);
+}
+.update-install-btn svg {
+  width: 12px;
+  height: 12px;
+}
+.update-progress-bar {
+  flex: 1;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--line);
+  overflow: hidden;
+}
+.update-progress-bar__fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 2px;
+  transition: width 0.15s ease;
+}
+.update-error {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 /* ---- main ---- */
@@ -2237,4 +2495,654 @@ body {
 }
 [data-skin="studio"][data-theme="dark"] .ctx-sep {
   background: rgba(255, 255, 255, 0.07);
+}
+
+/* ============================================================
+   SMART PLAYLISTS
+   ============================================================ */
+
+/* View wrapper */
+.sp-view {
+  gap: 0;
+}
+.sp-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+  flex: 0 0 auto;
+}
+.sp-header .lib-head {
+  margin-bottom: 0;
+}
+.sp-new-btn {
+  margin-top: 0;
+}
+
+/* Playlist list */
+.sp-list {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-right: 4px;
+}
+
+/* Playlist item card */
+.sp-item {
+  display: flex;
+  align-items: center;
+  background: var(--bg);
+  border-radius: 12px;
+  box-shadow: var(--out-sm), var(--bevel);
+  overflow: hidden;
+  transition: box-shadow 0.18s var(--ec);
+}
+.sp-item:hover {
+  box-shadow: var(--lift-sm);
+}
+.sp-item__main {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding: 11px 14px;
+  cursor: pointer;
+  min-width: 0;
+}
+.sp-item__icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: var(--bg);
+  box-shadow: var(--in);
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  color: var(--accent);
+}
+.sp-item__icon svg {
+  width: 16px;
+  height: 16px;
+}
+.sp-item__info {
+  flex: 1;
+  min-width: 0;
+}
+.sp-item__name {
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sp-item__meta {
+  font-size: 10.5px;
+  color: var(--ink-3);
+  font-family: var(--mono);
+  margin-top: 2px;
+}
+.sp-item__error {
+  font-size: 10.5px;
+  color: var(--r);
+  margin-top: 3px;
+}
+.sp-item__spinner {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid var(--dark);
+  border-top-color: var(--accent);
+  animation: sp-spin 0.7s linear infinite;
+  flex: 0 0 auto;
+}
+@keyframes sp-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.sp-item__actions {
+  display: flex;
+  gap: 2px;
+  padding: 0 10px 0 0;
+}
+
+/* Icon-only action button inside item */
+.sp-icon-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: transparent;
+  border: none;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  color: var(--ink-3);
+  transition:
+    color 0.15s,
+    background 0.15s;
+}
+.sp-icon-btn:hover {
+  color: var(--ink);
+  background: var(--hover);
+}
+.sp-icon-btn--danger:hover {
+  color: var(--r);
+}
+.sp-icon-btn svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* Danger btn variant */
+.btn--danger {
+  background: var(--r);
+  color: #fff;
+}
+
+/* Confirm delete overlay */
+.sp-confirm-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.28);
+  display: grid;
+  place-items: center;
+  z-index: 50;
+  border-radius: inherit;
+}
+.sp-confirm-card {
+  background: var(--bg);
+  border-radius: 14px;
+  box-shadow: var(--lift);
+  padding: 22px 24px;
+  min-width: 220px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-start;
+}
+.sp-confirm-title {
+  font-size: 15px;
+  font-weight: 600;
+}
+.sp-confirm-sub {
+  font-size: 12px;
+  color: var(--ink-3);
+}
+.sp-confirm-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+/* ---- Builder ---- */
+.sp-builder {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  overflow-y: auto;
+}
+.sp-builder-section {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+}
+.sp-builder-section:last-child {
+  border-bottom: none;
+}
+.sp-builder-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.sp-label {
+  font-size: 9px;
+  letter-spacing: 1.8px;
+  color: var(--ink-3);
+  font-weight: 700;
+  display: block;
+  margin-bottom: 8px;
+}
+.sp-builder-row .sp-label {
+  margin-bottom: 0;
+  flex: 0 0 auto;
+  min-width: 64px;
+}
+.sp-label-suffix {
+  font-size: 11px;
+  color: var(--ink-3);
+}
+
+/* Name input */
+.sp-name-input {
+  width: 100%;
+  height: 36px;
+  border-radius: 10px;
+  border: none;
+  background: var(--bg);
+  box-shadow: var(--in);
+  padding: 0 14px;
+  font: 600 14px var(--font);
+  color: var(--ink);
+  outline: none;
+}
+.sp-name-input::placeholder {
+  color: var(--ink-3);
+  font-weight: 400;
+}
+
+/* Rule rows */
+.sp-rules {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.sp-rule-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Select */
+.sp-select {
+  height: 32px;
+  border-radius: 8px;
+  border: none;
+  background: var(--bg);
+  box-shadow: var(--in);
+  padding: 0 10px;
+  font: 12px var(--font);
+  color: var(--ink);
+  outline: none;
+  cursor: pointer;
+  appearance: auto;
+}
+
+/* Inline text/number inputs */
+.sp-input {
+  height: 32px;
+  border-radius: 8px;
+  border: none;
+  background: var(--bg);
+  box-shadow: var(--in);
+  padding: 0 10px;
+  font: 12px var(--font);
+  color: var(--ink);
+  outline: none;
+  min-width: 0;
+  flex: 1;
+}
+.sp-input--number {
+  width: 80px;
+  flex: 0 0 auto;
+}
+.sp-input::placeholder {
+  color: var(--ink-3);
+}
+
+.sp-rule-to {
+  font-size: 13px;
+  color: var(--ink-3);
+  flex: 0 0 auto;
+}
+.sp-rule-boolean-label {
+  font-size: 11px;
+  color: var(--ink-3);
+  font-style: italic;
+}
+
+/* Remove rule button */
+.sp-remove-btn {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  color: var(--ink-3);
+  transition:
+    color 0.15s,
+    background 0.15s;
+  flex: 0 0 auto;
+}
+.sp-remove-btn:hover {
+  color: var(--r);
+  background: var(--hover);
+}
+
+/* Add rule button */
+.sp-add-rule-btn {
+  height: 30px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: none;
+  background: var(--bg);
+  box-shadow: var(--out-xs), var(--bevel);
+  font: 600 11px var(--font);
+  color: var(--ink-2);
+  cursor: pointer;
+  align-self: flex-start;
+  transition: color 0.15s;
+  margin-top: 2px;
+}
+.sp-add-rule-btn:hover {
+  color: var(--accent);
+}
+
+/* Segmented control inside builder */
+.sp-seg {
+  display: flex;
+  background: var(--bg);
+  border-radius: 999px;
+  box-shadow: var(--in);
+  padding: 3px;
+}
+
+/* Preview */
+.sp-preview-btn {
+  height: 32px;
+  font-size: 11px;
+}
+.sp-preview-count {
+  font: 600 12px var(--mono);
+  color: var(--accent);
+}
+
+/* Builder footer */
+.sp-builder-footer {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding-top: 16px;
+}
+.sp-builder-footer .btn {
+  margin-top: 0;
+}
+
+/* ============================================================
+   LYRICS PANEL — synced + plain-text lyrics drawer
+   ============================================================ */
+
+.lyrics-panel {
+  /* Reuses the queue drawer layout — same positioning, just wider to fit verse lines. */
+  min-width: 300px;
+  max-width: 420px;
+}
+
+.lyrics-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 0 16px;
+  display: flex;
+  flex-direction: column;
+}
+
+.lyrics-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+.lyrics-scroll::-webkit-scrollbar-thumb {
+  background: var(--dark);
+  border-radius: 6px;
+}
+
+.lyrics-empty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  color: var(--ink-3);
+  padding: 24px;
+  text-align: center;
+}
+
+.lyrics-loading {
+  /* Spinner is inline in the empty slot */
+  gap: 12px;
+}
+
+.lyrics-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 0 20px;
+}
+
+.lyrics-line {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--ink-3);
+  line-height: 1.65;
+  padding: 4px 0;
+  transition:
+    color 0.25s var(--ec),
+    transform 0.25s var(--ec);
+  cursor: default;
+  white-space: pre-wrap;
+}
+
+.lyrics-line.active {
+  color: var(--ink);
+  font-weight: 700;
+  font-size: 16px;
+  transform: scale(1.02);
+  transform-origin: left center;
+}
+
+[data-theme="dark"] .lyrics-line.active {
+  color: var(--accent);
+}
+
+.lyrics-plain {
+  font: 400 14px/1.75 var(--font);
+  color: var(--ink-2);
+  padding: 8px 20px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* ============================================================
+   SLEEP TIMER — pill + dropdown
+   ============================================================ */
+
+.sleep-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 24px;
+  padding: 0 8px 0 7px;
+  border-radius: 999px;
+  background: var(--bg);
+  box-shadow: var(--in);
+  font: 700 10px var(--mono);
+  letter-spacing: 0.5px;
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+
+.sleep-pill__icon {
+  width: 12px;
+  height: 12px;
+  color: var(--ink-3);
+  flex: 0 0 auto;
+}
+
+.sleep-pill__label {
+  min-width: 28px;
+  text-align: center;
+}
+
+.sleep-pill__cancel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  margin-left: 2px;
+  border-radius: 50%;
+  cursor: pointer;
+  color: var(--ink-3);
+  flex: 0 0 auto;
+}
+.sleep-pill__cancel svg {
+  width: 10px;
+  height: 10px;
+}
+.sleep-pill__cancel:hover {
+  color: var(--r);
+}
+
+.sleep-menu {
+  bottom: calc(100% + 10px);
+  right: 0;
+  min-width: 160px;
+}
+
+.sleep-menu__head {
+  font: 700 9px var(--mono);
+  letter-spacing: 1.5px;
+  color: var(--ink-3);
+  padding: 10px 14px 6px;
+  pointer-events: none;
+}
+
+.sleep-menu__cancel {
+  color: var(--r) !important;
+  border-top: 1px solid var(--line);
+  margin-top: 4px;
+}
+
+/* ============================================================
+   ACCESSIBILITY — WCAG AA pass (issue #26)
+   ============================================================ */
+
+/* ---- Focus-visible ring ----
+   Tasteful 2px accent ring on :focus-visible for all interactive elements.
+   Uses :focus-visible so mouse users never see the ring (only keyboard/AT users do).
+   The offset keeps the ring outside the neumorphic shadow so it remains visible
+   against both the light (Porcelain) and dark (Graphite) surfaces.
+   ------------------------------------------------------------ */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+/* Elements that are already circular / pill-shaped look better with a matching radius */
+.tbtn:focus-visible,
+.tbtn.play:focus-visible,
+.knob-dial:focus-visible,
+.acc-sw:focus-visible,
+.pillbtn:focus-visible,
+.pro-toggle:focus-visible,
+.icon-btn:focus-visible,
+.sp-icon-btn:focus-visible,
+.q-close:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 999px;
+}
+
+/* Nav items have a 13px border-radius */
+.nav-item:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 13px;
+}
+
+/* Segmented control options */
+.srcseg b:focus-visible,
+.viewseg b:focus-visible,
+.skinseg b:focus-visible,
+.seg b:focus-visible,
+.seg-btn:focus-visible,
+.sp-seg b:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 999px;
+}
+
+/* Cards / rows — keep a subtle ring that doesn't disrupt layout */
+.card:focus-visible,
+.trow:focus-visible,
+.qrow:focus-visible,
+.sp-item__main:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+  border-radius: 10px;
+}
+
+/* Context-menu items already use <button> so browser default outline is set; override to match */
+.ctx-item:focus-visible {
+  outline: 2px solid var(--accent-ink);
+  outline-offset: -2px;
+  border-radius: 8px;
+}
+
+/* Inputs — inset ring so the recessed well shape is preserved */
+.search input:focus-visible,
+.pro-key-input:focus-visible,
+.sp-name-input:focus-visible,
+.sp-select:focus-visible,
+.sp-input:focus-visible,
+.offline-cap-input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ---- Reduced motion ----
+   Disable non-essential animations for users who prefer reduced motion.
+   Essential playback-feedback animations (eqglyph bars, update-spinner)
+   are kept as a minimal single-frame static state so they still convey state.
+   ------------------------------------------------------------ */
+@media (prefers-reduced-motion: reduce) {
+  /* Global — stop all transitions and animations unless overridden below */
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  /* View fade-in — remove the translateY + opacity entrance */
+  .view {
+    animation: none;
+  }
+
+  /* Queue drawer slide */
+  .queue {
+    animation: none;
+  }
+
+  /* Context menu pop-in */
+  .ctxmenu {
+    animation: none;
+  }
+
+  /* Marquee title scroll */
+  .marquee-inner.scroll {
+    animation: none;
+  }
+
+  /* Album card lift on hover — skip transform, keep hover bg for discoverability */
+  .card:hover .cover {
+    transform: none;
+  }
+
+  /* EQ glyph bars — freeze at mid-height (static, still shows play state via colour) */
+  .eqglyph i {
+    animation: none;
+    height: 5px;
+  }
+
+  /* Update / smart-playlist spinners — freeze */
+  .update-spinner,
+  .sp-item__spinner {
+    animation: none;
+  }
 }

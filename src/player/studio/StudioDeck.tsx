@@ -2,9 +2,11 @@ import { useState } from "react";
 import { useNowPlaying } from "../../hooks/useNowPlaying";
 import { useEq } from "../../hooks/useEq";
 import { useSignalPath } from "../../hooks/useSignalPath";
+import { usePlayerStore } from "../../store/usePlayerStore";
 import { Spectrum } from "../Spectrum";
 import { LocalCover } from "../LocalCover";
 import { Marquee } from "../Marquee";
+import { ParametricEqPanel } from "@pro";
 import type { Track } from "../../types";
 import styles from "./StudioDeck.module.css";
 
@@ -25,11 +27,7 @@ function fmt(t: Track | null) {
   const rate = t.sampleRate
     ? `${(t.sampleRate / 1000).toFixed(t.sampleRate % 1000 ? 1 : 0)}k`
     : "—";
-  const bits = t.channels != null
-    ? t.channels === 1
-      ? "Mono"
-      : ""
-    : "";
+  const bits = t.channels != null ? (t.channels === 1 ? "Mono" : "") : "";
   return { container, rate, bits };
 }
 
@@ -39,6 +37,7 @@ export function StudioDeck() {
   const np = useNowPlaying();
   const eq = useEq();
   const sp = useSignalPath();
+  const eqMode = usePlayerStore((s) => s.eqMode);
 
   const cur = np.track;
   const f = fmt(cur);
@@ -66,13 +65,12 @@ export function StudioDeck() {
             <Marquee text={cur?.title ?? "—"} />
           </div>
           <div className={styles.metaArtist}>
-            {cur
-              ? `${cur.artist ?? ""}${cur.album ? " · " + cur.album : ""}`
-              : "Nothing playing"}
+            {cur ? `${cur.artist ?? ""}${cur.album ? " · " + cur.album : ""}` : "Nothing playing"}
           </div>
           <div className={styles.fbadge}>
             <span className={styles.fbadgeDot} />
-            {f.container}{f.rate !== "—" ? ` · ${f.rate}` : ""}
+            {f.container}
+            {f.rate !== "—" ? ` · ${f.rate}` : ""}
             {f.bits ? ` · ${f.bits}` : ""}
           </div>
         </div>
@@ -91,71 +89,80 @@ export function StudioDeck() {
       <div className={styles.eqSection}>
         <div className={styles.eqHead}>
           <span className={styles.eqTitle}>Equaliser</span>
-          <div className={styles.presetWrap}>
-            <button
-              className={styles.presetBtn}
-              onClick={() => setPresetOpen((o) => !o)}
-              aria-haspopup="listbox"
-              aria-expanded={presetOpen}
-            >
-              {eq.presetName ?? "Custom"}
-              <span className={styles.presetCaret}>▾</span>
-            </button>
-            {presetOpen && (
-              <>
-                <div className={styles.presetBackdrop} onClick={() => setPresetOpen(false)} />
-                <div className={styles.presetMenu} role="listbox">
-                  {eq.presets.map((p) => (
-                    <button
-                      key={p.name}
-                      role="option"
-                      aria-selected={p.name === eq.presetName}
-                      className={`${styles.presetMi}${p.name === eq.presetName ? ` ${styles.presetMiOn}` : ""}`}
-                      onClick={() => {
-                        eq.applyPreset(p);
-                        setPresetOpen(false);
-                      }}
-                    >
-                      {p.name}
-                    </button>
-                  ))}
-                </div>
-              </>
-            )}
-          </div>
+          {/* Preset picker is only shown in graphic mode */}
+          {eqMode === "graphic" && (
+            <div className={styles.presetWrap}>
+              <button
+                className={styles.presetBtn}
+                onClick={() => setPresetOpen((o) => !o)}
+                aria-haspopup="listbox"
+                aria-expanded={presetOpen}
+              >
+                {eq.presetName ?? "Custom"}
+                <span className={styles.presetCaret}>▾</span>
+              </button>
+              {presetOpen && (
+                <>
+                  <div className={styles.presetBackdrop} onClick={() => setPresetOpen(false)} />
+                  <div className={styles.presetMenu} role="listbox">
+                    {eq.presets.map((p) => (
+                      <button
+                        key={p.name}
+                        role="option"
+                        aria-selected={p.name === eq.presetName}
+                        className={`${styles.presetMi}${p.name === eq.presetName ? ` ${styles.presetMiOn}` : ""}`}
+                        onClick={() => {
+                          eq.applyPreset(p);
+                          setPresetOpen(false);
+                        }}
+                      >
+                        {p.name}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
         </div>
 
-        <div className={styles.eqKnobs}>
-          {eq.bands.map((b, i) => {
-            const t = eq.norm(i);
-            return (
-              <div className={styles.ctl} key={b}>
-                <div className={styles.eqKnob} {...eq.knobHandlers(i)}>
-                  <svg className={styles.arc} viewBox="0 0 100 100">
-                    <circle className={styles.trk} cx="50" cy="50" r="45" pathLength={100} />
-                    <circle
-                      className={styles.val}
-                      cx="50"
-                      cy="50"
-                      r="45"
-                      pathLength={100}
-                      style={{ strokeDasharray: `${(t * 75).toFixed(1)} 100` }}
-                    />
-                  </svg>
-                  <div className={styles.knobBody} />
-                  <div className={styles.knobCap} />
-                  <div
-                    className={styles.knobDial}
-                    style={{ transform: `rotate(${(t * 270 - 135).toFixed(1)}deg)` }}
-                  >
-                    <i className={styles.knobInd} />
+        {/* Mode bar + parametric panel (always rendered; mode bar handles graphic ↔ parametric switch) */}
+        <ParametricEqPanel />
+
+        {/* 10-band graphic EQ knobs — only shown in graphic mode */}
+        {eqMode === "graphic" && (
+          <div className={styles.eqKnobs}>
+            {eq.bands.map((b, i) => {
+              const t = eq.norm(i);
+              return (
+                <div className={styles.ctl} key={b}>
+                  <div className={styles.eqKnob} {...eq.knobHandlers(i)}>
+                    <svg className={styles.arc} viewBox="0 0 100 100">
+                      <circle className={styles.trk} cx="50" cy="50" r="45" pathLength={100} />
+                      <circle
+                        className={styles.val}
+                        cx="50"
+                        cy="50"
+                        r="45"
+                        pathLength={100}
+                        style={{ strokeDasharray: `${(t * 75).toFixed(1)} 100` }}
+                      />
+                    </svg>
+                    <div className={styles.knobBody} />
+                    <div className={styles.knobCap} />
+                    <div
+                      className={styles.knobDial}
+                      style={{ transform: `rotate(${(t * 270 - 135).toFixed(1)}deg)` }}
+                    >
+                      <i className={styles.knobInd} />
+                    </div>
                   </div>
+                  <div className={styles.kl}>{b}</div>
                 </div>
-                <div className={styles.kl}>{b}</div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       <div className={styles.rule} />

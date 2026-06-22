@@ -22,7 +22,8 @@ export function useQueue() {
     clear: () => usePlayerStore.getState().clearPlaylist(),
     reorder: (from: number, to: number) => usePlayerStore.getState().reorder(from, to),
     /** Server cover thumbnail URL, or null (local art uses `<LocalCover>` via the track path). */
-    coverUrl: (t: Track, size: number) => (t.coverArt ? (coverArtUrl(t.coverArt, size) ?? null) : null),
+    coverUrl: (t: Track, size: number) =>
+      t.coverArt ? (coverArtUrl(t.coverArt, size) ?? null) : null,
     rowMenuItems: (id: string, i: number): MenuItem[] => [
       { label: "Play now", onSelect: () => void usePlayerStore.getState().playAt(i) },
       { separator: true },

@@ -46,13 +46,17 @@ export function StudioTopBar() {
         {/* LOCAL | SERVER source segmented */}
         <div className={styles.source} role="tablist" title="Source">
           <button
-            className={source === "local" ? `${styles.sourceBtn} ${styles.sourceBtnOn}` : styles.sourceBtn}
+            className={
+              source === "local" ? `${styles.sourceBtn} ${styles.sourceBtnOn}` : styles.sourceBtn
+            }
             onClick={() => setSource("local")}
           >
             LOCAL
           </button>
           <button
-            className={source === "server" ? `${styles.sourceBtn} ${styles.sourceBtnOn}` : styles.sourceBtn}
+            className={
+              source === "server" ? `${styles.sourceBtn} ${styles.sourceBtnOn}` : styles.sourceBtn
+            }
             onClick={() => setSource("server")}
           >
             {source === "server" && <span className={styles.sourceLed} />}

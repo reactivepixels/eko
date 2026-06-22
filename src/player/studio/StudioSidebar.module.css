@@ -56,7 +56,10 @@
   cursor: pointer;
   color: var(--ink-2);
   font-size: 14px;
-  transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease,
+    box-shadow 0.15s ease;
 }
 .navItem svg {
   width: 18px;

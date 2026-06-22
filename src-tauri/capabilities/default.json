@@ -29,6 +29,8 @@
         { "url": "http://*/*" },
         { "url": "https://*/*" }
       ]
-    }
+    },
+    "updater:default",
+    "process:default"
   ]
 }

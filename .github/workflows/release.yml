@@ -19,8 +19,12 @@
 #   APPLE_PASSWORD               App-specific password for that Apple ID
 #                                (generate at appleid.apple.com → Sign-in and Security)
 #   APPLE_TEAM_ID                10-character team ID (developer.apple.com → Membership)
-#   TAURI_SIGNING_PRIVATE_KEY    (optional) updater key from `npm run tauri signer generate`
-#   TAURI_SIGNING_PRIVATE_KEY_PASSWORD  (optional) password for that key
+#   TAURI_SIGNING_PRIVATE_KEY    Private key for the Tauri auto-updater — generate with
+#                                `npm run tauri signer generate -w dev-keys/updater_dev.key`
+#                                then paste the contents of the .key file here.
+#                                Without this, tauri-action will NOT produce a latest.json
+#                                and the in-app updater will not find new releases.
+#   TAURI_SIGNING_PRIVATE_KEY_PASSWORD  Password for the updater key (empty string if none)
 #   GITHUB_TOKEN                 Automatically provided by GitHub Actions — no setup needed.
 
 name: Release

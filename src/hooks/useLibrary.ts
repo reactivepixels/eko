@@ -3,6 +3,7 @@ import { useUiStore } from "../store/useUiStore";
 import { useSubsonic } from "../subsonic/useSubsonic";
 import { useLocal } from "../local/useLocal";
 import { usePlayerStore } from "../store/usePlayerStore";
+import { useSmartPlaylistStore, useIsPro } from "@pro";
 import { coverArtUrl } from "../subsonic/client";
 import type { Track } from "../types";
 import type { MenuItem } from "../player/ContextMenu";
@@ -59,6 +60,7 @@ function playFrom(tracks: Track[], i: number) {
 export function useLibrary() {
   const source = useUiStore((s) => s.source);
   const section = useUiStore((s) => s.libSection);
+  const isPro = useIsPro();
   const sort = useUiStore((s) => s.librarySort);
   const setSort = useUiStore((s) => s.setLibrarySort);
   const query = useUiStore((s) => s.query)
@@ -213,22 +215,70 @@ export function useLibrary() {
     if (source === "server") return (await useSubsonic.getState().openAlbum(c.id)).tracks;
     return useLocal.getState().openAlbum(c.id)?.tracks ?? [];
   };
-  const albumMenuItems = (c: LibraryCard): MenuItem[] => [
-    { label: "Play album", onSelect: () => void tracksForCard(c).then((t) => playFrom(t, 0)) },
-    {
-      label: "Play next",
-      onSelect: () => void tracksForCard(c).then((t) => usePlayerStore.getState().playNext(t)),
-    },
-    {
-      label: "Add to queue",
-      onSelect: () => void tracksForCard(c).then((t) => usePlayerStore.getState().addToQueue(t)),
-    },
-  ];
-  const trackMenuItems = (tracks: Track[], i: number): MenuItem[] => [
-    { label: "Play", onSelect: () => playFrom(tracks, i) },
-    { label: "Play next", onSelect: () => usePlayerStore.getState().playNext([tracks[i]]) },
-    { label: "Add to queue", onSelect: () => usePlayerStore.getState().addToQueue([tracks[i]]) },
-  ];
+  const albumMenuItems = (c: LibraryCard): MenuItem[] => {
+    const items: MenuItem[] = [
+      { label: "Play album", onSelect: () => void tracksForCard(c).then((t) => playFrom(t, 0)) },
+      {
+        label: "Play next",
+        onSelect: () => void tracksForCard(c).then((t) => usePlayerStore.getState().playNext(t)),
+      },
+      {
+        label: "Add to queue",
+        onSelect: () => void tracksForCard(c).then((t) => usePlayerStore.getState().addToQueue(t)),
+      },
+    ];
+    // Instant Mix from album — use first track's similarity (server source only).
+    if (source === "server") {
+      items.push({ separator: true });
+      if (isPro) {
+        items.push({
+          label: "Instant Mix from album",
+          onSelect: () =>
+            void tracksForCard(c).then((tracks) => {
+              const seed = tracks[0];
+              if (seed?.subsonicId) {
+                void useSmartPlaylistStore
+                  .getState()
+                  .instantMixFromTrack(seed.subsonicId, undefined);
+              }
+            }),
+        });
+      } else {
+        items.push({
+          label: "Instant Mix · Pro",
+          onSelect: () => undefined,
+          disabled: true,
+        });
+      }
+    }
+    return items;
+  };
+  const trackMenuItems = (tracks: Track[], i: number): MenuItem[] => {
+    const track = tracks[i];
+    const items: MenuItem[] = [
+      { label: "Play", onSelect: () => playFrom(tracks, i) },
+      { label: "Play next", onSelect: () => usePlayerStore.getState().playNext([tracks[i]]) },
+      { label: "Add to queue", onSelect: () => usePlayerStore.getState().addToQueue([tracks[i]]) },
+    ];
+    // Instant Mix — only available for server tracks (need subsonicId for getSimilarSongs2).
+    if (source === "server" && track.subsonicId) {
+      items.push({ separator: true });
+      if (isPro) {
+        items.push({
+          label: "Instant Mix from this track",
+          onSelect: () =>
+            void useSmartPlaylistStore.getState().instantMixFromTrack(track.subsonicId!, undefined),
+        });
+      } else {
+        items.push({
+          label: "Instant Mix · Pro",
+          onSelect: () => undefined,
+          disabled: true,
+        });
+      }
+    }
+    return items;
+  };
 
   const playDetail = (i: number) => detail && playFrom(detail.tracks, i);
   const playDetailNext = () => detail && usePlayerStore.getState().playNext(detail.tracks);
@@ -246,6 +296,7 @@ export function useLibrary() {
     localStatus,
     capabilities,
     currentTrackId,
+    isPro,
     // data
     cards,
     folders,

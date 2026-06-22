@@ -17,6 +17,12 @@ export default tseslint.config(
     },
     rules: {
       ...reactHooks.configs.recommended.rules,
+      // Allow intentionally-unused params/vars when prefixed with `_` (e.g. no-op stub
+      // signatures in src/pro-stub that must match the @pro interface).
+      "@typescript-eslint/no-unused-vars": [
+        "error",
+        { argsIgnorePattern: "^_", varsIgnorePattern: "^_", caughtErrorsIgnorePattern: "^_" },
+      ],
       "react-refresh/only-export-components": ["warn", { allowConstantExport: true }],
       // Brand-new compiler-era rule; flags legitimate prop-reset / async-cache effects
       // (e.g. LocalCover resetting on a new path). Off until it's less false-positive-prone.

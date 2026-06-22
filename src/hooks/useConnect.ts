@@ -5,14 +5,15 @@ import type { SubsonicConfig } from "../subsonic/client";
 /** Navidrome/OpenSubsonic connection logic for the connect form — keeps `useSubsonic` out of
  *  the presentation component. The form owns only its input state. */
 export function useConnect() {
-  const connect = useSubsonic((s) => s.connect);
+  const addAndConnect = useSubsonic((s) => s.addAndConnect);
   const status = useSubsonic((s) => s.status);
   const error = useSubsonic((s) => s.error);
   return {
     status,
     error,
-    connect: (cfg: SubsonicConfig) => connect(cfg),
+    /** Connect and add to the server list. */
+    connect: (cfg: SubsonicConfig) => addAndConnect(undefined, cfg),
     /** Dismiss the form and fall back to the local library. */
-    useLocalInstead: () => useUiStore.getState().setSource("local"),
+    fallbackToLocal: () => useUiStore.getState().setSource("local"),
   };
 }

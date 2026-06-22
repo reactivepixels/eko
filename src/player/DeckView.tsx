@@ -116,8 +116,17 @@ export function DeckView() {
               const t = eq.norm(i);
               return (
                 <div className="ctl" key={b}>
-                  <div className="eqknob" {...eq.knobHandlers(i)}>
-                    <svg className="arc" viewBox="0 0 100 100">
+                  <div
+                    className="eqknob"
+                    {...eq.knobHandlers(i)}
+                    role="slider"
+                    tabIndex={0}
+                    aria-label={`EQ ${b}`}
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                    aria-valuenow={Math.round(t * 100)}
+                  >
+                    <svg className="arc" viewBox="0 0 100 100" aria-hidden="true">
                       <circle className="trk" cx="50" cy="50" r="45" pathLength={100} />
                       <circle
                         className="val"
@@ -128,16 +137,19 @@ export function DeckView() {
                         style={{ strokeDasharray: `${(t * 75).toFixed(1)} 100` }}
                       />
                     </svg>
-                    <div className="body" />
-                    <div className="top" />
+                    <div className="body" aria-hidden="true" />
+                    <div className="top" aria-hidden="true" />
                     <div
                       className="dial"
+                      aria-hidden="true"
                       style={{ transform: `rotate(${(t * 270 - 135).toFixed(1)}deg)` }}
                     >
                       <i className="ind" />
                     </div>
                   </div>
-                  <div className="fl">{b}</div>
+                  <div className="fl" aria-hidden="true">
+                    {b}
+                  </div>
                 </div>
               );
             })}
@@ -148,17 +160,43 @@ export function DeckView() {
               const t = eq.norm(i);
               return (
                 <div className="fader" key={b}>
-                  <div className="rail" {...eq.railHandlers(i)}>
-                    <div className="cap" style={{ bottom: `calc(${t * 100}% - 6.5px)` }} />
+                  <div
+                    className="rail"
+                    {...eq.railHandlers(i)}
+                    role="slider"
+                    tabIndex={0}
+                    aria-label={`EQ ${b}`}
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                    aria-valuenow={Math.round(t * 100)}
+                  >
+                    <div
+                      className="cap"
+                      aria-hidden="true"
+                      style={{ bottom: `calc(${t * 100}% - 6.5px)` }}
+                    />
                   </div>
-                  <div className="fl">{b}</div>
+                  <div className="fl" aria-hidden="true">
+                    {b}
+                  </div>
                 </div>
               );
             })}
           </div>
         )}
         <div className="eq-side" style={{ position: "relative" }}>
-          <div className="pillbtn" onClick={() => setPresetsOpen(!presetsOpen)}>
+          <div
+            className="pillbtn"
+            onClick={() => setPresetsOpen(!presetsOpen)}
+            role="button"
+            tabIndex={0}
+            aria-label={`EQ preset: ${eq.presetName ?? "Custom"}`}
+            aria-expanded={presetsOpen}
+            aria-haspopup="listbox"
+            onKeyDown={(e) =>
+              e.key === "Enter" || e.key === " " ? setPresetsOpen(!presetsOpen) : undefined
+            }
+          >
             {(eq.presetName ?? "CUSTOM").toUpperCase()} ▾
           </div>
           <div className="tag">

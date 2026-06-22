@@ -20,6 +20,10 @@ export function useSignalPath() {
   const eqEnabled = usePlayerStore((s) => s.eqEnabled);
   const preamp = usePlayerStore((s) => s.preamp);
   const gains = usePlayerStore((s) => s.gains);
+  const eqMode = usePlayerStore((s) => s.eqMode);
+  const paramEqEnabled = usePlayerStore((s) => s.paramEqEnabled);
+  const paramEqPreamp = usePlayerStore((s) => s.paramEqPreamp);
+  const paramEqBands = usePlayerStore((s) => s.paramEqBands);
   const volume = usePlayerStore((s) => s.volume);
   const outputDevice = usePlayerStore((s) => s.outputDevice);
   const replayGainMode = usePlayerStore((s) => s.replayGainMode);
@@ -31,7 +35,21 @@ export function useSignalPath() {
   // Whether a full signal-path display has live data to show.
   const active = !!(engineActive && info && info.rate);
 
-  const eqActive = eqEnabled && (preamp !== 0 || gains.some((g) => g !== 0));
+  const graphicEqActive =
+    eqMode === "graphic" && eqEnabled && (preamp !== 0 || gains.some((g) => g !== 0));
+  const paramEqActive =
+    eqMode === "parametric" &&
+    paramEqEnabled &&
+    (paramEqPreamp !== 0 ||
+      paramEqBands.some(
+        (b) =>
+          b.enabled &&
+          (b.filterType === "lowPass" ||
+            b.filterType === "highPass" ||
+            b.filterType === "notch" ||
+            b.gainDb !== 0),
+      ));
+  const eqActive = graphicEqActive || paramEqActive;
   const resampled = !!info && info.srcRate > 0 && info.srcRate !== info.rate;
   // The OS device runs at a different rate than EKO's stream → macOS is resampling.
   const osResampled = !!info && info.devRate > 0 && info.devRate !== info.rate;
@@ -40,7 +58,9 @@ export function useSignalPath() {
   const pure = !eqActive && !attenuated && !rgActive && !resampled && !osResampled;
 
   const codec = (info?.codec || "audio").toUpperCase();
-  const src = info ? `${codec} · ${khz(info.srcRate)}${info.bits ? ` · ${info.bits}-bit` : ""}` : "";
+  const src = info
+    ? `${codec} · ${khz(info.srcRate)}${info.bits ? ` · ${info.bits}-bit` : ""}`
+    : "";
   const engineLabel = pure
     ? "Bit-perfect"
     : [

@@ -288,7 +288,9 @@
     0 2px 4px -1px rgba(var(--st-sh, 62, 58, 50), 0.2),
     inset 0 1px 1px rgba(255, 255, 255, 0.85),
     0 0 0 1px rgba(255, 255, 255, 0.4);
-  transition: color 0.15s, box-shadow 0.15s;
+  transition:
+    color 0.15s,
+    box-shadow 0.15s;
 }
 
 .pill:hover {
@@ -516,7 +518,10 @@
   letter-spacing: 1.2px;
   text-transform: uppercase;
   color: var(--ink-2);
-  transition: color 0.15s, background 0.15s, box-shadow 0.15s;
+  transition:
+    color 0.15s,
+    background 0.15s,
+    box-shadow 0.15s;
 }
 
 .segBtnOn {
@@ -573,7 +578,9 @@
   background: rgba(var(--st-sh, 62, 58, 50), 0.25);
   margin-right: 5px;
   vertical-align: middle;
-  transition: background 0.2s, box-shadow 0.2s;
+  transition:
+    background 0.2s,
+    box-shadow 0.2s;
 }
 
 .pureDotOn {
