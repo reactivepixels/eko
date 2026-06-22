@@ -7,7 +7,6 @@ import { useNowPlaying } from "../hooks/useNowPlaying";
 import { useTransport } from "../hooks/useTransport";
 import { useVolume } from "../hooks/useVolume";
 import { useScrub } from "../hooks/useScrub";
-import { useSignalPath } from "../hooks/useSignalPath";
 
 /**
  * Porcelain transport bar — pure presentation over the shared control hooks. Owns no audio
@@ -19,7 +18,6 @@ export function TransportBar() {
   const tr = useTransport();
   const vol = useVolume();
   const scrub = useScrub();
-  const { pure } = useSignalPath();
   const toggleQueue = useUiStore((s) => s.toggleQueue);
 
   const prog = scrub.progress;
@@ -112,19 +110,6 @@ export function TransportBar() {
             <div className="screen">
               <Spectrum bands={13} segs={8} bargap={2} />
             </div>
-          </div>
-        </div>
-        <div className="sig">
-          <div className="rate">
-            <span
-              className={`pure-dot${pure ? " on" : ""}`}
-              title={
-                pure ? "Bit-perfect — untouched signal path" : "Volume/EQ is shaping the signal"
-              }
-            />
-            {np.sampleRate
-              ? `${(np.sampleRate / 1000).toFixed(np.sampleRate % 1000 ? 1 : 0)}k`
-              : "—"}
           </div>
         </div>
         <div

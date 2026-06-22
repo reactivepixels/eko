@@ -1,32 +1,19 @@
 /* ============================================================
-   STUDIO — theme-owned styles (NOT token overrides of Porcelain).
-   These classes belong to the Studio renderers only; they translate
-   the approved concept (concepts/skin-studio-library.html) into the
-   real app surfaces. Scoped under [data-skin="studio"] so they never
-   leak into Porcelain.
+   STUDIO LIBRARY — component classes (CSS Module).
+   Class names are locally scoped and hashed by Vite.
+   Token custom properties are declared globally in studio-tokens.css.
+   Dark-mode variants use [data-theme="dark"] attribute selector
+   (stays global; the local class name is hashed but the attr is not).
    ============================================================ */
-[data-skin="studio"] {
-  --sl-face: #f3f1ec; /* matte control face */
-  --sl-face-lo: #e7e3da; /* recessed / empty art tile */
-  --sl-sh: 62, 58, 50; /* warm shadow rgb (not black) */
-  --sl-label: #a4a096; /* mono micro-label */
-  --sl-mono: "SF Mono", ui-monospace, "Roboto Mono", Menlo, monospace;
-}
-[data-skin="studio"][data-theme="dark"] {
-  --sl-face: #222a33;
-  --sl-face-lo: #1a2029;
-  --sl-sh: 0, 0, 0;
-  --sl-label: #6b7480;
-}
 
 /* ---- view shell ---- */
-.sl {
+.root {
   height: 100%;
   display: flex;
   flex-direction: column;
   min-height: 0;
 }
-.sl-scroll {
+.scroll {
   overflow-y: auto;
   padding: 4px 2px 24px;
   flex: 1;
@@ -34,20 +21,20 @@
 }
 
 /* ---- sort / segmented bar ---- */
-.sl-bar {
+.bar {
   display: flex;
   align-items: center;
   gap: 8px;
   margin: 0 0 20px;
 }
-.sl-bar .lbl {
+.bar .barLbl {
   font: 8.5px/1 var(--sl-mono);
   letter-spacing: 1.8px;
   text-transform: uppercase;
   color: var(--sl-label);
   margin-right: 4px;
 }
-.sl-pill {
+.pill {
   font: 8.5px/1 var(--sl-mono);
   letter-spacing: 1px;
   text-transform: uppercase;
@@ -66,38 +53,41 @@
     color 0.2s,
     box-shadow 0.2s;
 }
-.sl-pill:hover {
+.pill:hover {
   color: var(--ink);
 }
-.sl-pill:active {
+.pill:active {
   transform: translateY(1px) scale(0.97);
 }
-.sl-pill.on {
+.pill.on {
   color: var(--accent);
   box-shadow: inset 2px 2px 5px rgba(var(--sl-sh), 0.16), inset -2px -2px 5px rgba(255, 255, 255, 0.9);
 }
-[data-skin="studio"][data-theme="dark"] .sl-pill {
+[data-theme="dark"] .pill {
   box-shadow:
     0 2px 5px rgba(0, 0, 0, 0.5),
     inset 0 1px 1px rgba(255, 255, 255, 0.07),
     0 0 0 1px rgba(255, 255, 255, 0.04);
 }
+[data-theme="dark"] .pill.on {
+  box-shadow: inset 2px 2px 5px rgba(0, 0, 0, 0.5), inset -2px -2px 5px rgba(255, 255, 255, 0.05);
+}
 
 /* ---- album wall ---- */
-.sl-grid {
+.grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  gap: 22px 18px;
+  grid-template-columns: repeat(auto-fill, minmax(152px, 1fr));
+  gap: 24px 20px;
 }
-.sl-album {
+.album {
   cursor: pointer;
 }
 /* single rounded box; the inset matte frame is painted by ::after OVER the art, so the
    corners never expose a solid colour and the art reads as a framed print */
-.sl-cover {
+.cover {
   position: relative;
   aspect-ratio: 1;
-  border-radius: 12px;
+  border-radius: 13px;
   overflow: hidden;
   background: var(--sl-face-lo);
   box-shadow:
@@ -107,7 +97,7 @@
     transform 0.18s ease,
     box-shadow 0.18s ease;
 }
-.sl-cover img {
+.cover img {
   width: 100%;
   height: 100%;
   object-fit: cover;
@@ -115,33 +105,34 @@
   position: relative;
   z-index: 1;
 }
-.sl-cover::after {
+.cover::after {
   content: "";
   position: absolute;
   inset: 0;
   z-index: 2;
-  border-radius: 12px;
+  border-radius: 13px;
   pointer-events: none;
   background: radial-gradient(120% 90% at 30% 16%, rgba(255, 255, 255, 0.16), transparent 55%);
+  mix-blend-mode: soft-light;
   box-shadow:
     inset 0 0 0 4px var(--sl-face),
-    inset 0 0 0 5px rgba(var(--sl-sh), 0.13);
+    inset 0 0 0 5px rgba(var(--sl-sh), 0.12);
 }
-.sl-album:hover .sl-cover {
+.album:hover .cover {
   transform: translateY(-4px);
   box-shadow:
     0 4px 6px rgba(var(--sl-sh), 0.2),
     0 20px 32px -12px rgba(var(--sl-sh), 0.42);
 }
-.sl-album:active .sl-cover {
+.album:active .cover {
   transform: translateY(-1px) scale(0.99);
 }
-.sl-album.playing .sl-cover::after {
+.album.playing .cover::after {
   box-shadow:
     inset 0 0 0 4px var(--sl-face),
-    inset 0 0 0 5px rgba(var(--accent-rgb, 239, 106, 30), 0.5);
+    inset 0 0 0 5px rgba(var(--accent-rgb, 239, 106, 30), 0.42);
 }
-.sl-cat {
+.cat {
   position: absolute;
   left: 12px;
   bottom: 10px;
@@ -149,68 +140,23 @@
   font: 7.5px/1 var(--sl-mono);
   letter-spacing: 1px;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.62);
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+  color: rgba(255, 255, 255, 0.55);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
 }
-/* now-playing bars badge */
-.sl-nowtag {
-  position: absolute;
-  top: 9px;
-  right: 9px;
-  z-index: 3;
-  display: none;
-  align-items: flex-end;
-  gap: 2px;
-  padding: 5px 6px;
-  border-radius: 7px;
-  background: rgba(40, 38, 34, 0.45);
-  backdrop-filter: blur(3px);
+.meta {
+  padding: 12px 3px 0;
 }
-.sl-album.playing .sl-nowtag {
-  display: flex;
-}
-.sl-nowtag i {
-  width: 2.5px;
-  border-radius: 1px;
-  background: var(--accent);
-  animation: sl-bob 1.2s ease-in-out infinite;
-}
-.sl-nowtag i:nth-child(1) {
-  height: 5px;
-}
-.sl-nowtag i:nth-child(2) {
-  height: 11px;
-  animation-delay: 0.2s;
-}
-.sl-nowtag i:nth-child(3) {
-  height: 7px;
-  animation-delay: 0.4s;
-}
-@keyframes sl-bob {
-  0%,
-  100% {
-    transform: scaleY(1);
-  }
-  50% {
-    transform: scaleY(0.45);
-  }
-}
-.sl-meta {
-  padding: 11px 3px 0;
-}
-.sl-at {
-  font-size: 13px;
+.at {
+  font-size: 13.5px;
   font-weight: 600;
   color: var(--ink);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.sl-aa {
+.aa {
   margin-top: 3px;
-  font: 10px/1.3 var(--sl-mono);
-  letter-spacing: 0.5px;
-  text-transform: uppercase;
+  font-size: 11.5px;
   color: var(--ink-2);
   white-space: nowrap;
   overflow: hidden;
@@ -218,71 +164,91 @@
 }
 
 /* ---- list views (artists / tracks / folders / playlists / detail tracks) ---- */
-.sl-head {
+.head {
   display: flex;
   align-items: baseline;
   gap: 12px;
   margin-bottom: 16px;
 }
-.sl-title {
+.listTitle {
   font-size: 22px;
   font-weight: 600;
   letter-spacing: -0.01em;
   color: var(--ink);
 }
-.sl-count {
+.listCount {
   font: 9px/1 var(--sl-mono);
   letter-spacing: 1.4px;
   text-transform: uppercase;
   color: var(--sl-label);
 }
-.sl-list {
-  display: flex;
-  flex-direction: column;
+/* recessed device "screen" panel — wraps rows in a warm matte inset */
+.list {
+  padding: 8px;
+  border-radius: 16px;
+  background: var(--sl-face);
+  box-shadow:
+    inset 3px 3px 7px rgba(var(--sl-sh), 0.22),
+    inset -3px -3px 6px rgba(255, 255, 255, 0.9);
 }
-.sl-row {
+[data-theme="dark"] .list {
+  box-shadow:
+    inset 3px 3px 8px rgba(0, 0, 0, 0.6),
+    inset -2px -2px 5px rgba(255, 255, 255, 0.04);
+}
+.row {
   display: flex;
   align-items: center;
   gap: 14px;
-  padding: 11px 12px;
+  padding: 15px 18px;
   border-radius: 9px;
   cursor: pointer;
-  font-size: 13.5px;
+  font-size: 15px;
   color: var(--ink);
-  border-bottom: 1px solid rgba(var(--sl-sh), 0.06);
   transition: background 0.12s ease;
 }
-.sl-row:hover {
-  background: rgba(var(--sl-sh), 0.04);
+.row + .row {
+  box-shadow: inset 0 1px 0 rgba(var(--sl-sh), 0.05);
 }
-.sl-row.playing {
+.row:hover {
+  background: rgba(255, 255, 255, 0.5);
+}
+[data-theme="dark"] .row:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+.row.playing {
+  background: linear-gradient(90deg, rgba(var(--accent-rgb, 239, 106, 30), 0.1), rgba(var(--accent-rgb, 239, 106, 30), 0.02));
+  box-shadow: none;
+}
+.row.playing .rowTt {
   color: var(--accent);
-  background: var(--sl-face);
-  box-shadow: inset 2px 2px 5px rgba(var(--sl-sh), 0.14), inset -2px -2px 5px rgba(255, 255, 255, 0.85);
-  border-bottom-color: transparent;
+  font-weight: 600;
 }
-.sl-row .n {
+.row.playing .rowN {
+  color: var(--accent);
+}
+.row .rowN {
   width: 24px;
   text-align: right;
   flex: 0 0 auto;
   font: 11px/1 var(--sl-mono);
   color: var(--sl-label);
 }
-.sl-row .tt {
+.row .rowTt {
   flex: 1;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.sl-row .du {
+.row .rowDu {
   flex: 0 0 auto;
   font: 11px/1 var(--sl-mono);
   letter-spacing: 0.4px;
-  color: var(--sl-label);
+  color: var(--ink-2);
 }
 
 /* ---- detail ---- */
-.sl-back {
+.back {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -293,25 +259,25 @@
   cursor: pointer;
   margin-bottom: 16px;
 }
-.sl-detail-head {
+.detailHead {
   display: flex;
-  gap: 22px;
+  gap: 30px;
   align-items: flex-end;
   margin-bottom: 22px;
 }
-.sl-art {
+.art {
   position: relative;
-  width: 150px;
-  height: 150px;
+  width: 210px;
+  height: 210px;
   flex: 0 0 auto;
-  border-radius: 14px;
+  border-radius: 16px;
   overflow: hidden;
   background: var(--sl-face-lo);
   box-shadow:
-    0 3px 6px rgba(var(--sl-sh), 0.2),
-    0 16px 30px -12px rgba(var(--sl-sh), 0.36);
+    0 4px 8px rgba(var(--sl-sh), 0.2),
+    0 22px 40px -14px rgba(var(--sl-sh), 0.4);
 }
-.sl-art img {
+.art img {
   width: 100%;
   height: 100%;
   object-fit: cover;
@@ -319,51 +285,47 @@
   position: relative;
   z-index: 1;
 }
-.sl-art::after {
+.art::after {
   content: "";
   position: absolute;
   inset: 0;
   z-index: 2;
-  border-radius: 14px;
+  border-radius: 16px;
   pointer-events: none;
   box-shadow:
     inset 0 0 0 5px var(--sl-face),
     inset 0 0 0 6px rgba(var(--sl-sh), 0.14);
 }
-.sl-detail-meta .t {
-  font-size: 28px;
+.detailMeta .detailMetaT {
+  font-size: 36px;
   font-weight: 600;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.015em;
   color: var(--ink);
-  line-height: 1.08;
+  line-height: 1.04;
 }
-.sl-detail-meta .a {
-  margin-top: 7px;
-  font-size: 14px;
+.detailMeta .detailMetaA {
+  margin-top: 10px;
+  font-size: 17px;
   color: var(--ink-2);
 }
-.sl-detail-meta .sub {
-  margin-top: 12px;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font: 9px/1 var(--sl-mono);
-  letter-spacing: 1.4px;
+.detailMeta .detailMetaSub {
+  margin-top: 8px;
+  font: 10px/1.4 var(--sl-mono);
+  letter-spacing: 1px;
   text-transform: uppercase;
   color: var(--sl-label);
 }
-.sl-actions {
+.actions {
   display: flex;
-  gap: 10px;
+  gap: 11px;
   align-items: center;
-  margin-top: 16px;
+  margin-top: 20px;
 }
-.sl-btn {
+.btn {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  height: 36px;
-  padding: 0 16px;
+  gap: 9px;
+  padding: 13px 22px;
   border-radius: 999px;
   font: 9px/1 var(--sl-mono);
   letter-spacing: 1.4px;
@@ -371,34 +333,71 @@
   cursor: pointer;
   border: 0;
   color: var(--accent-ink, #fff);
-  background: radial-gradient(135% 135% at 50% 34%, var(--accent-2), var(--accent) 82%);
+  background: radial-gradient(135% 165% at 50% 26%, var(--accent-2), var(--accent) 80%);
   box-shadow:
-    0 8px 18px -8px rgba(var(--sl-sh), 0.4),
-    0 0 18px -4px var(--accent),
-    inset 0 1px 1px rgba(255, 255, 255, 0.35);
+    0 2px 4px -1px rgba(var(--accent-rgb, 239, 106, 30), 0.4),
+    0 7px 13px -8px rgba(var(--accent-rgb, 239, 106, 30), 0.4),
+    inset 0 1px 1px rgba(255, 255, 255, 0.42),
+    0 0 0 1px rgba(255, 255, 255, 0.16);
+  transition:
+    transform 0.08s ease,
+    box-shadow 0.08s ease;
 }
-.sl-btn.ghost {
+.btn:active {
+  transform: scale(0.99);
+  box-shadow:
+    0 1px 2px rgba(var(--accent-rgb, 239, 106, 30), 0.4),
+    inset 0 2px 5px rgba(0, 0, 0, 0.2);
+}
+.btn.ghost {
   color: var(--ink-2);
   background: var(--sl-face);
   box-shadow:
-    0 2px 4px rgba(var(--sl-sh), 0.16),
-    inset 0 1px 1px rgba(255, 255, 255, 0.85),
-    0 0 0 1px rgba(255, 255, 255, 0.4);
+    0 1px 2px rgba(var(--sl-sh), 0.16),
+    inset 0 1px 1px rgba(255, 255, 255, 0.9),
+    0 0 0 1px rgba(255, 255, 255, 0.5);
 }
-.sl-btn.ghost:hover {
+.btn.ghost:hover {
   color: var(--ink);
 }
-.sl-btn:active {
-  transform: translateY(1px) scale(0.98);
+.btn.ghost:active {
+  transform: scale(0.99);
+  box-shadow:
+    inset 2px 2px 5px rgba(var(--sl-sh), 0.18),
+    inset -2px -2px 5px rgba(255, 255, 255, 0.9);
+}
+/* dark — no accent glow on the primary, dimmed white highlight/edge on the ghost (else they pop) */
+[data-theme="dark"] .btn {
+  box-shadow:
+    0 2px 4px -1px rgba(0, 0, 0, 0.45),
+    0 7px 13px -9px rgba(0, 0, 0, 0.55),
+    inset 0 1px 1px rgba(255, 255, 255, 0.1),
+    0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+[data-theme="dark"] .btn:active {
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.45),
+    inset 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+[data-theme="dark"] .btn.ghost {
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.4),
+    inset 0 1px 1px rgba(255, 255, 255, 0.05),
+    0 0 0 1px rgba(255, 255, 255, 0.07);
+}
+[data-theme="dark"] .btn.ghost:active {
+  box-shadow:
+    inset 2px 2px 5px rgba(0, 0, 0, 0.5),
+    inset -2px -2px 5px rgba(255, 255, 255, 0.05);
 }
 
 /* ---- empty / hint ---- */
-.sl-empty {
+.empty {
   padding: 40px 8px;
   color: var(--ink-2);
   font-size: 14px;
 }
-.sl-empty .mono {
+.empty .emptyMono {
   font: 9px/1.6 var(--sl-mono);
   letter-spacing: 1.4px;
   text-transform: uppercase;

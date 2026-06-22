@@ -1,13 +1,20 @@
 import { useUiStore } from "../store/useUiStore";
 import { useMusicSource } from "../hooks/useMusicSource";
+import { useNativeMenu } from "../hooks/useNativeMenu";
 import { TopBar } from "./TopBar";
+import { StudioTopBar } from "./studio/StudioTopBar";
 import { Sidebar } from "./Sidebar";
+import { StudioSidebar } from "./studio/StudioSidebar";
 import { LibraryView } from "./LibraryView";
 import { StudioLibrary } from "./studio/StudioLibrary";
+import { StudioTransport } from "./studio/StudioTransport";
+import { StudioDeck } from "./studio/StudioDeck";
 import { DeckView } from "./DeckView";
 import { TransportBar } from "./TransportBar";
 import { QueuePanel } from "./QueuePanel";
+import { StudioQueue } from "./studio/StudioQueue";
 import "./neu.css";
+import "./studio/studio-tokens.css";
 
 export function PlayerApp() {
   const playerView = useUiStore((s) => s.playerView);
@@ -17,13 +24,14 @@ export function PlayerApp() {
   const accent = useUiStore((s) => s.accent);
   const skin = useUiStore((s) => s.skin);
   const count = useMusicSource().albumCount;
+  useNativeMenu(); // bridge the native "Skins" menu ↔ the UI store
 
   // ONE app, themed. `data-skin` selects the theme layer (Porcelain | Studio) over the same
   // shell + views — never a separate app.
   return (
     <div className="app" data-theme={theme} data-accent={accent} data-skin={skin}>
-      <TopBar />
-      <Sidebar />
+      {skin === "studio" ? <StudioTopBar /> : <TopBar />}
+      {skin === "studio" ? <StudioSidebar /> : <Sidebar />}
       <main className="main">
         <div className="main-head">
           <div className="viewseg">
@@ -48,12 +56,14 @@ export function PlayerApp() {
           ) : (
             <LibraryView />
           )
+        ) : skin === "studio" ? (
+          <StudioDeck />
         ) : (
           <DeckView />
         )}
       </main>
-      <TransportBar />
-      <QueuePanel />
+      {skin === "studio" ? <StudioTransport /> : <TransportBar />}
+      {skin === "studio" ? <StudioQueue /> : <QueuePanel />}
     </div>
   );
 }

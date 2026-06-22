@@ -1,9 +1,13 @@
 # EKO Theme Blueprint
 
 The repeatable playbook for building a theme — distilled from building **Studio**, so every
-future theme is fast and right the first time. Pairs with `docs/skin-architecture.md` (the
-*technical* seam: shared logic ↔ theme-owned pixels). This doc is the *process + design law +
-surface checklist*.
+future theme is fast and right the first time. The three skin docs:
+
+- **`docs/skin-architecture.md`** — the *seam* (shared headless logic ↔ theme-owned pixels).
+- **this doc** — the *process + design law + 13-surface checklist*.
+- **`docs/skin-craft.md`** — the *construction manual*: how to build the skeuomorphic
+  components without the recurring CSS stacking / shadow / verification traps. **Read it before
+  hand-building any control** — it is where the time was actually lost.
 
 ## 1. The one law
 

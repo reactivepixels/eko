@@ -7,8 +7,8 @@ mod metadata;
 mod stream;
 
 use std::sync::Mutex;
-use tauri::menu::{AboutMetadata, MenuBuilder, PredefinedMenuItem, SubmenuBuilder};
-use tauri::Manager;
+use tauri::menu::{AboutMetadata, CheckMenuItem, MenuBuilder, PredefinedMenuItem, SubmenuBuilder};
+use tauri::{Emitter, Manager};
 
 /// The configured Navidrome origin the `stream://` proxy is allowed to fetch (SSRF guard).
 #[derive(Default)]
@@ -18,6 +18,25 @@ struct StreamOrigin(Mutex<Option<String>>);
 #[tauri::command]
 fn set_stream_origin(origin: Option<String>, state: tauri::State<StreamOrigin>) {
     *state.0.lock().unwrap() = origin.filter(|s| !s.is_empty());
+}
+
+/// Holds the skin/accent/theme check-menu items so the frontend can keep their checkmarks in sync.
+#[derive(Default)]
+struct MenuItems(Mutex<std::collections::HashMap<String, CheckMenuItem<tauri::Wry>>>);
+
+/// Sync the native "Skins" menu checkmarks to the frontend's current skin / accent / theme.
+#[tauri::command]
+fn sync_menu(skin: String, accent: String, theme: String, items: tauri::State<MenuItems>) {
+    let map = items.0.lock().unwrap();
+    for (id, item) in map.iter() {
+        let checked = match id.split_once(':') {
+            Some(("skin", v)) => v == skin,
+            Some(("accent", v)) => v == accent,
+            Some(("theme", "dark")) => theme == "dark",
+            _ => false,
+        };
+        let _ = item.set_checked(checked);
+    }
 }
 
 /// Store `value` in the macOS Keychain under the EKO service name + `key`.
@@ -88,7 +107,8 @@ pub fn run() {
     #[allow(unused_mut)]
     let mut builder = tauri::Builder::default()
         .manage(engine::Engine::default())
-        .manage(StreamOrigin::default());
+        .manage(StreamOrigin::default())
+        .manage(MenuItems::default());
     #[cfg(target_os = "macos")]
     {
         builder = builder.manage(media::Media::default());
@@ -143,8 +163,78 @@ pub fn run() {
                 .item(&PredefinedMenuItem::quit(h, None)?)
                 .build()?;
 
-            let menu = MenuBuilder::new(h).items(&[&app_menu]).build()?;
+            // ── Skins menu: skin + accent + dark-mode, mirrored to the frontend store ──
+            let porcelain =
+                CheckMenuItem::with_id(h, "skin:porcelain", "Porcelain", true, true, None::<&str>)?;
+            let studio =
+                CheckMenuItem::with_id(h, "skin:studio", "Studio", true, false, None::<&str>)?;
+            let acc_orange =
+                CheckMenuItem::with_id(h, "accent:orange", "Orange", true, true, None::<&str>)?;
+            let acc_violet =
+                CheckMenuItem::with_id(h, "accent:violet", "Violet", true, false, None::<&str>)?;
+            let acc_blue =
+                CheckMenuItem::with_id(h, "accent:blue", "Blue", true, false, None::<&str>)?;
+            let acc_teal =
+                CheckMenuItem::with_id(h, "accent:teal", "Teal", true, false, None::<&str>)?;
+            let acc_graphite = CheckMenuItem::with_id(
+                h,
+                "accent:graphite",
+                "Graphite",
+                true,
+                false,
+                None::<&str>,
+            )?;
+            let theme_dark =
+                CheckMenuItem::with_id(h, "theme:dark", "Dark Mode", true, false, None::<&str>)?;
+
+            let accent_menu = SubmenuBuilder::new(h, "Accent")
+                .item(&acc_orange)
+                .item(&acc_violet)
+                .item(&acc_blue)
+                .item(&acc_teal)
+                .item(&acc_graphite)
+                .build()?;
+
+            let skins_menu = SubmenuBuilder::new(h, "Skins")
+                .item(&porcelain)
+                .item(&studio)
+                .separator()
+                .item(&accent_menu)
+                .separator()
+                .item(&theme_dark)
+                .build()?;
+
+            // Keep the check-item handles so `sync_menu` can update the checkmarks from the frontend.
+            {
+                let st = app.state::<MenuItems>();
+                let mut map = st.0.lock().unwrap();
+                for it in [
+                    &porcelain,
+                    &studio,
+                    &acc_orange,
+                    &acc_violet,
+                    &acc_blue,
+                    &acc_teal,
+                    &acc_graphite,
+                    &theme_dark,
+                ] {
+                    map.insert(it.id().as_ref().to_string(), it.clone());
+                }
+            }
+
+            let menu = MenuBuilder::new(h)
+                .items(&[&app_menu, &skins_menu])
+                .build()?;
             app.set_menu(menu)?;
+
+            // Menu clicks → tell the frontend; it updates the store (source of truth) + re-syncs checks.
+            app.on_menu_event(move |app, event| {
+                let id = event.id().as_ref().to_string();
+                if id.starts_with("skin:") || id.starts_with("accent:") || id.starts_with("theme:")
+                {
+                    let _ = app.emit("menu-action", id);
+                }
+            });
 
             // System "Now Playing" + hardware media keys (macOS). Must be set up on the
             // main thread, which `setup` runs on.
@@ -174,6 +264,7 @@ pub fn run() {
             engine::engine_list_devices,
             engine::engine_set_device,
             set_stream_origin,
+            sync_menu,
             secret_set,
             secret_get,
             secret_delete,

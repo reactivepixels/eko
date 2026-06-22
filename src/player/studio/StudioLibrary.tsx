@@ -3,7 +3,7 @@ import { LocalCover } from "../LocalCover";
 import { Marquee } from "../Marquee";
 import { useContextMenu } from "../ContextMenu";
 import { useLibrary, type LibraryCard } from "../../hooks/useLibrary";
-import "./studio.css";
+import styles from "./StudioLibrary.module.css";
 
 /**
  * Studio's OWN library renderer (theme-owned pixels) over the shared `useLibrary()` brain —
@@ -45,10 +45,10 @@ export function StudioLibrary() {
   // ---- empty states ----
   if (source === "server" && !connected)
     return (
-      <div className="sl">
-        <div className="sl-empty">
+      <div className={styles.root}>
+        <div className={styles.empty}>
           Connect to your Navidrome server to browse your library.
-          <div className="mono" style={{ marginTop: 8 }}>
+          <div className={styles.emptyMono} style={{ marginTop: 8 }}>
             No source · standby
           </div>
         </div>
@@ -56,11 +56,11 @@ export function StudioLibrary() {
     );
   if (source === "local" && !localRoot)
     return (
-      <div className="sl">
-        <div className="sl-empty">
+      <div className={styles.root}>
+        <div className={styles.empty}>
           No local folder yet.
-          <div className="mono" style={{ marginTop: 10 }}>
-            <span className="sl-btn ghost" onClick={lib.pickFolder}>
+          <div className={styles.emptyMono} style={{ marginTop: 10 }}>
+            <span className={styles.btn + " " + styles.ghost} onClick={lib.pickFolder}>
               Choose music folder
             </span>
           </div>
@@ -69,9 +69,9 @@ export function StudioLibrary() {
     );
   if (source === "local" && localStatus === "scanning")
     return (
-      <div className="sl">
-        <div className="sl-empty">
-          <span className="mono">Scanning · {localRoot}</span>
+      <div className={styles.root}>
+        <div className={styles.empty}>
+          <span className={styles.emptyMono}>Scanning · {localRoot}</span>
         </div>
       </div>
     );
@@ -79,50 +79,50 @@ export function StudioLibrary() {
   // ---- album detail ----
   if (detail) {
     return (
-      <div className="sl">
-        <div className="sl-scroll">
-          <div className="sl-back" onClick={lib.closeDetail}>
+      <div className={styles.root}>
+        <div className={styles.scroll}>
+          <div className={styles.back} onClick={lib.closeDetail}>
             ‹ {detail.from ?? "Albums"}
           </div>
-          <div className="sl-detail-head">
-            <div className="sl-art">
+          <div className={styles.detailHead}>
+            <div className={styles.art}>
               {detail.cover ? (
                 <img src={detail.cover} alt="" />
               ) : detail.coverPath ? (
                 <LocalCover path={detail.coverPath} />
               ) : null}
             </div>
-            <div className="sl-detail-meta">
-              <div className="t">{detail.name}</div>
-              <div className="a">{detail.artist}</div>
-              <div className="sub">
+            <div className={styles.detailMeta}>
+              <div className={styles.detailMetaT}>{detail.name}</div>
+              <div className={styles.detailMetaA}>{detail.artist}</div>
+              <div className={styles.detailMetaSub}>
                 {detail.tracks.length} tracks ·{" "}
                 {formatTime(detail.tracks.reduce((a, t) => a + (t.duration || 0), 0))}
               </div>
-              <div className="sl-actions">
-                <button className="sl-btn" onClick={() => lib.playDetail(0)}>
+              <div className={styles.actions}>
+                <button className={styles.btn} onClick={() => lib.playDetail(0)}>
                   ▸ Play all
                 </button>
-                <button className="sl-btn ghost" onClick={lib.playDetailNext}>
+                <button className={`${styles.btn} ${styles.ghost}`} onClick={lib.playDetailNext}>
                   Play next
                 </button>
-                <button className="sl-btn ghost" onClick={lib.addDetailToQueue}>
+                <button className={`${styles.btn} ${styles.ghost}`} onClick={lib.addDetailToQueue}>
                   + Queue
                 </button>
               </div>
             </div>
           </div>
-          <div className="sl-list">
+          <div className={styles.list}>
             {detail.tracks.map((t, i) => (
               <div
                 key={t.id}
-                className={`sl-row${t.id === curId ? " playing" : ""}`}
+                className={`${styles.row}${t.id === curId ? ` ${styles.playing}` : ""}`}
                 onClick={() => lib.playFrom(detail.tracks, i)}
                 onContextMenu={trackMenu(detail.tracks, i)}
               >
-                <span className="n">{String(i + 1).padStart(2, "0")}</span>
-                <span className="tt">{trackLabel(t)}</span>
-                <span className="du">{formatTime(t.duration)}</span>
+                <span className={styles.rowN}>{String(i + 1).padStart(2, "0")}</span>
+                <span className={styles.rowTt}>{trackLabel(t)}</span>
+                <span className={styles.rowDu}>{formatTime(t.duration)}</span>
               </div>
             ))}
           </div>
@@ -133,8 +133,8 @@ export function StudioLibrary() {
   }
 
   const sortBar = (
-    <div className="sl-bar">
-      <span className="lbl">Sort</span>
+    <div className={styles.bar}>
+      <span className={styles.barLbl}>Sort</span>
       {(
         [
           ["artist", "Artist"],
@@ -142,7 +142,7 @@ export function StudioLibrary() {
           ["year", "Year"],
         ] as const
       ).map(([k, label]) => (
-        <button key={k} className={`sl-pill${sort === k ? " on" : ""}`} onClick={() => setSort(k)}>
+        <button key={k} className={`${styles.pill}${sort === k ? ` ${styles.on}` : ""}`} onClick={() => setSort(k)}>
           {label}
         </button>
       ))}
@@ -151,31 +151,26 @@ export function StudioLibrary() {
 
   const albumWall = (list: LibraryCard[]) =>
     list.length === 0 ? (
-      <div className="sl-empty">
-        <span className="mono">{query ? "No matches" : "No albums"}</span>
+      <div className={styles.empty}>
+        <span className={styles.emptyMono}>{query ? "No matches" : "No albums"}</span>
       </div>
     ) : (
-      <div className="sl-grid">
+      <div className={styles.grid}>
         {menu}
         {lib.sortCards(list).map((c) => (
           <div
             key={c.id}
-            className="sl-album"
+            className={styles.album}
             onClick={() => void lib.openAlbum(c.id)}
             onContextMenu={albumMenu(c)}
           >
-            <div className="sl-cover">
+            <div className={styles.cover}>
               {coverArt(c)}
-              {c.year ? <span className="sl-cat">{c.year}</span> : null}
-              <span className="sl-nowtag">
-                <i />
-                <i />
-                <i />
-              </span>
+              {c.year ? <span className={styles.cat}>{c.year}</span> : null}
             </div>
-            <div className="sl-meta">
-              <Marquee className="sl-at" text={c.name} hover />
-              <div className="sl-aa">{c.artist}</div>
+            <div className={styles.meta}>
+              <Marquee className={styles.at} text={c.name} hover />
+              <div className={styles.aa}>{c.artist}</div>
             </div>
           </div>
         ))}
@@ -187,14 +182,14 @@ export function StudioLibrary() {
     if (artist) {
       const list = cards.filter((c) => c.artist === artist);
       return (
-        <div className="sl">
-          <div className="sl-scroll">
-            <div className="sl-back" onClick={lib.closeArtist}>
+        <div className={styles.root}>
+          <div className={styles.scroll}>
+            <div className={styles.back} onClick={lib.closeArtist}>
               ‹ Artists
             </div>
-            <div className="sl-head">
-              <span className="sl-title">{artist}</span>
-              <span className="sl-count">
+            <div className={styles.head}>
+              <span className={styles.listTitle}>{artist}</span>
+              <span className={styles.listCount}>
                 {list.length} {list.length === 1 ? "album" : "albums"}
               </span>
             </div>
@@ -205,18 +200,18 @@ export function StudioLibrary() {
     }
     const list = query ? artists.filter((a) => a.name.toLowerCase().includes(query)) : artists;
     return (
-      <div className="sl">
-        <div className="sl-scroll">
+      <div className={styles.root}>
+        <div className={styles.scroll}>
           {list.length === 0 ? (
-            <div className="sl-empty">
-              <span className="mono">{query ? "No matches" : "No artists"}</span>
+            <div className={styles.empty}>
+              <span className={styles.emptyMono}>{query ? "No matches" : "No artists"}</span>
             </div>
           ) : (
-            <div className="sl-list">
+            <div className={styles.list}>
               {list.map((a) => (
-                <div key={a.name} className="sl-row" onClick={() => lib.openArtist(a.name)}>
-                  <span className="tt">{a.name}</span>
-                  <span className="du">
+                <div key={a.name} className={styles.row} onClick={() => lib.openArtist(a.name)}>
+                  <span className={styles.rowTt}>{a.name}</span>
+                  <span className={styles.rowDu}>
                     {a.n} {a.n === 1 ? "album" : "albums"}
                   </span>
                 </div>
@@ -232,8 +227,8 @@ export function StudioLibrary() {
   if (section === "tracks") {
     if (!capabilities.tracksIndex)
       return (
-        <div className="sl">
-          <div className="sl-empty">
+        <div className={styles.root}>
+          <div className={styles.empty}>
             Browse by album, or use search — a full track index is coming.
           </div>
         </div>
@@ -242,23 +237,23 @@ export function StudioLibrary() {
       ? tracksIndex.filter((t) => trackLabel(t).toLowerCase().includes(query))
       : tracksIndex;
     return (
-      <div className="sl">
-        <div className="sl-scroll">
+      <div className={styles.root}>
+        <div className={styles.scroll}>
           {tracks.length === 0 ? (
-            <div className="sl-empty">
-              <span className="mono">{query ? "No matches" : "No tracks"}</span>
+            <div className={styles.empty}>
+              <span className={styles.emptyMono}>{query ? "No matches" : "No tracks"}</span>
             </div>
           ) : (
-            <div className="sl-list">
+            <div className={styles.list}>
               {tracks.map((t, i) => (
                 <div
                   key={t.id}
-                  className={`sl-row${t.id === curId ? " playing" : ""}`}
+                  className={`${styles.row}${t.id === curId ? ` ${styles.playing}` : ""}`}
                   onClick={() => lib.playFrom(tracks, i)}
                   onContextMenu={trackMenu(tracks, i)}
                 >
-                  <span className="tt">{trackLabel(t)}</span>
-                  <span className="du">{formatTime(t.duration)}</span>
+                  <span className={styles.rowTt}>{trackLabel(t)}</span>
+                  <span className={styles.rowDu}>{formatTime(t.duration)}</span>
                 </div>
               ))}
               {menu}
@@ -273,26 +268,26 @@ export function StudioLibrary() {
   if (section === "folders") {
     if (!capabilities.folders)
       return (
-        <div className="sl">
-          <div className="sl-empty">
+        <div className={styles.root}>
+          <div className={styles.empty}>
             Your server organises music by tags — browse via Albums or Artists.
           </div>
         </div>
       );
     const list = query ? folders.filter((f) => f.name.toLowerCase().includes(query)) : folders;
     return (
-      <div className="sl">
-        <div className="sl-scroll">
+      <div className={styles.root}>
+        <div className={styles.scroll}>
           {list.length === 0 ? (
-            <div className="sl-empty">
-              <span className="mono">{query ? "No matches" : "No folders"}</span>
+            <div className={styles.empty}>
+              <span className={styles.emptyMono}>{query ? "No matches" : "No folders"}</span>
             </div>
           ) : (
-            <div className="sl-list">
+            <div className={styles.list}>
               {list.map((f) => (
-                <div key={f.path} className="sl-row" onClick={() => lib.openFolder(f)}>
-                  <span className="tt">{f.name}</span>
-                  <span className="du">{f.tracks.length} tracks</span>
+                <div key={f.path} className={styles.row} onClick={() => lib.openFolder(f)}>
+                  <span className={styles.rowTt}>{f.name}</span>
+                  <span className={styles.rowDu}>{f.tracks.length} tracks</span>
                 </div>
               ))}
             </div>
@@ -306,24 +301,24 @@ export function StudioLibrary() {
   if (section === "playlists") {
     if (!capabilities.playlists)
       return (
-        <div className="sl">
-          <div className="sl-empty">Playlists for local files are coming soon.</div>
+        <div className={styles.root}>
+          <div className={styles.empty}>Playlists for local files are coming soon.</div>
         </div>
       );
     const list = query ? playlists.filter((p) => p.name.toLowerCase().includes(query)) : playlists;
     return (
-      <div className="sl">
-        <div className="sl-scroll">
+      <div className={styles.root}>
+        <div className={styles.scroll}>
           {list.length === 0 ? (
-            <div className="sl-empty">
-              <span className="mono">{query ? "No matches" : "No playlists"}</span>
+            <div className={styles.empty}>
+              <span className={styles.emptyMono}>{query ? "No matches" : "No playlists"}</span>
             </div>
           ) : (
-            <div className="sl-list">
+            <div className={styles.list}>
               {list.map((p) => (
-                <div key={p.id} className="sl-row" onClick={() => void lib.openPlaylist(p.id)}>
-                  <span className="tt">{p.name}</span>
-                  <span className="du">{p.songCount ?? ""}</span>
+                <div key={p.id} className={styles.row} onClick={() => void lib.openPlaylist(p.id)}>
+                  <span className={styles.rowTt}>{p.name}</span>
+                  <span className={styles.rowDu}>{p.songCount ?? ""}</span>
                 </div>
               ))}
             </div>
@@ -336,8 +331,8 @@ export function StudioLibrary() {
   // ---- ALBUMS (default) ----
   const list = query ? cards.filter(lib.matchesQuery) : cards;
   return (
-    <div className="sl">
-      <div className="sl-scroll">
+    <div className={styles.root}>
+      <div className={styles.scroll}>
         {cards.length > 1 && sortBar}
         {albumWall(list)}
       </div>

@@ -28,6 +28,54 @@
   [data-accent="blue"]{ --ac:#2f8fff; --ac-2:#5cabff; --ac-rgb:47,143,255; }
   [data-accent="teal"]{ --ac:#13b5a6; --ac-2:#3ed6c7; --ac-rgb:19,181,166; }
   [data-accent="graphite"]{ --ac:#6f6c63; --ac-2:#8a877d; --ac-rgb:111,108,99; }
+  /* ===== DARK MODE — warm-dark device. Same structure, dark material set. Shadows go near-black and
+     the bright white highlights drop to faint, so recesses/raises read on dark surfaces. ===== */
+  [data-theme="dark"]{
+    --bg-1:#191714; --face:#2b2824; --face-lo:#211e1b;
+    --sh:0,0,0; --ink:#ece8e0; --ink-2:#a8a39a; --label:#746f66; --gauge:#48433b;
+    --in:inset 2px 2px 6px rgba(0,0,0,.55), inset -1.5px -1.5px 4px rgba(255,255,255,.05);
+    --in-deep:inset 3px 3px 8px rgba(0,0,0,.6), inset -2px -2px 5px rgba(255,255,255,.04);
+    --raise:0 2px 4px rgba(0,0,0,.5), 0 12px 22px -10px rgba(0,0,0,.6), inset 0 1px 1px rgba(255,255,255,.07), 0 0 0 1px rgba(255,255,255,.05);
+  }
+  /* dark control surfaces — the skeuomorphic gradients are hardcoded light, so re-materialise as dark
+     brushed metal (token swap can't reach inline gradients; this is the light↔dark material pair). */
+  [data-theme="dark"] .knob .body{ background:linear-gradient(155deg,#403b33 0%,#2f2b26 46%,#201d18 100%);
+    box-shadow:0 3px 4px rgba(0,0,0,.5), 0 16px 26px -8px rgba(0,0,0,.6), 0 7px 13px -5px rgba(0,0,0,.45), inset 0 1.5px 1.5px rgba(255,255,255,.1), inset 0 -3px 4px rgba(0,0,0,.35); }
+  [data-theme="dark"] .knob.volknob .body{ box-shadow:0 3px 6px -1px rgba(0,0,0,.5), 0 9px 15px -10px rgba(0,0,0,.5), inset 0 1.5px 1.5px rgba(255,255,255,.1), inset 0 -3px 4px rgba(0,0,0,.35); }
+  [data-theme="dark"] .knob .top{ background:radial-gradient(135% 135% at 50% 38%,#3c372f,#302b25 70%,#272118);
+    box-shadow:inset 0 1.5px 1px rgba(255,255,255,.12), inset 0 -1px 1px rgba(0,0,0,.25), 0 0 0 1px rgba(255,255,255,.05), 0 4px 8px rgba(0,0,0,.4); }
+  [data-theme="dark"] .knob::before{ box-shadow:inset 0 1px 2px rgba(0,0,0,.4), inset 0 -1px 1px rgba(255,255,255,.06); }
+  [data-theme="dark"] .knob .ind{ background:#c2bbad; box-shadow:inset 0 1px 1px rgba(0,0,0,.55), 0 1px 0 rgba(255,255,255,.1); }
+  [data-theme="dark"] .eq .knob .ind{ background:linear-gradient(180deg,#b3ac9f,#938c80); box-shadow:inset 0 1.5px 2px rgba(0,0,0,.5), inset 0 -1px .5px rgba(255,255,255,.1); }
+  [data-theme="dark"] .pbtn{ background:linear-gradient(158deg,#373229,#2a2622 46%,#1c1915); box-shadow:0 3px 4px rgba(0,0,0,.4), 0 10px 18px -8px rgba(0,0,0,.5), inset 0 1px 1px rgba(255,255,255,.05); }
+  [data-theme="dark"] .pbtn .top{ background:radial-gradient(135% 135% at 50% 40%,#393429,#2e2a23 72%,#262019); box-shadow:inset 0 1.5px 1px rgba(255,255,255,.06), 0 0 0 1px rgba(255,255,255,.04), 0 3px 6px rgba(0,0,0,.35); }
+  [data-theme="dark"] .pbtn.play{ box-shadow:0 3px 4px rgba(0,0,0,.4), 0 12px 20px -8px rgba(0,0,0,.5), 0 0 15px -6px rgba(var(--ac-rgb),.3), inset 0 1px 1px rgba(255,255,255,.06); }
+  /* detail action buttons — drop the accent glow on primary and the bright white edge/highlight on
+     ghosts; on dark those read as a harsh "pop". Keep the accent fill, just calm the light. */
+  [data-theme="dark"] .btn.primary{ box-shadow:0 2px 4px -1px rgba(0,0,0,.45), 0 7px 13px -9px rgba(0,0,0,.55), inset 0 1px 1px rgba(255,255,255,.1), 0 0 0 1px rgba(255,255,255,.05); }
+  [data-theme="dark"] .btn.ghost{ box-shadow:0 1px 2px rgba(0,0,0,.4), inset 0 1px 1px rgba(255,255,255,.05), 0 0 0 1px rgba(255,255,255,.07); }
+  /* pressed states in dark: the recess highlights were bright white → dim them so a press reads as a
+     quiet recess, not a flash. (No translateY anywhere — press = shadow recess only, not a jump.) */
+  [data-theme="dark"] .btn.ghost:active{ box-shadow:inset 2px 2px 5px rgba(0,0,0,.5), inset -2px -2px 5px rgba(255,255,255,.05); }
+  [data-theme="dark"] .btn.primary:active{ box-shadow:0 1px 2px rgba(0,0,0,.45), inset 0 2px 6px rgba(0,0,0,.4); }
+  [data-theme="dark"] .pbtn:active{ box-shadow:0 1px 2px rgba(0,0,0,.4), inset 0 2px 5px rgba(0,0,0,.5), inset 0 1px 1px rgba(255,255,255,.06); }
+  [data-theme="dark"] .pbtn:active .top{ box-shadow:inset 0 2px 5px rgba(0,0,0,.5), inset 0 -1px 1px rgba(255,255,255,.05), 0 0 0 1px rgba(255,255,255,.04); }
+  [data-theme="dark"] .pbtn.play:active{ box-shadow:0 1px 2px rgba(0,0,0,.4), 0 0 13px -5px rgba(var(--ac-rgb),.28), inset 0 2px 5px rgba(0,0,0,.5), inset 0 1px 1px rgba(255,255,255,.06); }
+  [data-theme="dark"] .seg button.on{ background:linear-gradient(180deg,#36312a,#2a2620); box-shadow:0 2px 5px -1px rgba(0,0,0,.5), inset 0 1px 1px rgba(255,255,255,.07), 0 0 0 1px rgba(255,255,255,.05); }
+  [data-theme="dark"] .slide .nub, [data-theme="dark"] .slot .nub{ background:radial-gradient(135% 135% at 50% 40%,#3b362e,#2f2b24 72%,#251f1a); box-shadow:0 3px 4px rgba(0,0,0,.45), inset 0 1.5px 1px rgba(255,255,255,.09), 0 0 0 1px rgba(255,255,255,.06); }
+  [data-theme="dark"] .dock{ background:linear-gradient(180deg,#221f1b,#191613); }
+  [data-theme="dark"] .ibtn{ background:radial-gradient(135% 135% at 50% 35%,#34302a,#221f1b); box-shadow:0 2px 4px rgba(0,0,0,.45), inset 0 1px 1px rgba(255,255,255,.06), 0 0 0 1px rgba(255,255,255,.05); }
+  [data-theme="dark"] .source button.on{ background:linear-gradient(180deg,#36312a,#2a2620); box-shadow:0 2px 4px -1px rgba(0,0,0,.5), inset 0 1px 1px rgba(255,255,255,.06); }
+  [data-theme="dark"] .queue{ background:linear-gradient(180deg,#221f1b,#1a1714); box-shadow:-20px 0 44px -22px rgba(0,0,0,.6), inset 1px 0 0 rgba(255,255,255,.05); }
+  [data-theme="dark"] .nav-item:hover,[data-theme="dark"] .trow:hover,[data-theme="dark"] .lrow:hover,[data-theme="dark"] .qrow:hover{ background:rgba(255,255,255,.05); }
+  [data-theme="dark"] .bars i{ background:#6e6960; }
+  [data-theme="dark"] .seg .dt{ background:#4b463f; }
+  /* structural surfaces — header + sidebar had hardcoded light gradients on a continuation line (missed
+     first pass). Slightly lighter than --bg-1 for the same subtle panel separation the light theme has. */
+  [data-theme="dark"] body{ background:radial-gradient(120% 80% at 50% -4%, #221f1a, transparent 50%), radial-gradient(120% 100% at 50% 110%, #141109, transparent 52%), var(--bg-1); }
+  [data-theme="dark"] .bevel{ background:linear-gradient(180deg,#252118,#1d1a16); box-shadow:inset 0 -1px 0 rgba(255,255,255,.05), 0 1px 0 rgba(0,0,0,.45); }
+  [data-theme="dark"] .side{ background:linear-gradient(100deg,#211e19,#1a1713); box-shadow:inset -1px 0 0 rgba(0,0,0,.45), 1px 0 0 rgba(255,255,255,.04); }
+  [data-theme="dark"] .meter i{ background:#3a362f; box-shadow:inset 0 1px 1px rgba(0,0,0,.45); }
   * { box-sizing:border-box; margin:0; padding:0; }
   html, body { height:100%; }
   body { font-family:var(--font); color:var(--ink); -webkit-font-smoothing:antialiased;
@@ -131,15 +179,17 @@
   .detail-actions{ display:flex; gap:11px; margin-top:20px; }
   .btn{ font:9px/1 var(--mono); letter-spacing:1.4px; text-transform:uppercase; padding:13px 22px; border-radius:999px; cursor:pointer; border:0; display:inline-flex; align-items:center; gap:9px;
     transition:transform .08s var(--ease), box-shadow .08s var(--ease); }
-  .btn:active{ transform:translateY(1.5px) scale(.99); }
+  .btn:active{ transform:scale(.99); }
+  /* matte/integrated, NOT floating: tight contained shadows so buttons sit ON the panel. Primary keeps
+     the accent device look; ghosts are flat matte faces that press INTO the panel (Studio grammar). */
   .btn.primary{ color:#fff; background:radial-gradient(135% 165% at 50% 26%, var(--ac-2), var(--ac) 80%);
-    box-shadow:0 3px 5px -1px rgba(var(--ac-rgb),.4), 0 12px 22px -8px rgba(var(--ac-rgb),.38), 0 0 20px -4px rgba(var(--ac-rgb),.55),
-      inset 0 1.5px 1px rgba(255,255,255,.45), 0 0 0 1px rgba(255,255,255,.18); }
-  .btn.primary:active{ box-shadow:0 1px 2px rgba(var(--ac-rgb),.4), 0 0 16px -6px rgba(var(--ac-rgb),.5), inset 0 1px 3px rgba(0,0,0,.18); }
-  .btn.ghost{ color:var(--ink-2); background:radial-gradient(135% 165% at 50% 28%, #fff, #f3efe8 68%, #e6e1d8 100%);
-    box-shadow:0 3px 5px -1px rgba(var(--sh),.18), 0 11px 20px -9px rgba(var(--sh),.22), inset 0 1.5px 1px rgba(255,255,255,.92), 0 0 0 1px rgba(255,255,255,.55); }
+    box-shadow:0 2px 4px -1px rgba(var(--ac-rgb),.4), 0 7px 13px -8px rgba(var(--ac-rgb),.4),
+      inset 0 1px 1px rgba(255,255,255,.42), 0 0 0 1px rgba(255,255,255,.16); }
+  .btn.primary:active{ transform:scale(.99); box-shadow:0 1px 2px rgba(var(--ac-rgb),.4), inset 0 2px 5px rgba(0,0,0,.2); }
+  .btn.ghost{ color:var(--ink-2); background:var(--face);
+    box-shadow:0 1px 2px rgba(var(--sh),.16), inset 0 1px 1px rgba(255,255,255,.9), 0 0 0 1px rgba(255,255,255,.5); }
   .btn.ghost:hover{ color:var(--ink); }
-  .btn.ghost:active{ box-shadow:inset 0 2px 5px rgba(150,144,132,.24), 0 1px 2px rgba(var(--sh),.18); }
+  .btn.ghost:active{ box-shadow:inset 2px 2px 5px rgba(var(--sh),.18), inset -2px -2px 5px rgba(255,255,255,.9); }
 
   /* track list in a recessed device "screen" */
   .screen{ border-radius:16px; padding:8px; background:var(--face); box-shadow:var(--in-deep); }
@@ -166,24 +216,24 @@
   .lrow .ls{ font:10px/1 var(--mono); letter-spacing:.5px; text-transform:uppercase; color:var(--label); }
 
   /* ===== now playing (rich console) ===== */
-  .np{ display:flex; flex-direction:column; gap:22px; }
+  .np{ display:flex; flex-direction:column; gap:15px; }
   /* visual equaliser (spectrum) — a recessed warm device "screen", restrained (no bright graphics) */
-  .spectrum{ position:relative; border-radius:16px; height:160px; padding:14px 18px; background:var(--face); box-shadow:var(--in-deep); }
+  .spectrum{ position:relative; border-radius:16px; height:136px; padding:12px 18px; background:var(--face); box-shadow:var(--in-deep); }
   .spectrum canvas{ width:100%; height:100%; display:block; }
-  .np-top{ display:grid; grid-template-columns:190px 1fr auto; gap:30px; align-items:center; }
+  .np-top{ display:grid; grid-template-columns:176px 1fr; gap:26px; align-items:center; }
   .np-vol{ display:flex; flex-direction:column; align-items:center; gap:12px; padding:0 12px; }
   .knob.big{ width:114px; }
   .kl b{ display:block; margin-top:5px; font-size:12px; letter-spacing:0; color:var(--ink-2); }
-  .np-cover{ width:190px; height:190px; border-radius:16px; overflow:hidden; background:var(--face);
+  .np-cover{ width:176px; height:176px; border-radius:16px; overflow:hidden; background:var(--face);
     box-shadow:inset 0 0 0 5px var(--face), inset 0 0 0 6px rgba(var(--sh),.14), 0 4px 8px rgba(var(--sh),.2), 0 22px 40px -14px rgba(var(--sh),.4); }
   .np-cover img{ width:100%; height:100%; object-fit:cover; }
-  .np-meta .t{ font-size:34px; font-weight:600; letter-spacing:-.01em; color:var(--ink); line-height:1.05; }
-  .np-meta .a{ margin-top:9px; font-size:17px; color:var(--ink-2); }
-  .fbadge{ margin-top:15px; display:inline-flex; align-items:center; gap:8px; padding:7px 12px; border-radius:999px; font:9px/1 var(--mono);
+  .np-meta .t{ font-size:28px; font-weight:600; letter-spacing:-.01em; color:var(--ink); line-height:1.06; }
+  .np-meta .a{ margin-top:7px; font-size:15px; color:var(--ink-2); }
+  .fbadge{ margin-top:12px; display:inline-flex; align-items:center; gap:8px; padding:7px 12px; border-radius:999px; font:9px/1 var(--mono);
     letter-spacing:1.6px; text-transform:uppercase; color:var(--ink-2); background:var(--face); box-shadow:var(--in); }
   .fbadge .ld{ width:6px; height:6px; border-radius:50%; background:var(--green); box-shadow:0 0 5px rgba(88,178,87,.55); }
   .rule{ height:1px; background:linear-gradient(90deg, transparent, rgba(var(--sh),.1) 5%, rgba(var(--sh),.1) 95%, transparent); }
-  .eqsection{ display:flex; flex-direction:column; gap:18px; }
+  .eqsection{ display:flex; flex-direction:column; gap:14px; }
   .eqhead{ display:flex; align-items:flex-end; justify-content:space-between; gap:24px; flex-wrap:wrap; }
   .eqhead-l{ display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
   .eqhead-r{ display:flex; align-items:flex-end; gap:22px; }
@@ -211,14 +261,21 @@
   .sig{ display:flex; align-items:center; gap:12px; font:9px/1 var(--mono); letter-spacing:1.5px; text-transform:uppercase; color:var(--label); flex-wrap:wrap; }
   .sig .lab{ color:#b6b2a8; margin-right:5px; } .sig .arrow{ color:#c7c2b7; }
   .sig .lock{ color:var(--ink-2); } .sig .lock .d{ display:inline-block; width:6px; height:6px; border-radius:50%; background:var(--ac); box-shadow:0 0 6px rgba(var(--ac-rgb),.6); margin-right:5px; vertical-align:middle; }
+  /* signal-path settings — the user-facing playback controls Porcelain has (ReplayGain, Crossfade);
+     gapless is automatic in the engine so it is shown as state, not a toggle. Studio-native primitives. */
+  .deckfoot{ display:flex; align-items:center; justify-content:space-between; gap:20px 40px; flex-wrap:wrap; }
+  .sigctl{ display:flex; align-items:center; gap:30px; flex-wrap:wrap; }
+  .sigctl .sg{ display:flex; align-items:center; gap:12px; }
+  .sigctl .lab{ font:9px/1 var(--mono); letter-spacing:1.5px; text-transform:uppercase; color:#b6b2a8; }
+  .seg.sm button{ padding:7px 12px; }
 
   /* knob */
-  .knob{ position:relative; width:74px; aspect-ratio:1/1; }
+  .knob{ position:relative; width:60px; aspect-ratio:1/1; }
   .knob::before{ content:""; position:absolute; inset:0; border-radius:50%; box-shadow:inset 0 1px 2px rgba(var(--sh),.1), inset 0 -1px 1px rgba(255,255,255,.6); }  /* seated ring (original) */
   .knob .arc{ position:absolute; inset:0; width:100%; height:100%; transform:rotate(135deg); overflow:visible; }
   .knob .trk{ fill:none; stroke:var(--gauge); stroke-width:5; stroke-linecap:round; stroke-dasharray:75 100; }
   .knob .val{ fill:none; stroke:var(--ac); stroke-width:5; stroke-linecap:round; filter:drop-shadow(0 0 2px rgba(var(--ac-rgb),.5)); }
-  .knob .body{ position:absolute; inset:8%; border-radius:50%; background:linear-gradient(155deg,#fff 0%,#f3efe8 44%,#d4cfc4 100%);
+  .knob .body{ position:absolute; inset:8%; z-index:-1; border-radius:50%; background:linear-gradient(155deg,#fff 0%,#f3efe8 44%,#d4cfc4 100%);
     box-shadow:0 3px 4px rgba(var(--sh),.30), 0 16px 26px -8px rgba(var(--sh),.34), 0 7px 13px -5px rgba(var(--sh),.24),
       inset 0 1.5px 1.5px rgba(255,255,255,.95), inset 0 -3px 4px rgba(150,144,132,.18); }  /* large multi-layer shadow + convex base */
   .knob .top{ position:absolute; inset:16%; border-radius:50%; background:radial-gradient(135% 135% at 50% 38%,#fff,#faf8f3 70%,#f5f2eb);
@@ -226,7 +283,14 @@
   .knob .top::after{ content:""; position:absolute; inset:20%; border-radius:50%; box-shadow:inset 0 1px 1px rgba(255,255,255,.65), 0 0 0 1px rgba(var(--sh),.045); }
   .knob .dial{ position:absolute; inset:16%; border-radius:50%; }
   .knob .ind{ position:absolute; top:9%; left:50%; width:7px; height:7px; margin-left:-3.5px; border-radius:50%; background:#807c72; box-shadow:inset 0 1px 1px rgba(0,0,0,.4), 0 1px 0 rgba(255,255,255,.55); }
-  .knob.dock{ width:72px; } .knob.dock .top::after{ display:none; }
+  /* .volknob = the big volume knob. Was `.knob.dock` (collided with the transport `.dock` rule → the
+     knob inherited the dock's background+shadow = the phantom "plate"). Unique modifier, no collisions. */
+  .knob.volknob{ width:88px; } .knob.volknob .top::after{ display:none; }
+  /* EQ pots: a line pointer (not a dot) and no inset cap ring — the skin-studio device EQ look */
+  .eq .knob .top::after{ display:none; }
+  .eq .knob .ind{ top:6px; width:3.5px; height:12px; margin-left:-1.75px; border-radius:2.5px;
+    background:linear-gradient(180deg,#7e786d,#8c8678);
+    box-shadow:inset 0 1.5px 2px rgba(0,0,0,.30), inset 0 -1px 0.5px rgba(255,255,255,.22); }
 
   .empty{ padding:56px 8px; text-align:center; font:11px/1.7 var(--mono); letter-spacing:.4px; text-transform:uppercase; color:var(--label); }
 
@@ -243,17 +307,25 @@
   .pbtn{ position:relative; width:44px; height:44px; border:0; border-radius:50%; cursor:pointer; padding:0; background:linear-gradient(158deg,#fffefb,#f0ece5 46%,#d7d2c8);
     box-shadow:0 3px 4px rgba(var(--sh),.28), 0 10px 18px -8px rgba(var(--sh),.3), inset 0 1px 1px rgba(255,255,255,.9); transition:transform .07s; }
   .pbtn .top{ position:absolute; inset:8%; border-radius:50%; display:grid; place-items:center; color:var(--ink-2); background:radial-gradient(135% 135% at 50% 40%,#fefdfb,#f8f6f1 72%,#f4f1ea);
-    box-shadow:inset 0 1.5px 1px rgba(255,255,255,.9), 0 0 0 1px rgba(255,255,255,.55), 0 3px 6px rgba(var(--sh),.22); }
-  .pbtn:active{ transform:translateY(2px) scale(.985); } .pbtn .top svg{ width:16px; height:16px; }
+    box-shadow:inset 0 1.5px 1px rgba(255,255,255,.9), 0 0 0 1px rgba(255,255,255,.55), 0 3px 6px rgba(var(--sh),.22); transition:box-shadow .07s var(--ease), transform .07s var(--ease); }
+  .pbtn .top svg{ width:16px; height:16px; transition:transform .07s var(--ease); }
+  /* tactile press — the button drops INTO the panel (matches skin-studio.html) */
+  .pbtn:active{ transform:scale(.985); box-shadow:0 1px 2px rgba(var(--sh),.26), inset 0 2px 5px rgba(150,144,132,.20), inset 0 1px 1px rgba(255,255,255,.55); }
+  .pbtn:active .top{ box-shadow:inset 0 2px 5px rgba(150,144,132,.30), inset 0 -1px 1px rgba(255,255,255,.5), 0 0 0 1px rgba(255,255,255,.4); }
+  .pbtn:active .top svg{ transform:scale(.97); }
   .pbtn.play{ width:52px; height:52px; box-shadow:0 3px 4px rgba(var(--sh),.28), 0 12px 20px -8px rgba(var(--sh),.32), 0 0 22px -3px rgba(var(--ac-rgb),.5), inset 0 1px 1px rgba(255,255,255,.85); }
+  .pbtn.sm{ width:36px; height:36px; }
+  .pbtn.sm .top svg{ width:14px; height:14px; }
+  .pbtn.sm.on .top{ color:var(--ac); }
+  .dk-meter i{ height:12px; }
   .pbtn.play .top{ color:var(--ink); } .pbtn.play .top svg{ width:21px; height:21px; }
+  .pbtn.play:active{ transform:scale(.985); box-shadow:0 1px 2px rgba(var(--sh),.28), 0 0 18px -4px rgba(var(--ac-rgb),.5), inset 0 2px 5px rgba(150,144,132,.2), inset 0 1px 1px rgba(255,255,255,.55); }
   .seekwrap{ display:flex; align-items:center; gap:11px; min-width:230px; }
   .tt-time{ font:9px/1 var(--mono); letter-spacing:.5px; color:var(--ink-2); min-width:34px; }
   .slot{ position:relative; flex:1; height:14px; border-radius:999px; background:var(--face); box-shadow:var(--in-deep); cursor:pointer; }
   .slot .fill{ position:absolute; top:50%; left:4px; transform:translateY(-50%); height:5px; width:38%; border-radius:999px; background:linear-gradient(90deg, rgba(var(--ac-rgb),.55), rgba(var(--ac-rgb),.85)); box-shadow:0 0 8px rgba(var(--ac-rgb),.4); }
   .slot .nub{ position:absolute; top:50%; left:38%; width:20px; height:20px; border-radius:50%; transform:translate(-50%,-50%); background:radial-gradient(135% 135% at 50% 40%,#fefdfb,#f7f4ef 72%,#efebe3); box-shadow:0 3px 4px rgba(var(--sh),.3), inset 0 1.5px 1px rgba(255,255,255,.9), 0 0 0 1px rgba(255,255,255,.5); }
   .dk-right{ display:flex; align-items:center; justify-content:flex-end; gap:16px; }
-  .dk-meter i{ height:12px; }
   .dk-vol{ display:flex; align-items:center; gap:10px; }
   .vlab{ font:8px/1 var(--mono); letter-spacing:1.2px; text-transform:uppercase; color:var(--label); }
   .lamp{ display:inline-flex; align-items:center; gap:8px; font:8.5px/1.3 var(--mono); letter-spacing:1.2px; text-transform:uppercase; color:var(--ink-2); }
@@ -307,8 +379,7 @@
   .modal .field input{ font-size:13px; padding:10px 12px; border-radius:10px; border:0; background:var(--face); box-shadow:var(--in); color:var(--ink); font-family:inherit; }
 </style>
 </head>
-<body data-accent="orange">
-  <div class="device">
+<body data-accent="orange">  <div class="device">
     <!-- header -->
     <div class="bevel">
       <div class="brand"><span class="bars"><i></i><i class="live"></i><i></i><i></i></span><b>EKO</b><span class="sub">studio</span></div>
@@ -316,11 +387,9 @@
       <div class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>Search albums, artists, tracks…</div>
       <div class="hdr-right">
         <div class="source" id="source"><button class="on">Local</button><button>Stream</button></div>
-        <button class="pill-mini" id="toPorcelain" title="Switch chassis">Porcelain</button>
-        <div class="apick"><span class="alab">Accent</span>
-          <button class="sw on" data-ac="orange" style="--c:#ef6a1e"></button><button class="sw" data-ac="violet" style="--c:#6a5cf0"></button>
-          <button class="sw" data-ac="blue" style="--c:#2f8fff"></button><button class="sw" data-ac="teal" style="--c:#13b5a6"></button><button class="sw" data-ac="graphite" style="--c:#6f6c63"></button></div>
-        <button class="ibtn" title="Theme"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3a6.4 6.4 0 0 0 9 9 9 9 0 1 1-9-9z"/></svg></button>
+        <!-- Skin (Porcelain/Studio) + accent colour now live in the native "Skins" application menu,
+             not the header (will scale to many skins). Dark/light stays as a quick header toggle. -->
+        <button class="ibtn" id="themeToggle" title="Light / Dark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3a6.4 6.4 0 0 0 9 9 9 9 0 1 1-9-9z"/></svg></button>
       </div>
     </div>
 
@@ -378,10 +447,6 @@
               <div class="np-cover"><img src="../site/assets/cover-light.webp" alt=""></div>
               <div class="np-meta"><div class="t">If I Like It, I Do It (Acoustic)</div><div class="a">Jamiroquai — Emergency On Planet Earth</div>
                 <div class="fbadge"><span class="ld"></span>FLAC · 44.1k · 16-bit</div></div>
-              <div class="np-vol">
-                <div class="knob big" id="volNP"><svg class="arc" viewBox="0 0 100 100"><circle class="trk" cx="50" cy="50" r="45" pathLength="100"/><circle class="val" cx="50" cy="50" r="45" pathLength="100"/></svg><div class="body"></div><div class="top"></div><div class="dial"><i class="ind"></i></div></div>
-                <div class="kl">Volume<b>−6 dB</b></div>
-              </div>
             </div>
             <div class="rule"></div>
             <div class="spectrum"><canvas id="spec"></canvas></div>
@@ -391,19 +456,19 @@
                 <div class="eqhead-l"><span class="eqtitle">Equaliser</span>
                   <div class="eqpresets" id="eqpresets"><button class="pill">Flat</button><button class="pill on">Jazz</button><button class="pill">Rock</button><button class="pill">Vocal</button></div>
                 </div>
-                <div class="eqhead-r">
-                  <div class="ctl"><div class="slide on" data-toggle><span class="vfill"></span><span class="nub"></span></div><div class="kl">Gapless</div></div>
-                  <div class="ctl"><div class="slide" data-toggle><span class="vfill"></span><span class="nub"></span></div><div class="kl">Repeat</div></div>
-                  <div class="meterbox"><div class="meter" id="npMeter"></div><div class="kl">Signal</div></div>
-                </div>
               </div>
               <div class="eq" id="eqrow"></div>
             </div>
             <div class="rule"></div>
-            <div class="sig">
-              <span><span class="lab">Source</span>FLAC 44.1k · 16-bit</span><span class="arrow">→</span>
-              <span><span class="lab">Output</span>System Default · 44.1 kHz</span><span class="arrow">→</span>
-              <span class="lock"><span class="d"></span>Bit-Perfect · Locked</span>
+            <div class="deckfoot">
+              <div class="sigctl">
+                <div class="sg"><span class="lab">Crossfade</span><div class="slide" id="xfade" data-toggle><div class="vfill"></div><div class="nub"></div></div></div>
+                <div class="sg"><span class="lab">ReplayGain</span><div class="seg sm rg"><button class="on">Off</button><button>Track</button><button>Album</button></div></div>
+              </div>
+              <div class="sig">
+                <span><span class="lab">Source</span>FLAC 44.1k · 16-bit</span><span class="arrow">→</span>
+                <span class="lock"><span class="d"></span>Bit-Perfect · Locked</span>
+              </div>
             </div>
           </div>
         </section>
@@ -418,19 +483,20 @@
       </div>
       <div class="dk-mid">
         <div class="transport">
+          <button class="pbtn sm" title="Shuffle"><span class="top"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h4l9 10h5M16 7h5v5M3 17h4l3-3.4"/></svg></span></button>
           <button class="pbtn"><span class="top"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 5v14h2V5H6zm3 7 10 7V5L9 12z"/></svg></span></button>
           <button class="pbtn play" id="play"><span class="top"><svg id="pi" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg></span></button>
           <button class="pbtn"><span class="top"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M18 5v14h-2V5h2zM15 12 5 5v14l10-7z"/></svg></span></button>
+          <button class="pbtn sm on" title="Repeat"><span class="top"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9a4 4 0 0 1 4-4h9M17 5l-2-2M17 5l-2 2M20 15a4 4 0 0 1-4 4H7M7 19l2-2M7 19l2 2"/></svg></span></button>
         </div>
         <div class="seekwrap"><span class="tt-time">2:08</span><div class="slot"><div class="fill"></div><div class="nub"></div></div><span class="tt-time">-4:15</span></div>
       </div>
       <div class="dk-right">
         <div class="meter dk-meter" id="dkMeter"></div>
         <div class="dk-vol"><span class="vlab">Vol</span>
-          <div class="knob dock" id="vol"><svg class="arc" viewBox="0 0 100 100"><circle class="trk" cx="50" cy="50" r="45" pathLength="100"/><circle class="val" cx="50" cy="50" r="45" pathLength="100"/></svg><div class="body"></div><div class="top"></div><div class="dial"><i class="ind"></i></div></div>
+          <div class="knob volknob" id="vol"><svg class="arc" viewBox="0 0 100 100"><circle class="trk" cx="50" cy="50" r="45" pathLength="100"/><circle class="val" cx="50" cy="50" r="45" pathLength="100"/></svg><div class="body"></div><div class="top"></div><div class="dial"><i class="ind"></i></div></div>
         </div>
         <button class="ibtn" id="qOpen" title="Up Next"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h11M4 12h11M4 17h7"/><path d="M16 13.5v7l5-3.5z" fill="currentColor" stroke="none"/></svg></button>
-        <span class="lamp"><span class="d"></span>Bit-Perfect</span>
       </div>
     </div>
 
@@ -501,10 +567,17 @@
     [document.getElementById('vol'), document.getElementById('volNP')].forEach(vk=>{ if(!vk) return; vk.querySelector('.val').style.strokeDasharray='46.5 100'; vk.querySelector('.dial').style.transform='rotate(32deg)'; });
     // meters
     function buildMeter(el,lit){ const M=12; for(let i=0;i<M;i++){ const x=document.createElement('i'); if(i>=M-2)x.className='pk'; if(i<lit)x.classList.add('on'); el.appendChild(x);} }
-    buildMeter(document.getElementById('npMeter'),8); buildMeter(document.getElementById('dkMeter'),8);
+    function animateMeter(el){ const segs=[...el.children], M=segs.length; let lvl=7;
+      setInterval(()=>{ lvl += Math.random()*4-2; lvl=Math.max(3,Math.min(M,lvl)); const L=Math.round(lvl);
+        segs.forEach((x,i)=> x.classList.toggle('on', i<L)); }, 120); }
+    const dkMeter=document.getElementById('dkMeter');
+    buildMeter(dkMeter,8); animateMeter(dkMeter);
     // presets + toggles
     document.querySelectorAll('#eqpresets .pill').forEach(p=> p.addEventListener('click', ()=>{ document.querySelectorAll('#eqpresets .pill').forEach(x=>x.classList.remove('on')); p.classList.add('on'); }));
     document.querySelectorAll('[data-toggle]').forEach(s=> s.addEventListener('click', ()=> s.classList.toggle('on')));
+    document.querySelectorAll('.transport .pbtn.sm').forEach(b=> b.addEventListener('click', ()=> b.classList.toggle('on')));
+    // ReplayGain segmented (single-select) + Crossfade label reflects the gapless-vs-fade seam
+    document.querySelectorAll('.seg.rg button').forEach(b=> b.addEventListener('click', ()=>{ b.parentElement.querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); }));
 
     // nav
     const views={ albums:'v-albums', artists:'v-artists', tracks:'v-tracks', folders:'v-folders', playlists:'v-playlists', now:'v-now', detail:'v-detail' };
@@ -517,6 +590,10 @@
     document.querySelectorAll('#source button').forEach(b=> b.addEventListener('click', ()=>{ document.querySelectorAll('#source button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); }));
     document.querySelectorAll('.apick .sw').forEach(s=> s.addEventListener('click', ()=>{ document.querySelectorAll('.apick .sw').forEach(x=>x.classList.remove('on')); s.classList.add('on'); document.body.dataset.accent=s.dataset.ac; }));
     const qac=new URLSearchParams(location.search).get('ac'); if(qac){ document.body.dataset.accent=qac; document.querySelectorAll('.apick .sw').forEach(x=>x.classList.toggle('on',x.dataset.ac===qac)); }
+    // dark/light: header toggle + ?theme=dark preview (skin + accent will live in the native Skins menu)
+    if(new URLSearchParams(location.search).get('theme')==='dark') document.body.dataset.theme='dark';
+    const TT=document.getElementById('themeToggle');
+    if(TT) TT.addEventListener('click', ()=>{ document.body.dataset.theme = document.body.dataset.theme==='dark' ? '' : 'dark'; });
     const qv=new URLSearchParams(location.search).get('v'); if(qv && views[qv]){ if(qv==='detail') show('v-detail'); else go(qv); }
     const pi=document.getElementById('pi'); let playing=true;
     document.getElementById('play').addEventListener('click', ()=>{ playing=!playing; pi.innerHTML = playing ? '<rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/>' : '<path d="M7 4v16l13-8z"/>'; });
@@ -556,6 +633,8 @@
       function rr(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
       const N=46, lv=new Array(N).fill(0); let t=0;
       function frame(){ if(!W) size(); t+=0.05; ctx.clearRect(0,0,W,H);
+        // theme-aware bar colour: warm-dark ink on light, warm-light on dark (else bars vanish on dark)
+        const dark=document.body.dataset.theme==='dark', C=dark?'232,228,219':'62,58,50', offO=dark?0.05:0.07, baseO=dark?0.42:0.26, slope=dark?0.40:0.28;
         const gap=2, bw=(W-(N-1)*gap)/N, sh=4, sg=2, segs=Math.max(4,Math.floor(H/(sh+sg)));
         for(let i=0;i<N;i++){
           const base=Math.pow(1-i/N,1.3);
@@ -563,7 +642,7 @@
           lv[i]+=(tgt-lv[i])*0.28;
           const lit=Math.round(Math.max(0,Math.min(1,lv[i]))*segs), x=i*(bw+gap);
           for(let s=0;s<segs;s++){ const y=H-(s+1)*(sh+sg)+sg;
-            ctx.fillStyle = s<lit ? (s>=segs-2 ? A : 'rgba(62,58,50,'+(0.26+0.28*(s/segs)).toFixed(3)+')') : 'rgba(62,58,50,0.07)';
+            ctx.fillStyle = s<lit ? (s>=segs-2 ? A : 'rgba('+C+','+(baseO+slope*(s/segs)).toFixed(3)+')') : 'rgba('+C+','+offO+')';
             rr(x,y,bw,sh,1.2); ctx.fill(); }
         }
         requestAnimationFrame(frame);
