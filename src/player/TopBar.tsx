@@ -1,5 +1,5 @@
 import { useUiStore } from "../store/useUiStore";
-import { ThemeSwitcher } from "@pro";
+import { ThemeSwitcher } from "./ThemeSwitcher";
 
 export function TopBar() {
   const source = useUiStore((s) => s.source);
@@ -96,7 +96,7 @@ export function TopBar() {
 
         {/* skin + accent now live in the native "Skins" menu (menu bar) */}
 
-        {/* dark-mode toggle — Pro only; renders null in the free build */}
+        {/* dark-mode toggle — FREE feature; Porcelain ↔ Graphite */}
         <ThemeSwitcher />
       </div>
     </header>

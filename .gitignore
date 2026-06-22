@@ -28,10 +28,6 @@ docs/internal/
 
 # Dev signing keys — NEVER commit the private key
 dev-keys/
-
-# Pro overlay — lives ONLY in the private eko-pro repo, never here
 src/pro/
 src-tauri/src/pro/
-
-# Pro-dev examples live ONLY in the private eko-pro repo
 src-tauri/examples/

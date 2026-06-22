@@ -221,10 +221,8 @@ export function useNativeMenu(): void {
   // intentional no-op: Skins menu does not exist in the free build
 }
 
-/** Free build: renders nothing — dark-mode toggle is a Pro feature. */
-export function ThemeSwitcher(): null {
-  return null;
-}
+// Note: ThemeSwitcher (light/dark toggle) is FREE — it lives in src/player/,
+// not behind @pro. No stub needed here.
 
 /**
  * Free build: always renders the Porcelain children.

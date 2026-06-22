@@ -1,7 +1,8 @@
 import { create } from "zustand";
 
-// Free build is locked to Porcelain/light — no theme or skin switching.
-// Pro build (VITE_PRO=1) enables full theme × skin switching.
+// Free build: light/dark toggle is FREE (Porcelain ↔ Graphite).
+// Only alternate SKINS (Studio etc.) are Pro-gated.
+// Pro build (VITE_PRO=1) also enables the skin switcher and Studio skin.
 const IS_PRO = Boolean(import.meta.env.VITE_PRO);
 
 export type Source = "server" | "local";
@@ -29,8 +30,7 @@ export const ACCENTS: { id: Accent; label: string; swatch: string }[] = [
 ];
 
 const initialTheme = (): Theme => {
-  // Free build is always locked to Porcelain (light). Never read persisted dark preference.
-  if (!IS_PRO) return "light";
+  // Light/dark toggle is FREE — restore persisted preference in both free and Pro builds.
   try {
     return localStorage.getItem("eko.theme") === "dark" ? "dark" : "light";
   } catch {
@@ -140,18 +140,16 @@ export const useUiStore = create<UiState>((set) => ({
   setLibrarySort: (s) => set({ librarySort: s }),
   setQuery: (q) => set({ query: q }),
   toggleTheme: () =>
-    // Free build: always Porcelain/light — switching is a Pro feature.
-    IS_PRO
-      ? set((s) => {
-          const theme: Theme = s.theme === "dark" ? "light" : "dark";
-          try {
-            localStorage.setItem("eko.theme", theme);
-          } catch {
-            /* ignore */
-          }
-          return { theme };
-        })
-      : undefined,
+    // Light/dark toggle is FREE — works in both free and Pro builds.
+    set((s) => {
+      const theme: Theme = s.theme === "dark" ? "light" : "dark";
+      try {
+        localStorage.setItem("eko.theme", theme);
+      } catch {
+        /* ignore */
+      }
+      return { theme };
+    }),
   setAccent: (accent) =>
     set(() => {
       try {
