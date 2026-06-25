@@ -47,9 +47,11 @@ jobs:
         run: npm run build # also produces dist/ that the Rust build embeds
 
       # ---- Rust gate ----
-      - name: Rust format
-        run: cargo fmt --check
-        working-directory: src-tauri
+      # Note: `cargo fmt --check` is intentionally NOT run here. rustfmt ignores `#[cfg]`,
+      # so it follows the cfg-gated `mod pro` into `src/pro/`, whose source is intentionally
+      # absent from this public repo — making the check impossible. Rust formatting is
+      # enforced upstream in eko-pro (where `src/pro/` exists). clippy below respects
+      # `#[cfg]` and works fine.
       - name: Rust clippy
         run: cargo clippy --all-targets -- -D warnings
         working-directory: src-tauri
