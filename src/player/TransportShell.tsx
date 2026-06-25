@@ -58,7 +58,13 @@ export function TransportShell() {
           aria-pressed={lyricsOpen}
           onKeyDown={(e) => (e.key === "Enter" || e.key === " " ? toggleLyrics() : undefined)}
         >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            aria-hidden="true"
+          >
             <path d="M9 18V5l12-2v13" />
             <circle cx="6" cy="18" r="3" />
             <circle cx="18" cy="16" r="3" />
@@ -74,7 +80,13 @@ export function TransportShell() {
           aria-label="Up Next queue"
           onKeyDown={(e) => (e.key === "Enter" || e.key === " " ? toggleQueue() : undefined)}
         >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            aria-hidden="true"
+          >
             <path d="M4 7h11M4 12h11M4 17h7" />
             <path d="M16 13.5v7l5-3.5z" fill="currentColor" stroke="none" />
           </svg>

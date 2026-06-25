@@ -51,4 +51,3 @@ export function presetSlots(skin: Skin): Partial<Record<Role, string>> {
  *  Every theme now routes through the generic DeckShell/TransportShell, each rendering only its
  *  own variants (the cross-skin Customize picker was removed). */
 export const GENERIC_SHELL_PRESETS = new Set<Skin>(["porcelain", "studio", "aether"]);
-

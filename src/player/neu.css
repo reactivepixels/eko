@@ -403,7 +403,9 @@ body {
 /* Focus ring on the WRAPPER (kit .field:focus-within), not an outline on the inner input —
    keeps the recessed pill shape and avoids a nested rectangle inside the field. */
 .search:focus-within {
-  box-shadow: var(--in), inset 0 0 0 1.5px rgba(var(--accent-rgb), 0.5);
+  box-shadow:
+    var(--in),
+    inset 0 0 0 1.5px rgba(var(--accent-rgb), 0.5);
 }
 .search svg {
   width: 15px;

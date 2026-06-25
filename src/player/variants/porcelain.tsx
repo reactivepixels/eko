@@ -62,25 +62,78 @@ export function PorcelainSeek() {
 export function PorcelainTransport() {
   const tr = useTransport();
   return (
-    <div className={`controls${!tr.hasQueue ? " dim" : ""}`} role="group" aria-label="Playback controls">
-      <div className={`tbtn sm${tr.shuffle ? " on" : ""}`} title="Shuffle" onClick={tr.toggleShuffle} role="button" tabIndex={0} aria-label="Shuffle" aria-pressed={tr.shuffle}>
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7h4l9 10h5M16 7h5v5M3 17h4l3-3.4" /></svg>
+    <div
+      className={`controls${!tr.hasQueue ? " dim" : ""}`}
+      role="group"
+      aria-label="Playback controls"
+    >
+      <div
+        className={`tbtn sm${tr.shuffle ? " on" : ""}`}
+        title="Shuffle"
+        onClick={tr.toggleShuffle}
+        role="button"
+        tabIndex={0}
+        aria-label="Shuffle"
+        aria-pressed={tr.shuffle}
+      >
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M3 7h4l9 10h5M16 7h5v5M3 17h4l3-3.4" />
+        </svg>
       </div>
-      <div className="tbtn" title="Previous" onClick={tr.prev} role="button" tabIndex={0} aria-label="Previous track">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 6h2v12H7zM19 6v12l-9-6z" /></svg>
+      <div
+        className="tbtn"
+        title="Previous"
+        onClick={tr.prev}
+        role="button"
+        tabIndex={0}
+        aria-label="Previous track"
+      >
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M7 6h2v12H7zM19 6v12l-9-6z" />
+        </svg>
       </div>
-      <div className="tbtn play" title="Play / Pause" onClick={tr.togglePlay} role="button" tabIndex={0} aria-label={tr.isPlaying ? "Pause" : "Play"}>
+      <div
+        className="tbtn play"
+        title="Play / Pause"
+        onClick={tr.togglePlay}
+        role="button"
+        tabIndex={0}
+        aria-label={tr.isPlaying ? "Pause" : "Play"}
+      >
         {tr.isPlaying ? (
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z" /></svg>
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z" />
+          </svg>
         ) : (
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z" /></svg>
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M8 5v14l11-7z" />
+          </svg>
         )}
       </div>
-      <div className="tbtn" title="Next" onClick={tr.next} role="button" tabIndex={0} aria-label="Next track">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6h2v12h-2zM5 6l9 6-9 6z" /></svg>
+      <div
+        className="tbtn"
+        title="Next"
+        onClick={tr.next}
+        role="button"
+        tabIndex={0}
+        aria-label="Next track"
+      >
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M15 6h2v12h-2zM5 6l9 6-9 6z" />
+        </svg>
       </div>
-      <div className={`tbtn sm${tr.repeat !== "off" ? " on" : ""}`} title="Repeat" onClick={tr.cycleRepeat} role="button" tabIndex={0} aria-label={`Repeat: ${tr.repeat}`} aria-pressed={tr.repeat !== "off"}>
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9a4 4 0 0 1 4-4h9M17 5l-2-2M17 5l-2 2M20 15a4 4 0 0 1-4 4H7M7 19l2-2M7 19l2 2" /></svg>
+      <div
+        className={`tbtn sm${tr.repeat !== "off" ? " on" : ""}`}
+        title="Repeat"
+        onClick={tr.cycleRepeat}
+        role="button"
+        tabIndex={0}
+        aria-label={`Repeat: ${tr.repeat}`}
+        aria-pressed={tr.repeat !== "off"}
+      >
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M4 9a4 4 0 0 1 4-4h9M17 5l-2-2M17 5l-2 2M20 15a4 4 0 0 1-4 4H7M7 19l2-2M7 19l2 2" />
+        </svg>
       </div>
     </div>
   );
@@ -116,9 +169,15 @@ export function PorcelainEq() {
               aria-valuemax={100}
               aria-valuenow={Math.round(t * 100)}
             >
-              <div className="cap" aria-hidden="true" style={{ bottom: `calc(${t * 100}% - 6.5px)` }} />
+              <div
+                className="cap"
+                aria-hidden="true"
+                style={{ bottom: `calc(${t * 100}% - 6.5px)` }}
+              />
             </div>
-            <div className="fl" aria-hidden="true">{b}</div>
+            <div className="fl" aria-hidden="true">
+              {b}
+            </div>
           </div>
         );
       })}

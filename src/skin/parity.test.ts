@@ -45,7 +45,9 @@ describe("theme feature parity", () => {
 
   it("every theme uses the single shared meter (the meter is one unified design)", () => {
     for (const skin of SKINS) {
-      expect(presetSlots(skin).meter, `${skin} should use the shared "meter" variant`).toBe("meter");
+      expect(presetSlots(skin).meter, `${skin} should use the shared "meter" variant`).toBe(
+        "meter",
+      );
     }
     expect(DEFAULT_SLOT_VARIANT.meter).toBe("meter");
   });

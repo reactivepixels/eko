@@ -82,7 +82,9 @@ export function DeckShell() {
                   textOverflow: "ellipsis",
                 }}
               >
-                {cur ? `${cur.artist ?? ""}${cur.album ? " · " + cur.album : ""}` : "Nothing playing"}
+                {cur
+                  ? `${cur.artist ?? ""}${cur.album ? " · " + cur.album : ""}`
+                  : "Nothing playing"}
               </div>
             </div>
             <div className="vfd" style={{ textAlign: "right", flex: "0 0 auto", paddingLeft: 16 }}>
@@ -114,49 +116,49 @@ export function DeckShell() {
           in Pro every theme gets the same graphic↔parametric EQ as Studio (feature parity). */}
       <ParametricEqPanel />
       {eqMode === "graphic" && (
-      <div className="deck-eq">
-        {/* EQ slot — Porcelain faders / Studio knobs */}
-        <Slot slot="eq" />
-        <div className="eq-side" style={{ position: "relative" }}>
-          <div
-            className="pillbtn"
-            onClick={() => setPresetsOpen(!presetsOpen)}
-            role="button"
-            tabIndex={0}
-            aria-label={`EQ preset: ${eq.presetName ?? "Custom"}`}
-            aria-expanded={presetsOpen}
-            aria-haspopup="listbox"
-            onKeyDown={(e) =>
-              e.key === "Enter" || e.key === " " ? setPresetsOpen(!presetsOpen) : undefined
-            }
-          >
-            {(eq.presetName ?? "CUSTOM").toUpperCase()} ▾
+        <div className="deck-eq">
+          {/* EQ slot — Porcelain faders / Studio knobs */}
+          <Slot slot="eq" />
+          <div className="eq-side" style={{ position: "relative" }}>
+            <div
+              className="pillbtn"
+              onClick={() => setPresetsOpen(!presetsOpen)}
+              role="button"
+              tabIndex={0}
+              aria-label={`EQ preset: ${eq.presetName ?? "Custom"}`}
+              aria-expanded={presetsOpen}
+              aria-haspopup="listbox"
+              onKeyDown={(e) =>
+                e.key === "Enter" || e.key === " " ? setPresetsOpen(!presetsOpen) : undefined
+              }
+            >
+              {(eq.presetName ?? "CUSTOM").toUpperCase()} ▾
+            </div>
+            <div className="tag">
+              PREAMP {eq.preamp > 0 ? "+" : ""}
+              {eq.preamp.toFixed(0)} dB
+            </div>
+            {presetsOpen && (
+              <>
+                <div className="backdrop" onClick={() => setPresetsOpen(false)} />
+                <div className="menu" style={{ right: 0, bottom: 44 }}>
+                  {eq.presets.map((p) => (
+                    <div
+                      key={p.name}
+                      className={`mi${p.name === eq.presetName ? " on" : ""}`}
+                      onClick={() => {
+                        eq.applyPreset(p);
+                        setPresetsOpen(false);
+                      }}
+                    >
+                      {p.name}
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
           </div>
-          <div className="tag">
-            PREAMP {eq.preamp > 0 ? "+" : ""}
-            {eq.preamp.toFixed(0)} dB
-          </div>
-          {presetsOpen && (
-            <>
-              <div className="backdrop" onClick={() => setPresetsOpen(false)} />
-              <div className="menu" style={{ right: 0, bottom: 44 }}>
-                {eq.presets.map((p) => (
-                  <div
-                    key={p.name}
-                    className={`mi${p.name === eq.presetName ? " on" : ""}`}
-                    onClick={() => {
-                      eq.applyPreset(p);
-                      setPresetsOpen(false);
-                    }}
-                  >
-                    {p.name}
-                  </div>
-                ))}
-              </div>
-            </>
-          )}
         </div>
-      </div>
       )}
     </div>
   );

@@ -188,8 +188,7 @@ export class AudioFeatureTracker {
     // ── energy envelope (fast attack / slower release) ───────────────────
     const ke = 1 - Math.exp(-dt / 0.04);
     const kr = 1 - Math.exp(-dt / 0.25);
-    this._energyEnv +=
-      (inst - this._energyEnv) * (inst > this._energyEnv ? ke : kr);
+    this._energyEnv += (inst - this._energyEnv) * (inst > this._energyEnv ? ke : kr);
 
     // ── per-band relative excitement ──────────────────────────────────────
     const avgK = 1 - Math.exp(-dt / 1.3);
@@ -201,11 +200,9 @@ export class AudioFeatureTracker {
       this._bandAvg[b] += (this._disp[b] - this._bandAvg[b]) * avgK;
       const rise = Math.max(0, this._disp[b] - this._bandAvg[b]);
       const tgt = Math.min(1, rise * (b < 6 ? 9.5 : 5.5));
-      this._react[b] +=
-        (tgt - this._react[b]) * (tgt > this._react[b] ? rUp : rDn);
+      this._react[b] += (tgt - this._react[b]) * (tgt > this._react[b] ? rUp : rDn);
       if (this._react[b] > this._reactPeak) this._reactPeak = this._react[b];
-      if (b < 6 && this._react[b] > this._reactLow)
-        this._reactLow = this._react[b];
+      if (b < 6 && this._react[b] > this._reactLow) this._reactLow = this._react[b];
     }
 
     // ── slowly smoothed spectrum terms → FORM (not brightness) ───────────
@@ -223,12 +220,9 @@ export class AudioFeatureTracker {
 
     // ── global rotation angle (integrated, smooth) ────────────────────────
     const cadence =
-      1.0 +
-      (Math.max(0.5, Math.min(2.2, this._bpm / 120)) - 1.0) *
-        DEFAULTS.motionTempo;
+      1.0 + (Math.max(0.5, Math.min(2.2, this._bpm / 120)) - 1.0) * DEFAULTS.motionTempo;
     const rotTarget = DEFAULTS.rotRate * (0.6 + DEFAULTS.calm) * cadence;
-    this._rotRateSm +=
-      (rotTarget - this._rotRateSm) * (1 - Math.exp(-dt / 0.6));
+    this._rotRateSm += (rotTarget - this._rotRateSm) * (1 - Math.exp(-dt / 0.6));
     this._fieldAngle += this._rotRateSm * dt;
 
     // ── beat pump envelope ─────────────────────────────────────────────────
@@ -236,27 +230,17 @@ export class AudioFeatureTracker {
     for (let b = 0; b < 8; b++) bassLvl += this._disp[b];
     bassLvl /= 8;
     const levelDrive = Math.max(0, bassLvl - 0.2) / 0.7;
-    const pumpTarget = Math.max(
-      this._reactLow,
-      this._reactPeak * 0.45,
-      levelDrive * 0.95,
-    );
+    const pumpTarget = Math.max(this._reactLow, this._reactPeak * 0.45, levelDrive * 0.95);
     const pUp = 1 - Math.exp(-dt / 0.13);
     const pDn = 1 - Math.exp(-dt / 0.55);
-    this._pump +=
-      (pumpTarget - this._pump) *
-      (pumpTarget > this._pump ? pUp : pDn);
+    this._pump += (pumpTarget - this._pump) * (pumpTarget > this._pump ? pUp : pDn);
 
     // ── shed trigger ──────────────────────────────────────────────────────
     this._shedImpulse = 0;
-    if (
-      this._reactLow > DEFAULTS.shedThresh &&
-      this._t - this._lastShed > 0.16
-    ) {
+    if (this._reactLow > DEFAULTS.shedThresh && this._t - this._lastShed > 0.16) {
       this._shedImpulse = Math.min(
         1,
-        (this._reactLow - DEFAULTS.shedThresh) /
-          Math.max(0.05, 1.0 - DEFAULTS.shedThresh),
+        (this._reactLow - DEFAULTS.shedThresh) / Math.max(0.05, 1.0 - DEFAULTS.shedThresh),
       );
       this._shedSeedJS = (this._shedSeedJS + 1) % 9973;
       this._lastShed = this._t;
@@ -300,16 +284,10 @@ export class AudioFeatureTracker {
       v = v < 0 ? 0 : v > 1 ? 1 : v;
       // per-band peak/floor auto-ranging
       this._bandPk[b] =
-        v > this._bandPk[b]
-          ? v
-          : Math.max(this._bandFl[b] + 0.04, this._bandPk[b] * pkDecay);
-      const flK =
-        v < this._bandFl[b] ? 1 - Math.exp(-dt / 0.5) : flRise;
-      this._bandFl[b] +=
-        (Math.min(v, this._bandFl[b] + 0.5) - this._bandFl[b]) * flK;
-      let nv =
-        (v - this._bandFl[b]) /
-        Math.max(0.03, this._bandPk[b] - this._bandFl[b]);
+        v > this._bandPk[b] ? v : Math.max(this._bandFl[b] + 0.04, this._bandPk[b] * pkDecay);
+      const flK = v < this._bandFl[b] ? 1 - Math.exp(-dt / 0.5) : flRise;
+      this._bandFl[b] += (Math.min(v, this._bandFl[b] + 0.5) - this._bandFl[b]) * flK;
+      let nv = (v - this._bandFl[b]) / Math.max(0.03, this._bandPk[b] - this._bandFl[b]);
       nv = nv < 0 ? 0 : nv > 1 ? 1 : nv;
       this._raw[b] = nv;
     }
@@ -329,8 +307,7 @@ export class AudioFeatureTracker {
     let bestVal = -1e9;
     for (let lag = minLag; lag <= maxLag; lag++) {
       let s = 0;
-      for (let i = 0; i < N - lag; i++)
-        s += (buf[i] - mean) * (buf[i + lag] - mean);
+      for (let i = 0; i < N - lag; i++) s += (buf[i] - mean) * (buf[i + lag] - mean);
       const lagS = lag * dtS;
       const bpm = 60 / lagS;
       const oct = 1.0 - 0.0018 * Math.abs(bpm - 120);
@@ -361,8 +338,7 @@ export class AudioFeatureTracker {
         this._clockPhase -= Math.floor(this._clockPhase);
       }
       this._beatPhase = this._clockPhase;
-      this._barPhase =
-        ((this._beatCount % 4) + this._clockPhase) / 4;
+      this._barPhase = ((this._beatCount % 4) + this._clockPhase) / 4;
       return 0;
     }
 
@@ -372,8 +348,7 @@ export class AudioFeatureTracker {
       const w = b < 5 ? 3.0 : b < 12 ? 1.0 : 0.35;
       flux += w * Math.max(0, this._raw[b] - this._prevRaw[b]);
     }
-    this._onsetMean +=
-      (flux - this._onsetMean) * (1 - Math.exp(-dt / 0.6));
+    this._onsetMean += (flux - this._onsetMean) * (1 - Math.exp(-dt / 0.6));
     const onset = Math.max(0, flux - this._onsetMean);
 
     // push into ring buffer at a steady 64 Hz cadence
@@ -394,8 +369,7 @@ export class AudioFeatureTracker {
       this._bpm += (est - this._bpm) * 0.18;
     }
 
-    let bpm =
-      DEFAULTS.bpmOverride > 0 ? DEFAULTS.bpmOverride : this._bpm;
+    let bpm = DEFAULTS.bpmOverride > 0 ? DEFAULTS.bpmOverride : this._bpm;
     bpm = Math.max(50, Math.min(220, bpm));
 
     // ── phase-locked oscillator ───────────────────────────────────────────
@@ -414,8 +388,7 @@ export class AudioFeatureTracker {
     }
     this._bpm = bpm;
     this._beatPhase = this._clockPhase;
-    this._barPhase =
-      ((this._beatCount % 4) + this._clockPhase) / 4;
+    this._barPhase = ((this._beatCount % 4) + this._clockPhase) / 4;
 
     return onset;
   }

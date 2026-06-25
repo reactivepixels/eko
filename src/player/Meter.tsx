@@ -24,7 +24,8 @@ export function Meter() {
         for (let i = 0; i < bands.length; i++) sum += bands[i];
         target = sum / bands.length;
       }
-      smoothed = target > smoothed ? smoothed * 0.5 + target * 0.5 : smoothed * 0.88 + target * 0.12;
+      smoothed =
+        target > smoothed ? smoothed * 0.5 + target * 0.5 : smoothed * 0.88 + target * 0.12;
       if (smoothed < 0) smoothed = 0;
       if (smoothed > 1) smoothed = 1;
       const lit = Math.round(smoothed * METER_SEGS);

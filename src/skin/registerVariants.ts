@@ -19,11 +19,41 @@ import { MiniEq } from "../player/MiniEq";
 import { proVariants } from "@pro";
 
 const freeVariants: VariantDefinition[] = [
-  { id: "porcelainVolume", slot: "volume", label: "Porcelain · Dial", tier: "free", Component: PorcelainVolume },
-  { id: "porcelainEq", slot: "eq", label: "Porcelain · Faders", tier: "free", Component: PorcelainEq },
-  { id: "porcelainSpectrum", slot: "spectrum", label: "Porcelain · Spectrum", tier: "free", Component: PorcelainSpectrum },
-  { id: "porcelainTransport", slot: "transport", label: "Porcelain · Buttons", tier: "free", Component: PorcelainTransport },
-  { id: "porcelainSeek", slot: "seek", label: "Porcelain · Seek", tier: "free", Component: PorcelainSeek },
+  {
+    id: "porcelainVolume",
+    slot: "volume",
+    label: "Porcelain · Dial",
+    tier: "free",
+    Component: PorcelainVolume,
+  },
+  {
+    id: "porcelainEq",
+    slot: "eq",
+    label: "Porcelain · Faders",
+    tier: "free",
+    Component: PorcelainEq,
+  },
+  {
+    id: "porcelainSpectrum",
+    slot: "spectrum",
+    label: "Porcelain · Spectrum",
+    tier: "free",
+    Component: PorcelainSpectrum,
+  },
+  {
+    id: "porcelainTransport",
+    slot: "transport",
+    label: "Porcelain · Buttons",
+    tier: "free",
+    Component: PorcelainTransport,
+  },
+  {
+    id: "porcelainSeek",
+    slot: "seek",
+    label: "Porcelain · Seek",
+    tier: "free",
+    Component: PorcelainSeek,
+  },
   // The level meter is ONE unified design for every theme (material from tokens) — a single shared
   // variant fills the meter slot across all presets, free + Pro.
   { id: "meter", slot: "meter", label: "Segmented LED", tier: "free", Component: Meter },
