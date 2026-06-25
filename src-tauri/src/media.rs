@@ -69,8 +69,14 @@ pub fn init(app: &AppHandle) {
 }
 
 /// Update the now-playing card's metadata (title / artist / album / artwork / duration).
-/// `cover_url` is an http(s) or file URL the OS can fetch (server cover art); `None` for
-/// local files whose art is embedded.
+///
+/// `cover_url` is honoured only when it's a local `file://` URL. souvlaki 0.7 loads the
+/// artwork via `NSImage initWithContentsOfURL:` and dereferences the result with **no
+/// nil-check**, so any URL macOS can't load — a webview-only `stream://` scheme, an
+/// ATS-blocked http host, a 404, a non-image body — yields nil and `abort()`s the whole
+/// process. We therefore drop every non-`file://` cover here (server art still renders
+/// inside the app; it's just absent from the OS now-playing widget). Local files pass
+/// `None` because their art is embedded.
 pub fn set_metadata(
     app: &AppHandle,
     title: String,
@@ -79,6 +85,10 @@ pub fn set_metadata(
     cover_url: Option<String>,
     duration: Option<f64>,
 ) {
+    // Only a local file:// URL is safe to hand souvlaki (see the doc comment): every other
+    // scheme can resolve to a nil NSImage and crash the app via its missing nil-check.
+    let cover_url =
+        cover_url.filter(|u| u.get(..5).is_some_and(|s| s.eq_ignore_ascii_case("file:")));
     let app = app.clone();
     let _ = app.clone().run_on_main_thread(move || {
         if let Some(c) = app.state::<Media>().0.lock().unwrap().as_mut() {
