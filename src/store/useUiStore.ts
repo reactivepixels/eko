@@ -1,4 +1,7 @@
 import { create } from "zustand";
+// @pro resolves to src/pro-stub in the free build (license store returns the free tier),
+// so this import is safe there and gates Pro skins by the RUNTIME license in the Pro build.
+import { useLicenseStore } from "@pro";
 
 // Free build: light/dark toggle is FREE (Porcelain ↔ Graphite).
 // Only alternate SKINS (Studio etc.) are Pro-gated.
@@ -167,8 +170,10 @@ export const useUiStore = create<UiState>((set) => ({
       return { accent };
     }),
   setSkin: (skin) => {
-    // Free build may only select free skins (Porcelain today); Pro skins are gated out.
-    if (!IS_PRO && isProSkin(skin)) return;
+    // Pro skins require Pro at RUNTIME, not just the build flag: the free build is gated by
+    // IS_PRO; the product build additionally rejects the selection when the license tier is
+    // "free" (no active trial/license), so a JS patch to the UI gate isn't enough.
+    if (isProSkin(skin) && (!IS_PRO || useLicenseStore.getState().tier === "free")) return;
     set(() => {
       try {
         localStorage.setItem("eko.skin", skin);

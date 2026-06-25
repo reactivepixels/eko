@@ -1280,11 +1280,17 @@ pub fn engine_set_eq_mode(mode: EqMode, engine: tauri::State<Engine>) {
 #[cfg(feature = "pro")]
 #[tauri::command]
 pub fn engine_set_param_eq(
+    app: tauri::AppHandle,
     enabled: bool,
     preamp: f64,
     bands: Vec<crate::pro::param_eq::ParamBand>,
     engine: tauri::State<Engine>,
-) {
+) -> Result<(), String> {
+    // Pro gate (defense-in-depth): the parametric EQ must not apply without a license,
+    // so a frontend-only patch (forcing useIsPro) can't enable it. Mirrors offline.rs.
+    if crate::pro::license::compute_status(&app).tier == crate::pro::license::Tier::Free {
+        return Err("EKO Pro is required for the parametric EQ.".to_string());
+    }
     if let Some(sh) = engine.shared.0.lock().unwrap().as_ref() {
         {
             let mut p = sh.param_eq.lock().unwrap();
@@ -1308,6 +1314,7 @@ pub fn engine_set_param_eq(
         };
         sh.dsp_input.lock().unwrap().write(snapshot);
     }
+    Ok(())
 }
 
 /// Compute the parametric EQ frequency-response curve for the on-screen preview
@@ -1348,7 +1355,13 @@ pub fn engine_eq_curve(bands: Vec<crate::pro::param_eq::ParamBand>, preamp: f64)
 /// Parse an AutoEQ `ParametricEQ.txt` text and return the bands + preamp (Pro only).
 #[cfg(feature = "pro")]
 #[tauri::command]
-pub fn engine_parse_autoeq(text: String) -> Result<serde_json::Value, String> {
+pub fn engine_parse_autoeq(
+    app: tauri::AppHandle,
+    text: String,
+) -> Result<serde_json::Value, String> {
+    if crate::pro::license::compute_status(&app).tier == crate::pro::license::Tier::Free {
+        return Err("EKO Pro is required for AutoEQ import.".to_string());
+    }
     let (preamp, bands) = crate::pro::param_eq::parse_autoeq(&text)?;
     let v = serde_json::json!({ "preamp": preamp, "bands": bands });
     Ok(v)
@@ -1357,7 +1370,13 @@ pub fn engine_parse_autoeq(text: String) -> Result<serde_json::Value, String> {
 /// Read an AutoEQ `ParametricEQ.txt` file at the given absolute path and parse it (Pro only).
 #[cfg(feature = "pro")]
 #[tauri::command]
-pub fn engine_import_autoeq_file(path: String) -> Result<serde_json::Value, String> {
+pub fn engine_import_autoeq_file(
+    app: tauri::AppHandle,
+    path: String,
+) -> Result<serde_json::Value, String> {
+    if crate::pro::license::compute_status(&app).tier == crate::pro::license::Tier::Free {
+        return Err("EKO Pro is required for AutoEQ import.".to_string());
+    }
     let text = std::fs::read_to_string(&path)
         .map_err(|e| format!("Failed to read file '{}': {}", path, e))?;
     let (preamp, bands) = crate::pro::param_eq::parse_autoeq(&text)?;

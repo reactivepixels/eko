@@ -1,6 +1,6 @@
 [package]
 name = "eko"
-version = "0.4.3"
+version = "0.4.4"
 description = "Bit-perfect audiophile music player for macOS"
 authors = ["Reactive Pixels"]
 edition = "2021"
