@@ -2,6 +2,12 @@ import { check } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { create } from "zustand";
 
+// The in-app auto-updater is DISABLED until release signing is set up. There is no
+// Tauri updater private key (TAURI_SIGNING_PRIVATE_KEY) in CI yet, so releases ship no
+// `latest.json` and the update endpoint 404s — checking would only surface errors.
+// Flip to `true` once the updater key (+ Apple signing) are in place. See docs/RELEASE.md.
+export const UPDATER_ENABLED: boolean = false;
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -42,6 +48,7 @@ export const useUpdaterStore = create<UpdaterState>((set, get) => ({
   error: null,
 
   checkSilent: async () => {
+    if (!UPDATER_ENABLED) return;
     // Don't re-check if already in a non-idle state.
     if (get().phase !== "idle") return;
     try {
@@ -60,6 +67,7 @@ export const useUpdaterStore = create<UpdaterState>((set, get) => ({
   },
 
   checkManual: async () => {
+    if (!UPDATER_ENABLED) return;
     if (get().phase === "downloading" || get().phase === "ready") return;
     set({ phase: "checking", error: null, availableVersion: null, releaseNotes: null });
     try {
@@ -86,6 +94,7 @@ export const useUpdaterStore = create<UpdaterState>((set, get) => ({
   },
 
   installAndRelaunch: async () => {
+    if (!UPDATER_ENABLED) return;
     if (get().phase !== "available") return;
     set({ phase: "downloading", progress: null });
     try {

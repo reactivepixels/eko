@@ -3,6 +3,7 @@ import { useUiStore, type LibSection } from "../store/useUiStore";
 import { useMusicSource } from "../hooks/useMusicSource";
 import { useIsPro, ProPanel, OfflinePanel } from "@pro";
 import { UpdatePanel } from "./UpdatePanel";
+import { UPDATER_ENABLED } from "../store/useUpdaterStore";
 import { usePlayerStore } from "../store/usePlayerStore";
 import { useSubsonic } from "../subsonic/useSubsonic";
 
@@ -273,7 +274,7 @@ export function Sidebar() {
       )}
       <OfflinePanel />
       <ProPanel />
-      <UpdatePanel />
+      {UPDATER_ENABLED && <UpdatePanel />}
     </aside>
   );
 }
