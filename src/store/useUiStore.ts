@@ -47,14 +47,13 @@ const initialAccent = (): Accent => {
   }
 };
 
-export type Skin = "porcelain" | "studio";
+export type Skin = "porcelain";
 
 /** Built-in skins. Each is a token bundle in neu.css under `[data-skin="…"]`
  *  (theme-aware: it may also override `[data-skin="…"][data-theme="dark"]`).
  *  `porcelain` is the default and needs no block (it IS :root). */
 export const SKINS: { id: Skin; label: string }[] = [
   { id: "porcelain", label: "Porcelain" },
-  { id: "studio", label: "Studio" },
 ];
 
 const initialSkin = (): Skin => {

@@ -32,7 +32,6 @@ function fmt(t: Track | null) {
 export function DeckView() {
   const presetsOpen = useUiStore((s) => s.presetsOpen);
   const setPresetsOpen = useUiStore((s) => s.setPresetsOpen);
-  const skin = useUiStore((s) => s.skin);
   const np = useNowPlaying();
   const eq = useEq();
   const { isPlaying } = useTransport();
@@ -110,51 +109,7 @@ export function DeckView() {
       </div>
 
       <div className="deck-eq">
-        {skin === "studio" ? (
-          <div className="eqknobs">
-            {eq.bands.map((b, i) => {
-              const t = eq.norm(i);
-              return (
-                <div className="ctl" key={b}>
-                  <div
-                    className="eqknob"
-                    {...eq.knobHandlers(i)}
-                    role="slider"
-                    tabIndex={0}
-                    aria-label={`EQ ${b}`}
-                    aria-valuemin={0}
-                    aria-valuemax={100}
-                    aria-valuenow={Math.round(t * 100)}
-                  >
-                    <svg className="arc" viewBox="0 0 100 100" aria-hidden="true">
-                      <circle className="trk" cx="50" cy="50" r="45" pathLength={100} />
-                      <circle
-                        className="val"
-                        cx="50"
-                        cy="50"
-                        r="45"
-                        pathLength={100}
-                        style={{ strokeDasharray: `${(t * 75).toFixed(1)} 100` }}
-                      />
-                    </svg>
-                    <div className="body" aria-hidden="true" />
-                    <div className="top" aria-hidden="true" />
-                    <div
-                      className="dial"
-                      aria-hidden="true"
-                      style={{ transform: `rotate(${(t * 270 - 135).toFixed(1)}deg)` }}
-                    >
-                      <i className="ind" />
-                    </div>
-                  </div>
-                  <div className="fl" aria-hidden="true">
-                    {b}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        ) : (
+        {(
           <div className="eqfaders">
             {eq.bands.map((b, i) => {
               const t = eq.norm(i);
