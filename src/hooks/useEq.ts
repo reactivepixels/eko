@@ -1,9 +1,13 @@
 import { useRef } from "react";
 import type React from "react";
 import { usePlayerStore } from "../store/usePlayerStore";
-import { EQ_PRESETS, EQ_GAIN_MIN, EQ_GAIN_MAX, type EqPreset } from "../audio/constants";
-
-const BANDS = ["60", "170", "310", "600", "1k", "3k", "6k", "12k", "14k", "16k"];
+import {
+  EQ_PRESETS,
+  EQ_GAIN_MIN,
+  EQ_GAIN_MAX,
+  EQ_BAND_LABELS,
+  type EqPreset,
+} from "../audio/constants";
 
 /**
  * Headless 10-band EQ. Owns the band labels, gain range, preset list, and the pointer
@@ -57,7 +61,7 @@ export function useEq() {
     gains,
     preamp,
     presetName,
-    bands: BANDS,
+    bands: EQ_BAND_LABELS,
     presets: EQ_PRESETS,
     gainMin: EQ_GAIN_MIN,
     gainMax: EQ_GAIN_MAX,

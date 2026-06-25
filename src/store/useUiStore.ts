@@ -17,7 +17,7 @@ export type LibSection =
   | "smart-playlists";
 export type LibSort = "name" | "artist" | "year";
 export type Theme = "light" | "dark";
-export type Accent = "orange" | "violet" | "blue" | "teal" | "graphite";
+export type Accent = "orange" | "violet" | "blue" | "teal" | "graphite" | "cyan";
 
 /** Built-in accent presets. `swatch` is the picker dot; the actual token
  *  values live in neu.css under `[data-accent="…"]`. Keep the two in sync. */
@@ -27,6 +27,7 @@ export const ACCENTS: { id: Accent; label: string; swatch: string }[] = [
   { id: "blue", label: "Blue", swatch: "#2f8fff" },
   { id: "teal", label: "Teal", swatch: "#13b5a6" },
   { id: "graphite", label: "Graphite", swatch: "#8a8780" },
+  { id: "cyan", label: "Cyan", swatch: "#28d8f7" },
 ];
 
 const initialTheme = (): Theme => {
@@ -47,14 +48,21 @@ const initialAccent = (): Accent => {
   }
 };
 
-export type Skin = "porcelain";
+export type Skin = "porcelain" | "studio" | "aether";
 
 /** Built-in skins. Each is a token bundle in neu.css under `[data-skin="…"]`
  *  (theme-aware: it may also override `[data-skin="…"][data-theme="dark"]`).
  *  `porcelain` is the default and needs no block (it IS :root). */
 export const SKINS: { id: Skin; label: string }[] = [
   { id: "porcelain", label: "Porcelain" },
+  { id: "studio", label: "Studio" },
+  { id: "aether", label: "Aether" },
 ];
+
+/** Porcelain is the only free skin; every alternate skin is Pro-gated. The theme registry
+ *  carries the same `tier` per theme — this is the store-side gate, kept independent of the
+ *  registry (which the free build may delete with `src/pro/`). */
+export const isProSkin = (id: Skin): boolean => id !== "porcelain";
 
 const initialSkin = (): Skin => {
   // Free build is always locked to Porcelain. Never restore a persisted Studio choice.
@@ -158,19 +166,27 @@ export const useUiStore = create<UiState>((set) => ({
       }
       return { accent };
     }),
-  setSkin: (skin) =>
-    // Free build: always locked to Porcelain — Studio skin is a Pro feature.
-    IS_PRO
-      ? set(() => {
-          try {
-            localStorage.setItem("eko.skin", skin);
-          } catch {
-            /* ignore */
-          }
-          return { skin };
-        })
-      : undefined,
+  setSkin: (skin) => {
+    // Free build may only select free skins (Porcelain today); Pro skins are gated out.
+    if (!IS_PRO && isProSkin(skin)) return;
+    set(() => {
+      try {
+        localStorage.setItem("eko.skin", skin);
+      } catch {
+        /* ignore */
+      }
+      return { skin };
+    });
+  },
   toggleQueue: () => set((s) => ({ queueOpen: !s.queueOpen })),
   toggleLyrics: () => set((s) => ({ lyricsOpen: !s.lyricsOpen })),
   toggleCompact: () => set((s) => ({ compact: !s.compact })),
 }));
+
+// One-time cleanup: drop any persisted per-slot overrides from the removed Customize picker, so a
+// stale cross-skin variant can't keep breaking the deck on launch.
+try {
+  localStorage.removeItem("eko.slotVariants");
+} catch {
+  /* ignore */
+}

@@ -5,7 +5,6 @@ import { useIsPro, ProPanel, OfflinePanel } from "@pro";
 import { UpdatePanel } from "./UpdatePanel";
 import { UPDATER_ENABLED } from "../store/useUpdaterStore";
 import { usePlayerStore } from "../store/usePlayerStore";
-import { useSubsonic } from "../subsonic/useSubsonic";
 
 const ICON: Record<string, ReactNode> = {
   albums: (
@@ -78,12 +77,9 @@ export function Sidebar() {
   const { playerView, libSection, setPlayerView, setLibSection } = useUiStore();
   const src = useMusicSource();
   const isPro = useIsPro();
-  const { source, serverConfigured, localRoot } = src;
+  const { source, serverConfigured, localRoot, serverList, switchServer, openManageServers } = src;
   const scrobbleEnabled = usePlayerStore((s) => s.scrobbleEnabled);
   const setScrobbleEnabled = usePlayerStore((s) => s.setScrobbleEnabled);
-  const serverList = useSubsonic((s) => s.serverList);
-  const switchServer = useSubsonic((s) => s.switchServer);
-  const setManageOpen = useSubsonic((s) => s.setManageOpen);
 
   const go = (s: LibSection) => {
     setLibSection(s);
@@ -229,11 +225,11 @@ export function Sidebar() {
           )}
           <div className="folder-actions" style={{ marginTop: 8 }}>
             <span
-              onClick={() => setManageOpen(true)}
+              onClick={openManageServers}
               role="button"
               tabIndex={0}
               onKeyDown={(e) =>
-                e.key === "Enter" || e.key === " " ? setManageOpen(true) : undefined
+                e.key === "Enter" || e.key === " " ? openManageServers() : undefined
               }
             >
               Manage

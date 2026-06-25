@@ -13,6 +13,40 @@ Items marked **[needs ear-verify]** are complete in code but have not been
 confirmed by the maintainer's listening tests or Audio MIDI Setup inspection. Do not treat
 those as shipping-quality until they pass the [QA checklist](docs/QA-CHECKLIST.md).
 
+## [0.4.1] — 2026-06-25
+
+The first release split into a free core and a paid **EKO Pro** tier. The free build still works
+with the `pro/` directories deleted — Pro lives entirely behind a cargo feature + a Vite alias.
+
+### Added
+- **EKO Pro tier.** A licence-gated paid tier (with a trial) layered over the free core:
+  - **Parametric EQ + AutoEQ** — a fully parametric equaliser (`src-tauri/src/pro/param_eq.rs` +
+    `src/pro/ParametricEqPanel.tsx`) plus AutoEQ headphone-correction import, alongside the free
+    10-band graphic EQ.
+  - **Offline playback** — download server tracks for listening without a connection.
+  - **Smart playlists + instant mix** — rule-based playlists and one-click similar-track mixes.
+  - **Alternate skins + Skins menu** — the **Studio** and **Aether** skins (beyond the free
+    Porcelain), driven by a native Skins menu, plus extra themes/accents.
+  - **Licensing / trial** — the gating + trial machinery that unlocks the above.
+- **Auto-updater** — the in-app update check + one-click background update (`tauri-plugin-updater`)
+  is now wired and shipping (previously deferred).
+- **Sleep timer**, **lyrics**, and **scrobbling** in the free core.
+
+### Changed
+- **Unified biquad DSP.** The EQ filter math is consolidated into one module
+  (`src-tauri/src/biquad.rs`), imported by both the free graphic EQ (`engine.rs`) and the Pro
+  parametric EQ (`pro/param_eq.rs`); the parametric response curve is computed in Rust via
+  `engine_eq_curve`.
+- **Studio moved into the Pro layer.** Its implementation moved from `src/player/studio/` to
+  `src/pro/studio/` (+ `src/pro/themes/StudioShell.tsx`), so Studio is now strictly a Pro skin.
+- **Aether is the third theme.** Aether superseded the planned Halo as Pro theme #3.
+
+### Removed
+- **The cross-skin "Customize" picker.** The per-slot override that let a config mix variants
+  across skins was removed — forcing one skin's variant into another left material tokens
+  undefined and broke controls. Each skin now renders only its own variants.
+- **Halo skin retired** (replaced by Aether).
+
 ## [0.3.3] — 2026-06-20
 
 ### Added
@@ -221,4 +255,5 @@ Security + robustness hardening over the v0.1.0 preview (no feature regressions)
 - **iOS / iPad** — toolchain confirmed ready; parked until macOS build has traction
   (see ROADMAP for resume triggers).
 
-[Unreleased]: https://github.com/reactivepixels/eko/compare/HEAD
+[Unreleased]: https://github.com/reactivepixels/eko/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/reactivepixels/eko/compare/v0.3.3...v0.4.0

@@ -1,13 +1,15 @@
 {
   "name": "eko",
   "private": true,
-  "version": "0.4.2",
+  "version": "0.4.3",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
     "tauri": "tauri",
+    "tauri:dev:pro": "VITE_PRO=1 tauri dev --features pro",
+    "tauri:build:pro": "VITE_PRO=1 tauri build --features pro",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",

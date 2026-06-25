@@ -1,3 +1,4 @@
+mod biquad;
 #[cfg(target_os = "macos")]
 mod coreaudio;
 mod engine;
@@ -61,12 +62,29 @@ fn sync_menu(skin: String, accent: String, theme: String, items: tauri::State<Me
     }
 }
 
+/// Sync the native "Visualizer" menu checkmarks to the frontend's current visualizer state.
+/// Pro build only — the free build never calls this; the command is not registered.
+#[cfg(feature = "pro")]
+#[tauri::command]
+fn sync_visualizer(open: bool, preset: String, items: tauri::State<MenuItems>) {
+    let map = items.0.lock().unwrap();
+    for (id, item) in map.iter() {
+        let checked = match id.as_str() {
+            "visualizer:on" => open,
+            other => match other.split_once(':') {
+                Some(("visualizer", v)) => v == preset,
+                _ => continue,
+            },
+        };
+        let _ = item.set_checked(checked);
+    }
+}
+
 /// Store `value` in the macOS Keychain under the EKO service name + `key`.
 /// Free feature: required for multi-server credential storage.
 #[tauri::command]
 fn secret_set(key: String, value: String) -> Result<(), String> {
-    let entry =
-        keyring::Entry::new("com.reactivepixels.eko", &key).map_err(|e| e.to_string())?;
+    let entry = keyring::Entry::new("com.reactivepixels.eko", &key).map_err(|e| e.to_string())?;
     entry.set_password(&value).map_err(|e| e.to_string())
 }
 
@@ -74,8 +92,7 @@ fn secret_set(key: String, value: String) -> Result<(), String> {
 /// Free feature: required for multi-server credential storage.
 #[tauri::command]
 fn secret_get(key: String) -> Result<Option<String>, String> {
-    let entry =
-        keyring::Entry::new("com.reactivepixels.eko", &key).map_err(|e| e.to_string())?;
+    let entry = keyring::Entry::new("com.reactivepixels.eko", &key).map_err(|e| e.to_string())?;
     match entry.get_password() {
         Ok(v) => Ok(Some(v)),
         Err(keyring::Error::NoEntry) => Ok(None),
@@ -87,8 +104,7 @@ fn secret_get(key: String) -> Result<Option<String>, String> {
 /// Free feature: required for multi-server credential storage.
 #[tauri::command]
 fn secret_delete(key: String) -> Result<(), String> {
-    let entry =
-        keyring::Entry::new("com.reactivepixels.eko", &key).map_err(|e| e.to_string())?;
+    let entry = keyring::Entry::new("com.reactivepixels.eko", &key).map_err(|e| e.to_string())?;
     match entry.delete_credential() {
         Ok(()) => Ok(()),
         Err(keyring::Error::NoEntry) => Ok(()),
@@ -213,22 +229,12 @@ pub fn run() {
                     true,
                     None::<&str>,
                 )?;
-                let studio = CheckMenuItem::with_id(
-                    h,
-                    "skin:studio",
-                    "Studio",
-                    true,
-                    false,
-                    None::<&str>,
-                )?;
-                let acc_orange = CheckMenuItem::with_id(
-                    h,
-                    "accent:orange",
-                    "Orange",
-                    true,
-                    true,
-                    None::<&str>,
-                )?;
+                let studio =
+                    CheckMenuItem::with_id(h, "skin:studio", "Studio", true, false, None::<&str>)?;
+                let aether =
+                    CheckMenuItem::with_id(h, "skin:aether", "Aether", true, false, None::<&str>)?;
+                let acc_orange =
+                    CheckMenuItem::with_id(h, "accent:orange", "Orange", true, true, None::<&str>)?;
                 let acc_violet = CheckMenuItem::with_id(
                     h,
                     "accent:violet",
@@ -237,22 +243,10 @@ pub fn run() {
                     false,
                     None::<&str>,
                 )?;
-                let acc_blue = CheckMenuItem::with_id(
-                    h,
-                    "accent:blue",
-                    "Blue",
-                    true,
-                    false,
-                    None::<&str>,
-                )?;
-                let acc_teal = CheckMenuItem::with_id(
-                    h,
-                    "accent:teal",
-                    "Teal",
-                    true,
-                    false,
-                    None::<&str>,
-                )?;
+                let acc_blue =
+                    CheckMenuItem::with_id(h, "accent:blue", "Blue", true, false, None::<&str>)?;
+                let acc_teal =
+                    CheckMenuItem::with_id(h, "accent:teal", "Teal", true, false, None::<&str>)?;
                 let acc_graphite = CheckMenuItem::with_id(
                     h,
                     "accent:graphite",
@@ -261,6 +255,8 @@ pub fn run() {
                     false,
                     None::<&str>,
                 )?;
+                let acc_cyan =
+                    CheckMenuItem::with_id(h, "accent:cyan", "Cyan", true, false, None::<&str>)?;
                 let theme_dark = CheckMenuItem::with_id(
                     h,
                     "theme:dark",
@@ -276,37 +272,81 @@ pub fn run() {
                     .item(&acc_blue)
                     .item(&acc_teal)
                     .item(&acc_graphite)
+                    .item(&acc_cyan)
                     .build()?;
 
                 let skins_menu = SubmenuBuilder::new(h, "Skins")
                     .item(&porcelain)
                     .item(&studio)
+                    .item(&aether)
                     .separator()
                     .item(&accent_menu)
                     .separator()
                     .item(&theme_dark)
                     .build()?;
 
-                // Keep the check-item handles so `sync_menu` can update the checkmarks from the frontend.
+                // ── Visualizer menu (on/off toggle + preset selection) ────────────────
+                let viz_on =
+                    CheckMenuItem::with_id(h, "visualizer:on", "On", true, false, None::<&str>)?;
+                let viz_galaxy = CheckMenuItem::with_id(
+                    h,
+                    "visualizer:galaxy",
+                    "Galaxy",
+                    true,
+                    true,
+                    None::<&str>,
+                )?;
+                let viz_cymatics = CheckMenuItem::with_id(
+                    h,
+                    "visualizer:cymatics",
+                    "Cymatics",
+                    true,
+                    false,
+                    None::<&str>,
+                )?;
+                let viz_murmuration = CheckMenuItem::with_id(
+                    h,
+                    "visualizer:murmuration",
+                    "Murmuration",
+                    true,
+                    false,
+                    None::<&str>,
+                )?;
+
+                let visualizer_menu = SubmenuBuilder::new(h, "Visualizer")
+                    .item(&viz_on)
+                    .separator()
+                    .item(&viz_galaxy)
+                    .item(&viz_cymatics)
+                    .item(&viz_murmuration)
+                    .build()?;
+
+                // Keep the check-item handles so `sync_menu` / `sync_visualizer` can update
+                // the checkmarks from the frontend.
                 {
                     let st = app.state::<MenuItems>();
                     let mut map = st.0.lock().unwrap();
                     for it in [
                         &porcelain,
                         &studio,
+                        &aether,
                         &acc_orange,
                         &acc_violet,
                         &acc_blue,
                         &acc_teal,
                         &acc_graphite,
+                        &acc_cyan,
                         &theme_dark,
                     ] {
+                        map.insert(it.id().as_ref().to_string(), it.clone());
+                    }
+                    for it in [&viz_on, &viz_galaxy, &viz_cymatics, &viz_murmuration] {
                         map.insert(it.id().as_ref().to_string(), it.clone());
                     }
                 }
 
                 let menu = MenuBuilder::new(h)
-                    .items(&[&app_menu, &skins_menu])
+                    .items(&[&app_menu, &skins_menu, &visualizer_menu])
                     .build()?;
                 app.set_menu(menu)?;
 
@@ -316,6 +356,7 @@ pub fn run() {
                     if id.starts_with("skin:")
                         || id.starts_with("accent:")
                         || id.starts_with("theme:")
+                        || id.starts_with("visualizer:")
                     {
                         let _ = app.emit("menu-action", id);
                     }
@@ -378,9 +419,13 @@ pub fn run() {
             #[cfg(feature = "pro")]
             sync_menu,
             #[cfg(feature = "pro")]
+            sync_visualizer,
+            #[cfg(feature = "pro")]
             engine::engine_play_cached,
             #[cfg(feature = "pro")]
             engine::engine_set_param_eq,
+            #[cfg(feature = "pro")]
+            engine::engine_eq_curve,
             #[cfg(feature = "pro")]
             engine::engine_parse_autoeq,
             #[cfg(feature = "pro")]

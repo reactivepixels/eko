@@ -4,7 +4,8 @@
  * Light/dark mode is a free feature. This component lives in src/player/
  * (not behind @pro) and is rendered in TopBar in both free and Pro builds.
  *
- * The Studio skin + skin switcher remain Pro-only (see StudioApp / useUiStore).
+ * Alternate skins remain Pro-only — registered as themes via @pro's `proThemes`
+ * and gated by `isProSkin` in useUiStore (see src/skin/registry.ts).
  */
 import { useUiStore } from "../store/useUiStore";
 

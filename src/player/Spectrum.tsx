@@ -5,6 +5,8 @@ interface Props {
   bands?: number;
   segs?: number;
   bargap?: number;
+  /** Circular dot-matrix cells instead of rounded bars (the "mini EQ" display). */
+  dots?: boolean;
   className?: string;
 }
 
@@ -13,7 +15,7 @@ interface Props {
  * Short, wide, flat segments (no glow) with white peak-hold caps that fall away —
  * the classic digital-amp display. Falls quietly to rest when nothing's playing.
  */
-export function Spectrum({ bands = 36, bargap = 2, className }: Props) {
+export function Spectrum({ bands = 36, bargap = 2, dots = false, className }: Props) {
   const cvs = useRef<HTMLCanvasElement>(null);
   const { read } = useSpectrum();
 
@@ -65,7 +67,7 @@ export function Spectrum({ bands = 36, bargap = 2, className }: Props) {
       const bandW = (innerW - bargap * (bands - 1)) / bands;
       // Derive the segment count from the height at a fixed ~5px pitch, so each
       // segment stays thin/delicate no matter how tall the display is.
-      const segs = Math.max(4, Math.round(innerH / 5));
+      const segs = Math.max(4, Math.round(innerH / (dots ? 6 : 5)));
       const vgap = innerH < 60 ? 0.7 : 1;
       const segH = (innerH - vgap * (segs - 1)) / segs;
       const rad = Math.min(1.6, segH / 2);
@@ -86,7 +88,12 @@ export function Spectrum({ bands = 36, bargap = 2, className }: Props) {
           else if (s < lit) ctx.fillStyle = `rgba(${rgb},${(0.24 + 0.5 * f).toFixed(3)})`;
           else ctx.fillStyle = `rgba(${rgb},0.07)`;
           ctx.beginPath();
-          ctx.roundRect(x, y, bandW, segH, rad);
+          if (dots) {
+            const d = Math.min(bandW, segH);
+            ctx.arc(x + bandW / 2, y + segH / 2, d / 2, 0, Math.PI * 2);
+          } else {
+            ctx.roundRect(x, y, bandW, segH, rad);
+          }
           ctx.fill();
         }
       }
@@ -97,7 +104,7 @@ export function Spectrum({ bands = 36, bargap = 2, className }: Props) {
       cancelAnimationFrame(raf);
       ro.disconnect();
     };
-  }, [bands, bargap]);
+  }, [bands, bargap, dots]);
 
   return <canvas ref={cvs} className={className} aria-hidden="true" role="presentation" />;
 }

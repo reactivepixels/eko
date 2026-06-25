@@ -245,123 +245,9 @@ impl EqParams {
     }
 }
 
-/// Direct-form II transposed biquad filter — the standard second-order IIR section
-/// used for all EQ bands. Coefficients follow the RBJ Audio EQ Cookbook notation
-/// (`b0/b1/b2` = feed-forward, `a1/a2` = feedback; `a0` is normalised out).
-#[derive(Clone, Copy, Default)]
-struct Biquad {
-    b0: f32,
-    b1: f32,
-    b2: f32,
-    a1: f32,
-    a2: f32,
-}
-// shelf/pass/notch constructors are used only in the Pro build (param_eq) and in unit tests.
-// Allow dead_code in the free build so clippy stays clean without -D warnings breakage.
-#[allow(dead_code)]
-impl Biquad {
-    /// Compute RBJ peaking EQ coefficients.
-    fn peaking(freq: f32, q: f32, gain_db: f32, fs: f32) -> Biquad {
-        let a = 10f32.powf(gain_db / 40.0);
-        let w0 = 2.0 * PI * freq / fs;
-        let (sw, cw) = (w0.sin(), w0.cos());
-        let alpha = sw / (2.0 * q);
-        let a0 = 1.0 + alpha / a;
-        Biquad {
-            b0: (1.0 + alpha * a) / a0,
-            b1: (-2.0 * cw) / a0,
-            b2: (1.0 - alpha * a) / a0,
-            a1: (-2.0 * cw) / a0,
-            a2: (1.0 - alpha / a) / a0,
-        }
-    }
-
-    /// Compute RBJ low-shelf coefficients.
-    fn low_shelf(freq: f32, q: f32, gain_db: f32, fs: f32) -> Biquad {
-        let a = 10f32.powf(gain_db / 40.0);
-        let w0 = 2.0 * PI * freq / fs;
-        let (sw, cw) = (w0.sin(), w0.cos());
-        let alpha = sw / 2.0 * ((a + 1.0 / a) * (1.0 / q - 1.0) + 2.0).sqrt();
-        let a0 = (a + 1.0) + (a - 1.0) * cw + 2.0 * alpha * a.sqrt();
-        Biquad {
-            b0: a * ((a + 1.0) - (a - 1.0) * cw + 2.0 * alpha * a.sqrt()) / a0,
-            b1: 2.0 * a * ((a - 1.0) - (a + 1.0) * cw) / a0,
-            b2: a * ((a + 1.0) - (a - 1.0) * cw - 2.0 * alpha * a.sqrt()) / a0,
-            a1: -2.0 * ((a - 1.0) + (a + 1.0) * cw) / a0,
-            a2: ((a + 1.0) + (a - 1.0) * cw - 2.0 * alpha * a.sqrt()) / a0,
-        }
-    }
-
-    /// Compute RBJ high-shelf coefficients.
-    fn high_shelf(freq: f32, q: f32, gain_db: f32, fs: f32) -> Biquad {
-        let a = 10f32.powf(gain_db / 40.0);
-        let w0 = 2.0 * PI * freq / fs;
-        let (sw, cw) = (w0.sin(), w0.cos());
-        let alpha = sw / 2.0 * ((a + 1.0 / a) * (1.0 / q - 1.0) + 2.0).sqrt();
-        let a0 = (a + 1.0) - (a - 1.0) * cw + 2.0 * alpha * a.sqrt();
-        Biquad {
-            b0: a * ((a + 1.0) + (a - 1.0) * cw + 2.0 * alpha * a.sqrt()) / a0,
-            b1: -2.0 * a * ((a - 1.0) + (a + 1.0) * cw) / a0,
-            b2: a * ((a + 1.0) + (a - 1.0) * cw - 2.0 * alpha * a.sqrt()) / a0,
-            a1: 2.0 * ((a - 1.0) - (a + 1.0) * cw) / a0,
-            a2: ((a + 1.0) - (a - 1.0) * cw - 2.0 * alpha * a.sqrt()) / a0,
-        }
-    }
-
-    /// Compute RBJ 2nd-order Butterworth low-pass coefficients.
-    fn low_pass(freq: f32, q: f32, fs: f32) -> Biquad {
-        let w0 = 2.0 * PI * freq / fs;
-        let (sw, cw) = (w0.sin(), w0.cos());
-        let alpha = sw / (2.0 * q);
-        let a0 = 1.0 + alpha;
-        Biquad {
-            b0: (1.0 - cw) / 2.0 / a0,
-            b1: (1.0 - cw) / a0,
-            b2: (1.0 - cw) / 2.0 / a0,
-            a1: -2.0 * cw / a0,
-            a2: (1.0 - alpha) / a0,
-        }
-    }
-
-    /// Compute RBJ 2nd-order Butterworth high-pass coefficients.
-    fn high_pass(freq: f32, q: f32, fs: f32) -> Biquad {
-        let w0 = 2.0 * PI * freq / fs;
-        let (sw, cw) = (w0.sin(), w0.cos());
-        let alpha = sw / (2.0 * q);
-        let a0 = 1.0 + alpha;
-        Biquad {
-            b0: (1.0 + cw) / 2.0 / a0,
-            b1: -(1.0 + cw) / a0,
-            b2: (1.0 + cw) / 2.0 / a0,
-            a1: -2.0 * cw / a0,
-            a2: (1.0 - alpha) / a0,
-        }
-    }
-
-    /// Compute RBJ notch (band-reject) coefficients.
-    fn notch(freq: f32, q: f32, fs: f32) -> Biquad {
-        let w0 = 2.0 * PI * freq / fs;
-        let (sw, cw) = (w0.sin(), w0.cos());
-        let alpha = sw / (2.0 * q);
-        let a0 = 1.0 + alpha;
-        Biquad {
-            b0: 1.0 / a0,
-            b1: -2.0 * cw / a0,
-            b2: 1.0 / a0,
-            a1: -2.0 * cw / a0,
-            a2: (1.0 - alpha) / a0,
-        }
-    }
-
-    /// Process one sample through the filter using direct-form II transposed state.
-    #[inline]
-    fn process(&self, z: &mut (f32, f32), x: f32) -> f32 {
-        let y = self.b0 * x + z.0;
-        z.0 = self.b1 * x - self.a1 * y + z.1;
-        z.1 = self.b2 * x - self.a2 * y;
-        y
-    }
-}
+// The biquad filter lives in the shared `crate::biquad` module (free DSP) so the
+// graphic EQ here and the Pro parametric EQ build coefficients from one source.
+use crate::biquad::Biquad;
 
 // ── EQ mode (free: Graphic only; pro: Graphic | Parametric) ──────────────────
 
@@ -937,20 +823,10 @@ fn decode_and_play(
                     }
                     #[cfg(feature = "pro")]
                     EqMode::Parametric => {
-                        use crate::pro::param_eq::Biquad as PBiquad;
+                        // `param_eq` builds the shared `Biquad` directly — no type bridge.
                         let (pc, n) = dsp.parametric.build_coeffs(out_rate as f32);
-                        // Map pro Biquad → engine Biquad (same layout, different type)
                         let mut packed = [Biquad::default(); MAX_BAND_STATE];
-                        for (i, pb) in pc[..n].iter().enumerate() {
-                            packed[i] = Biquad {
-                                b0: pb.b0,
-                                b1: pb.b1,
-                                b2: pb.b2,
-                                a1: pb.a1,
-                                a2: pb.a2,
-                            };
-                        }
-                        let _ = PBiquad::default; // suppress unused import warning
+                        packed[..n].copy_from_slice(&pc[..n]);
                         (10f32.powf(dsp.parametric.preamp / 20.0), packed, n)
                     }
                 }
@@ -1416,7 +1292,11 @@ pub fn engine_set_param_eq(
             p.preamp = preamp as f32;
             p.bands = [None; crate::pro::param_eq::MAX_PARAM_BANDS];
             let count = bands.len().min(crate::pro::param_eq::MAX_PARAM_BANDS);
-            for (i, b) in bands.into_iter().take(crate::pro::param_eq::MAX_PARAM_BANDS).enumerate() {
+            for (i, b) in bands
+                .into_iter()
+                .take(crate::pro::param_eq::MAX_PARAM_BANDS)
+                .enumerate()
+            {
                 p.bands[i] = Some(b);
             }
             p.count = count;
@@ -1428,6 +1308,41 @@ pub fn engine_set_param_eq(
         };
         sh.dsp_input.lock().unwrap().write(snapshot);
     }
+}
+
+/// Compute the parametric EQ frequency-response curve for the on-screen preview
+/// (Pro only). Returns `CURVE_POINTS + 1` summed-magnitude values (dB, clamped to
+/// ±20) over a log-spaced grid from 20 Hz to 20 kHz at 48 kHz. Built from the SAME
+/// `Biquad` coefficients the audio path uses, so the curve can't drift from what's
+/// audible — there is no separate response math anywhere else.
+#[cfg(feature = "pro")]
+#[tauri::command]
+pub fn engine_eq_curve(bands: Vec<crate::pro::param_eq::ParamBand>, preamp: f64) -> Vec<f32> {
+    const CURVE_POINTS: usize = 200;
+    const F_MIN: f32 = 20.0;
+    const F_MAX: f32 = 20_000.0;
+    const FS: f32 = 48_000.0;
+    const DB_RANGE: f32 = 20.0;
+
+    let preamp = preamp as f32;
+    // Precompute coefficients once per active band (disabled / zero-gain bands
+    // contribute nothing, exactly as the audio cascade skips them).
+    let coeffs: Vec<Biquad> = bands
+        .iter()
+        .filter(|b| b.is_active())
+        .map(|b| b.coeffs(FS))
+        .collect();
+
+    (0..=CURVE_POINTS)
+        .map(|i| {
+            let frac = i as f32 / CURVE_POINTS as f32;
+            let f = F_MIN * (F_MAX / F_MIN).powf(frac);
+            let db = coeffs
+                .iter()
+                .fold(preamp, |acc, c| acc + c.magnitude_db(f, FS));
+            db.clamp(-DB_RANGE, DB_RANGE)
+        })
+        .collect()
 }
 
 /// Parse an AutoEQ `ParametricEQ.txt` text and return the bands + preamp (Pro only).
@@ -1480,11 +1395,7 @@ pub fn engine_set_crossfade(ms: u32, engine: tauri::State<Engine>) {
 /// Queue the next track for gapless continuation (free build: file + URL only).
 #[cfg(not(feature = "pro"))]
 #[tauri::command]
-pub fn engine_enqueue(
-    path: Option<String>,
-    url: Option<String>,
-    engine: tauri::State<Engine>,
-) {
+pub fn engine_enqueue(path: Option<String>, url: Option<String>, engine: tauri::State<Engine>) {
     if let Some(sh) = engine.shared.0.lock().unwrap().as_ref() {
         let src = match (path, url) {
             (Some(p), _) if !p.is_empty() => Some(Source::File(p)),
@@ -1712,72 +1623,6 @@ mod tests {
     }
 
     #[test]
-    fn low_shelf_0db_is_unity() {
-        let bq = Biquad::low_shelf(200.0, 0.707, 0.0, 48_000.0);
-        let mut z = (0.0f32, 0.0f32);
-        let mut y = 0.0f32;
-        for _ in 0..2000 {
-            y = bq.process(&mut z, 1.0);
-        }
-        assert!((y - 1.0).abs() < 1e-3, "low_shelf 0dB steady state y={y}");
-    }
-
-    #[test]
-    fn low_shelf_boost_raises_dc() {
-        let bq = Biquad::low_shelf(200.0, 0.707, 12.0, 48_000.0);
-        let mut z = (0.0f32, 0.0f32);
-        let mut y = 0.0f32;
-        for _ in 0..4000 {
-            y = bq.process(&mut z, 1.0);
-        }
-        assert!(y > 2.5, "low_shelf +12dB DC should be >2.5, got {y}");
-    }
-
-    #[test]
-    fn high_shelf_0db_is_unity() {
-        let bq = Biquad::high_shelf(8000.0, 0.707, 0.0, 48_000.0);
-        let mut z = (0.0f32, 0.0f32);
-        let mut y = 0.0f32;
-        for _ in 0..2000 {
-            y = bq.process(&mut z, 1.0);
-        }
-        assert!((y - 1.0).abs() < 1e-3, "high_shelf 0dB steady state y={y}");
-    }
-
-    #[test]
-    fn low_pass_passes_dc() {
-        let bq = Biquad::low_pass(1000.0, 0.707, 48_000.0);
-        let mut z = (0.0f32, 0.0f32);
-        let mut y = 0.0f32;
-        for _ in 0..2000 {
-            y = bq.process(&mut z, 1.0);
-        }
-        assert!((y - 1.0).abs() < 0.1, "low_pass DC passthrough y={y}");
-    }
-
-    #[test]
-    fn high_pass_attenuates_dc() {
-        let bq = Biquad::high_pass(1000.0, 0.707, 48_000.0);
-        let mut z = (0.0f32, 0.0f32);
-        let mut y = 0.0f32;
-        for _ in 0..2000 {
-            y = bq.process(&mut z, 1.0);
-        }
-        assert!(y.abs() < 0.01, "high_pass DC should be ≈0, got {y}");
-    }
-
-    #[test]
-    fn notch_passes_dc() {
-        let bq = Biquad::notch(1000.0, 10.0, 48_000.0);
-        let mut z = (0.0f32, 0.0f32);
-        let mut y = 0.0f32;
-        for _ in 0..2000 {
-            y = bq.process(&mut z, 1.0);
-        }
-        assert!((y - 1.0).abs() < 0.05, "notch passes DC y={y}");
-    }
-
-    #[test]
     fn httpsource_seek_clamps() {
         let src_buf = Arc::new(Mutex::new(vec![0u8; 10]));
         let done = Arc::new(AtomicBool::new(true));
@@ -1839,5 +1684,41 @@ mod tests {
             assert!(!snap.eq_active());
             assert!(is_bitperfect(snap.eq_active(), 1.0, 1.0));
         }
+    }
+
+    #[cfg(feature = "pro")]
+    #[test]
+    fn eq_curve_contract() {
+        use crate::pro::param_eq::{ParamBand, ParamBandType};
+        // Contract the frontend (`buildResponsePath`) relies on: a 201-point curve over
+        // the log grid 20 Hz–20 kHz. If the point count or range drifts, the preview's
+        // x-axis silently misaligns from the band markers.
+        let flat = engine_eq_curve(vec![], 3.0);
+        assert_eq!(flat.len(), 201, "curve must be CURVE_POINTS + 1 points");
+        assert!(
+            flat.iter().all(|&db| (db - 3.0).abs() < 1e-3),
+            "a flat config should equal the preamp at every point"
+        );
+
+        // A +6 dB peak at 1 kHz lifts the curve to ~+6 at its centre and ~0 at the edges.
+        let band = ParamBand {
+            filter_type: ParamBandType::Peaking,
+            freq: 1000.0,
+            gain_db: 6.0,
+            q: 1.0,
+            enabled: true,
+        };
+        let curve = engine_eq_curve(vec![band], 0.0);
+        let peak = curve.iter().copied().fold(f32::MIN, f32::max);
+        assert!(
+            (peak - 6.0).abs() < 0.5,
+            "peak gain {peak:.2} dB should be ≈ +6"
+        );
+        assert!(
+            curve[0].abs() < 0.5 && curve[200].abs() < 0.5,
+            "curve edges should be ≈ 0 dB (got {} / {})",
+            curve[0],
+            curve[200]
+        );
     }
 }

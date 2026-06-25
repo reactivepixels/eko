@@ -14,6 +14,9 @@ export function useMusicSource() {
   const localRoot = useLocal((s) => s.rootName);
   const subCount = useSubsonic((s) => s.albums.length);
   const localCount = useLocal((s) => s.albums.length);
+  // Multi-server: the nav shows a server switcher. Surfaced here so a theme's nav never
+  // imports `useSubsonic` directly (Gate 2 of the theming plan).
+  const serverList = useSubsonic((s) => s.serverList);
   return {
     source,
     serverConfigured,
@@ -23,5 +26,9 @@ export function useMusicSource() {
     rescan: () => useLocal.getState().rescan(),
     changeFolder: () => void useLocal.getState().pickFolder(),
     clearFolder: () => useLocal.getState().reset(),
+    /** Multi-server switcher (server source only). */
+    serverList,
+    switchServer: (id: string) => useSubsonic.getState().switchServer(id),
+    openManageServers: () => useSubsonic.getState().setManageOpen(true),
   };
 }

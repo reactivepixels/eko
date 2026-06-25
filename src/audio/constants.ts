@@ -3,6 +3,12 @@ export const EQ_BANDS = [60, 170, 310, 600, 1000, 3000, 6000, 12000, 14000, 1600
 
 export const EQ_BAND_COUNT = EQ_BANDS.length;
 
+// Display labels for each band (1 kHz and up abbreviated as "k"), derived from
+// EQ_BANDS so the labels can never drift from the actual frequencies.
+export const EQ_BAND_LABELS: string[] = EQ_BANDS.map((hz) =>
+  hz >= 1000 ? `${hz / 1000}k` : String(hz),
+);
+
 // Per-band gain range, in dB. Matches Winamp's ±12 dB sliders.
 export const EQ_GAIN_MIN = -12;
 export const EQ_GAIN_MAX = 12;

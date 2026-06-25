@@ -45,14 +45,38 @@ system resample. Watch **Audio MIDI Setup** follow the music.
   the way the high-end players do. No OS mixer resample.
 - **Honest signal path** — a Roon-style `SOURCE → OUTPUT` chain with a dedicated bit-perfect
   seal that reflects the *actual* state, never an assumption.
-- **Real 10-band EQ** — RBJ peaking biquads in the engine (fully bypassed when flat).
+- **Real 10-band graphic EQ** — RBJ peaking biquads in the engine (fully bypassed when flat).
 - **Spectrum analyser** — a 32-band FFT driven by the engine, rendered as segmented LEDs.
 - **Output device selection** — pick your DAC explicitly.
+- **ReplayGain** — track/album volume normalisation read from tags and applied as engine gain
+  (off = bit-perfect preserved).
+- **Gapless playback & crossfade** — seamless same-rate album playback, with an optional
+  equal-power crossfade (2–12 s) between tracks.
+- **Local library & servers** — browse and sort a local library, plus Navidrome / OpenSubsonic
+  streaming (multi-server) — all through the one engine.
+- **Queue management** — reorder the queue, play-next / add-to-queue.
+- **Lyrics, scrobbling & sleep timer** — synced/plain lyrics, Last.fm-style scrobbling, and a
+  sleep timer.
+- **macOS media keys & Now Playing** — F7/F8/F9 and the Control-Center now-playing card drive EKO.
+- **Auto-updater** — checks GitHub Releases and offers a one-click background update.
 - **Mini player** — a compact always-on-top window that reads engine state directly.
-- **Library + queue** — browse and sort, reorder the queue, play-next / add-to-queue.
-- **Local & Navidrome** — local files and Navidrome/Subsonic streams play through the one engine.
 - **Keyboard-first** — space/⏯, seek, volume, next/prev, mute — all from the keyboard.
-- **Neumorphic Braun design** — light "Porcelain" and dark "Graphite" themes.
+- **Neumorphic Braun design** — the light/dark **Porcelain** skin (light "Porcelain" + dark
+  "Graphite") with a user-selectable accent.
+
+## EKO Pro
+
+EKO Pro is a paid tier that builds on the free core (the bit-perfect engine and everything above
+are unchanged). It adds:
+
+- **Offline playback** — download server tracks for listening without a connection.
+- **Parametric EQ + AutoEQ** — a fully parametric equaliser plus AutoEQ headphone-correction
+  import, alongside the free 10-band graphic EQ.
+- **Smart playlists & instant mix** — rule-based playlists and one-click similar-track mixes.
+- **Alternate skins + Skins menu** — the **Studio** and **Aether** skins (beyond the free
+  Porcelain), selectable from a native Skins menu, plus extra themes/accents.
+
+Pro is licence-gated with a trial; the free build runs fully without it.
 
 ## Screenshots
 
@@ -143,5 +167,5 @@ and resume-last-session, then a signed release. EKO ships excellent and compound
 
 The **EKO** name and logo are unregistered trademarks of Reactive Pixels. The MIT license covers
 the code, not the brand: forks and derivative works must use a different name and mark. See the
-NOTICE in [LICENSE](./LICENSE).
+[NOTICE](./NOTICE) file (referenced from [LICENSE](./LICENSE)) for the full brand notice.
 </content>

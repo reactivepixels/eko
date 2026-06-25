@@ -214,6 +214,31 @@ export function SmartPlaylistsView(): null {
   return null;
 }
 
+// ── Visualizer stubs (Pro features — locked out in free build) ───────────────
+
+/** Free build: overlay never renders. */
+export function VisualizerOverlay(): null {
+  return null;
+}
+
+interface VisualizerStubState {
+  open: boolean;
+  presetId: string;
+  openWith: (id: string) => void;
+  close: () => void;
+  setPreset: (id: string) => void;
+  toggle: () => void;
+}
+
+export const useVisualizerStore = create<VisualizerStubState>(() => ({
+  open: false,
+  presetId: "galaxy",
+  openWith: (_id: string) => {},
+  close: () => {},
+  setPreset: (_id: string) => {},
+  toggle: () => {},
+}));
+
 // ── Theme / skin stubs (Pro features — locked out in free build) ──────────────
 
 /** Free build: no-op — native Skins menu is not registered in the free build. */
@@ -225,10 +250,15 @@ export function useNativeMenu(): void {
 // not behind @pro. No stub needed here.
 
 /**
- * Free build: always renders the Porcelain children.
- * The Studio skin is Pro-only; the `children` prop carries the Porcelain layout.
+ * Free build: no Pro themes. The registry registers only Porcelain, and `resolveTheme`
+ * falls back to it for any other id — so the free build can never reach a Studio Shell.
  */
-import type { ReactNode } from "react";
-export function StudioApp({ children }: { children: ReactNode }): ReactNode {
-  return children;
-}
+export type { ThemeDefinition } from "../skin/registry";
+import type { ThemeDefinition } from "../skin/registry";
+export const proThemes: ThemeDefinition[] = [];
+
+// Free build: no Pro component variants. The registry holds only the free Porcelain variants;
+// the Slot resolver falls back to them, so any slot always renders.
+export type { VariantDefinition } from "../skin/variants";
+import type { VariantDefinition } from "../skin/variants";
+export const proVariants: VariantDefinition[] = [];

@@ -80,13 +80,6 @@
 [data-theme="dark"] .track {
   background: #1d1f23;
 }
-[data-theme="dark"] .menu {
-  background: #2f3137;
-  border-color: #191a1e;
-}
-[data-theme="dark"] .menu .mi:hover {
-  background: rgba(255, 255, 255, 0.06);
-}
 .app[data-theme="dark"]::before {
   opacity: 0.35;
 }
@@ -117,6 +110,163 @@
   --accent-2: #a8a59d;
   --accent-ink: #ffffff;
   --accent-rgb: 138, 135, 128;
+}
+[data-accent="cyan"] {
+  --accent: #28d8f7;
+  --accent-2: #b6f4ff;
+  --accent-ink: #042027; /* dark ink on the bright cyan fill */
+  --accent-rgb: 40, 216, 247;
+}
+
+/* ============================================================
+   SKIN: "Studio" — the warm matte "device" theme (from the approved
+   concept). The differentiator from Porcelain is NOT a tint: it's a
+   different MATERIAL. Porcelain = domed dual-soft neumorphism. Studio
+   = flat matte faces, a seated drop shadow + a crisp white top edge,
+   warm #f3f1ec surfaces, mono device labels. All token-driven, so the
+   recipe below re-skins every surface at once.
+   ============================================================ */
+[data-skin="studio"] {
+  --bg: #e4e0d8;
+  --bg2: #efece6;
+  --light: #ffffff;
+  --dark: #cdc7bb;
+  --ink: #3b3933;
+  --ink-2: #65625a; /* nudged from #6d6a61 — passes WCAG AA 4.5:1 on studio --bg */
+  --ink-3: #a4a096;
+  --line: rgba(62, 58, 50, 0.08);
+  --art-bg: #e7e3da;
+  --hover: rgba(62, 58, 50, 0.05);
+  /* FLAT MATTE material — a seated drop shadow + crisp white top edge, NOT Porcelain's
+     domed dual-neumorphism. This is what makes Studio read as a device, not a recolour. */
+  --out:
+    0 2px 4px rgba(62, 58, 50, 0.16), 0 14px 24px -12px rgba(62, 58, 50, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.92), 0 0 0 1px rgba(255, 255, 255, 0.55);
+  --out-sm:
+    0 1.5px 3px rgba(62, 58, 50, 0.15), 0 8px 15px -9px rgba(62, 58, 50, 0.26),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  --out-xs: 0 1px 2px rgba(62, 58, 50, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.85);
+  --bevel: inset 0 1px 1px rgba(255, 255, 255, 0.9), 0 0 0 1px rgba(62, 58, 50, 0.04);
+  --in: inset 2px 2px 5px rgba(62, 58, 50, 0.16), inset -2px -2px 5px rgba(255, 255, 255, 0.92);
+  --in-deep: inset 3px 3px 7px rgba(62, 58, 50, 0.22), inset -3px -3px 6px rgba(255, 255, 255, 0.9);
+  --lift: 0 14px 28px -10px rgba(62, 58, 50, 0.4), 0 2px 6px rgba(62, 58, 50, 0.18);
+  --lift-sm: 0 7px 16px -9px rgba(62, 58, 50, 0.34), 0 1px 3px rgba(62, 58, 50, 0.15);
+}
+.app[data-skin="studio"] {
+  background:
+    radial-gradient(120% 90% at 50% -6%, #f1eee8, transparent 55%),
+    radial-gradient(120% 110% at 50% 112%, #d2cdc2, transparent 55%), var(--bg);
+}
+/* Studio dark = WARM device (matches the approved concept), NOT the old cool blue-gray. The shell
+   (.app/.main/body) reads --bg, so these must be warm or the center clashes with the warm chrome. */
+[data-skin="studio"][data-theme="dark"] {
+  --bg: #191714;
+  --bg2: #201d18;
+  --light: #34302a;
+  --dark: #0d0b08;
+  --ink: #ece8e0;
+  --ink-2: #a8a39a;
+  --ink-3: #8a857c; /* nudged from #746f66 — passes WCAG AA 4.5:1 on studio dark --bg and --bg2 */
+  --line: rgba(255, 255, 255, 0.05);
+  --art-bg: #242019;
+  --hover: rgba(255, 255, 255, 0.05);
+  --out: 5px 5px 13px #0d0b08, -3px -3px 9px #34302a;
+  --out-sm: 3px 3px 8px #0d0b08, -2px -2px 6px #34302a;
+  --out-xs: 2px 2px 5px #0d0b08, -2px -2px 4px #34302a;
+  --bevel: inset 1px 1px 1px rgba(255, 255, 255, 0.06), inset -1px -1px 1px rgba(0, 0, 0, 0.32);
+  --in: inset 4px 4px 9px #0d0b08, inset -3px -3px 8px #34302a;
+  --in-deep: inset 6px 6px 13px #0a0806, inset -4px -4px 10px #34302a;
+}
+.app[data-skin="studio"][data-theme="dark"] {
+  background:
+    radial-gradient(120% 95% at 50% -12%, #241f17, transparent 58%),
+    radial-gradient(130% 120% at 85% 115%, #14110c, transparent 60%), var(--bg);
+}
+
+/* ============================================================
+   STUDIO control material — flat-top, matte, crisp-edged faces
+   across the device controls (the concept's look), vs Porcelain's
+   domed neumorphism. Light here; dark mirrored below.
+   ============================================================ */
+/* round / raised device faces */
+[data-skin="studio"] .tbtn,
+[data-skin="studio"] .knob-dial .hub,
+[data-skin="studio"] .fader .cap {
+  background: radial-gradient(135% 135% at 50% 38%, #ffffff, #f3efe8 60%, #d4cfc4 100%);
+  box-shadow:
+    0 3px 5px rgba(62, 58, 50, 0.18),
+    0 12px 20px -7px rgba(62, 58, 50, 0.24),
+    inset 0 1.5px 1px rgba(255, 255, 255, 0.95),
+    0 0 0 1px rgba(255, 255, 255, 0.6);
+}
+[data-skin="studio"] .tbtn:active {
+  box-shadow:
+    inset 0 2px 5px rgba(150, 144, 132, 0.28),
+    0 1px 2px rgba(62, 58, 50, 0.2);
+  transform: translateY(1px) scale(0.97);
+}
+/* play — flat-top accent puck with an accent halo */
+[data-skin="studio"] .tbtn.play {
+  background: radial-gradient(135% 135% at 50% 34%, var(--accent-2), var(--accent) 80%);
+  box-shadow:
+    0 12px 24px -7px rgba(62, 58, 50, 0.3),
+    0 0 22px -3px var(--accent),
+    inset 0 1.5px 1px rgba(255, 255, 255, 0.5),
+    0 0 0 1px rgba(255, 255, 255, 0.22);
+}
+/* pill buttons (EQ preset etc.) — flatter, crisp */
+[data-skin="studio"] .pillbtn {
+  background: radial-gradient(140% 170% at 50% 28%, #ffffff, #f1ede6 100%);
+  box-shadow:
+    0 2px 4px rgba(62, 58, 50, 0.16),
+    inset 0 1px 1px rgba(255, 255, 255, 0.9),
+    0 0 0 1px rgba(255, 255, 255, 0.55);
+}
+/* Transport utility buttons (lyrics / sleep / queue) → ALL get Studio's .ibtn rounded-square
+   device face, so the row is consistent (previously only the sleep button was restyled, leaving
+   lyrics + queue as round generic .icon-btns of a different shade). */
+[data-skin="studio"] .right .icon-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: radial-gradient(135% 135% at 50% 35%, #ffffff, #f1ede6);
+  box-shadow:
+    0 2px 4px rgba(62, 58, 50, 0.18),
+    inset 0 1px 1px rgba(255, 255, 255, 0.9),
+    0 0 0 1px rgba(255, 255, 255, 0.5);
+}
+/* ---- dark mirror ---- */
+[data-skin="studio"][data-theme="dark"] .tbtn,
+[data-skin="studio"][data-theme="dark"] .knob-dial .hub,
+[data-skin="studio"][data-theme="dark"] .fader .cap {
+  background: radial-gradient(135% 135% at 50% 35%, #2e353f, #20262f 68%, #151a21 100%);
+  box-shadow:
+    0 3px 6px rgba(0, 0, 0, 0.5),
+    0 10px 18px -6px rgba(0, 0, 0, 0.5),
+    inset 0 1.5px 1px rgba(255, 255, 255, 0.1),
+    0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+[data-skin="studio"][data-theme="dark"] .right .icon-btn {
+  background: radial-gradient(135% 135% at 50% 35%, #34302a, #221f1b);
+  box-shadow:
+    0 2px 4px rgba(0, 0, 0, 0.45),
+    inset 0 1px 1px rgba(255, 255, 255, 0.06),
+    0 0 0 1px rgba(255, 255, 255, 0.04);
+}
+[data-skin="studio"][data-theme="dark"] .tbtn.play {
+  box-shadow:
+    0 10px 22px -6px rgba(0, 0, 0, 0.55),
+    0 0 22px -3px var(--accent),
+    inset 0 1.5px 1px rgba(255, 255, 255, 0.4),
+    0 0 0 1px rgba(0, 0, 0, 0.2);
+}
+[data-skin="studio"][data-theme="dark"] .pillbtn {
+  /* warm device face (matches kit-studio --face); was a stray cool blue-grey */
+  background: radial-gradient(140% 170% at 50% 28%, #34302a, #221f1b 100%);
+  box-shadow:
+    0 2px 5px rgba(0, 0, 0, 0.5),
+    inset 0 1px 1px rgba(255, 255, 255, 0.08),
+    0 0 0 1px rgba(255, 255, 255, 0.04);
 }
 
 * {
@@ -250,6 +400,11 @@ body {
   padding: 0 16px;
   max-width: 440px;
 }
+/* Focus ring on the WRAPPER (kit .field:focus-within), not an outline on the inner input —
+   keeps the recessed pill shape and avoids a nested rectangle inside the field. */
+.search:focus-within {
+  box-shadow: var(--in), inset 0 0 0 1.5px rgba(var(--accent-rgb), 0.5);
+}
 .search svg {
   width: 15px;
   height: 15px;
@@ -302,7 +457,6 @@ body {
   height: 6px;
   border-radius: 50%;
   background: var(--accent);
-  box-shadow: 0 0 5px var(--accent);
 }
 /* accent picker (topbar) */
 .accent-pick {
@@ -358,6 +512,7 @@ body {
 .icon-btn {
   width: 36px;
   height: 36px;
+  flex: 0 0 auto; /* never let flex squish these into ovals when the row is tight */
   border-radius: 50%;
   background: var(--bg);
   box-shadow: var(--out-sm), var(--bevel);
@@ -377,6 +532,30 @@ body {
 .icon-btn svg {
   width: 16px;
   height: 16px;
+}
+.icon-btn.on {
+  color: var(--accent);
+}
+
+/* Mini-EQ — dot-matrix spectrum used as an alternative transport meter (MiniEq.tsx → "miniEq"
+   meter variant). Recessed well built from chrome tokens so it re-tints with every skin, matching
+   the mini specwell in the UI kits. The canvas fills the well; Spectrum adds its own inner padding. */
+.minieq {
+  width: 92px;
+  height: 34px;
+  flex: 0 0 auto;
+  border-radius: 9px;
+  background: var(--bg);
+  box-shadow: var(--in);
+  overflow: hidden;
+  position: relative;
+}
+.minieq-cv {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 
 /* ---- sidebar ---- */
@@ -1203,6 +1382,9 @@ body {
   gap: 5px;
   min-width: 0;
   flex: 0 1 auto;
+  /* Positioned so .sp-menu anchors to THIS node (not a far ancestor, which placed it at the
+     view top where .main's overflow:hidden / .view's scroll clipped it). */
+  position: relative;
 }
 .sigpath .sp-k {
   display: flex;
@@ -1300,7 +1482,10 @@ body {
   color: var(--accent);
 }
 .sigpath .sp-menu {
-  bottom: calc(100% + 12px);
+  /* Open DOWNWARD into the spacious spectrum/EQ area — SignalPath sits near the deck top, so an
+     upward menu runs off the top and gets clipped by the view's overflow. */
+  top: calc(100% + 12px);
+  bottom: auto;
   right: 0;
   min-width: 240px;
   max-width: 360px;
@@ -1360,6 +1545,7 @@ body {
   box-shadow: var(--in);
   position: relative;
   cursor: ns-resize;
+  touch-action: none;
 }
 .fader .cap {
   position: absolute;
@@ -1386,6 +1572,110 @@ body {
   font: 9px/1 var(--mono);
   color: var(--ink-3);
 }
+/* EQ knobs — the Studio skin swaps the faders for these (DeckView).
+   Flat-top matte body + accent gauge arc + indicator: the concept's EQ. */
+.eqknobs {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  flex: 1;
+  padding: 6px 2px;
+}
+.eqknobs .ctl {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+.eqknobs .fl {
+  font: 9px/1 var(--mono);
+  color: var(--ink-3);
+}
+.eqknob {
+  position: relative;
+  width: 100%;
+  max-width: 54px;
+  aspect-ratio: 1 / 1;
+  cursor: ns-resize;
+  touch-action: none;
+}
+.eqknob .arc {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  transform: rotate(135deg);
+  overflow: visible;
+}
+.eqknob .arc .trk {
+  fill: none;
+  stroke: rgba(40, 48, 66, 0.16);
+  stroke-width: 5;
+  stroke-linecap: round;
+  stroke-dasharray: 75 25; /* dash+gap must sum to pathLength (100) or the arc wraps */
+}
+.eqknob .arc .val {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 5;
+  stroke-linecap: round;
+  stroke-dasharray: 0 100;
+}
+.eqknob .body {
+  position: absolute;
+  inset: 9%;
+  border-radius: 50%;
+  background: radial-gradient(135% 135% at 50% 35%, #ffffff, #eef1f6 70%, #e3e8f0 100%);
+  box-shadow:
+    0 3px 5px rgba(40, 48, 66, 0.18),
+    0 9px 16px -6px rgba(40, 48, 66, 0.22),
+    inset 0 1.5px 1.5px rgba(255, 255, 255, 0.95);
+}
+.eqknob .top {
+  position: absolute;
+  inset: 17%;
+  border-radius: 50%;
+  background: radial-gradient(135% 135% at 50% 38%, #ffffff, #f5f7fb 72%, #eef1f6 100%);
+  box-shadow:
+    inset 0 1.5px 1px rgba(255, 255, 255, 0.95),
+    0 0 0 1px rgba(255, 255, 255, 0.6),
+    0 3px 5px rgba(40, 48, 66, 0.2);
+}
+.eqknob .dial {
+  position: absolute;
+  inset: 17%;
+  border-radius: 50%;
+}
+.eqknob .ind {
+  position: absolute;
+  top: 10%;
+  left: 50%;
+  width: 6px;
+  height: 6px;
+  margin-left: -3px;
+  border-radius: 50%;
+  background: var(--ink-3);
+  box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.3);
+}
+[data-theme="dark"] .eqknob .arc .trk {
+  stroke: rgba(255, 255, 255, 0.12);
+}
+[data-theme="dark"] .eqknob .body {
+  background: radial-gradient(135% 135% at 50% 35%, #2e353f, #20262f 70%, #151a21 100%);
+  box-shadow:
+    0 3px 6px rgba(0, 0, 0, 0.5),
+    0 9px 16px -6px rgba(0, 0, 0, 0.5),
+    inset 0 1.5px 1px rgba(255, 255, 255, 0.1);
+}
+[data-theme="dark"] .eqknob .top {
+  background: radial-gradient(135% 135% at 50% 38%, #343b45, #2a313a 72%, #232932 100%);
+  box-shadow:
+    inset 0 1.5px 1px rgba(255, 255, 255, 0.1),
+    0 0 0 1px rgba(255, 255, 255, 0.06),
+    0 3px 5px rgba(0, 0, 0, 0.5);
+}
 .eq-side {
   display: flex;
   flex-direction: column;
@@ -1398,7 +1688,7 @@ body {
   border-radius: 999px;
   background: var(--bg);
   box-shadow: var(--out-sm), var(--bevel);
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 8px;
   font-size: 11px;
@@ -1426,10 +1716,16 @@ body {
   background: linear-gradient(0deg, rgba(255, 255, 255, 0.3), transparent);
   border-top: 1px solid var(--line);
   display: grid;
-  grid-template-columns: 300px 1fr 320px;
+  /* Fluid 3-zone layout (shared by every skin; the Tauri min window is 940px so this must hold
+     from 940 up). Left (now-playing) flexes and ellipsises; center is floored at its controls'
+     width — `minmax(max-content, 1fr)` — so the transport buttons never overflow, yet it still
+     grows to lengthen the seek bar on wide windows; right (meter/volume/buttons) is `auto` so the
+     volume knob is never clipped. Replaces the old rigid `300px 1fr 360px`, which starved the
+     center and pushed the right cluster off-screen below ~1080px. */
+  grid-template-columns: minmax(0, 1fr) minmax(max-content, 1fr) auto;
   align-items: center;
-  gap: 22px;
-  padding: 0 24px;
+  gap: clamp(12px, 1.6vw, 22px);
+  padding: 0 clamp(14px, 1.8vw, 24px);
 }
 .np {
   display: flex;
@@ -1484,6 +1780,7 @@ body {
   flex-direction: column;
   gap: 9px;
   align-items: center;
+  min-width: 0; /* let the seek bar inside shrink; the grid track is floored at controls width */
 }
 .controls {
   display: flex;
@@ -1544,8 +1841,8 @@ body {
 }
 .tbtn.play:active {
   box-shadow:
-    inset 3px 3px 7px #a8430f,
-    inset -3px -3px 7px #ff8c42;
+    inset 3px 3px 7px rgba(0, 0, 0, 0.32),
+    inset -3px -3px 7px var(--accent-2);
   transform: scale(0.96);
 }
 .tbtn.play svg {
@@ -1592,7 +1889,6 @@ body {
   bottom: 0;
   border-radius: 999px;
   background: linear-gradient(90deg, var(--accent), var(--accent-2));
-  box-shadow: 0 0 6px rgba(94, 143, 42, 0.4);
 }
 .track .knob {
   position: absolute;
@@ -1605,7 +1901,7 @@ body {
   box-shadow:
     var(--out-xs),
     var(--bevel),
-    0 0 0 2px rgba(94, 143, 42, 0.18);
+    0 0 0 2px rgba(var(--accent-rgb), 0.18);
 }
 .right {
   display: flex;
@@ -1613,21 +1909,32 @@ body {
   gap: 16px;
   justify-content: flex-end;
 }
-.minispec .well {
-  padding: 7px;
-  border-radius: 12px;
+/* Unified segmented LED level meter — ONE design across every theme (the standardized kit meter).
+   Accent-lit, NO glow; material comes entirely from chrome tokens (--bg / --in recess / --spec-rgb
+   off-colour) + the palette accent, so each skin re-tints it automatically. Rendered by the shared
+   <Meter> component; the single "meter" variant fills the transport meter slot for all presets. */
+.meter {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 11px;
+  border-radius: 14px;
+  background: var(--bg);
+  box-shadow: var(--in);
 }
-.minispec .screen {
-  width: 92px;
-  height: 34px;
-  border-radius: 7px;
+.mbar {
+  width: 5px;
+  height: 15px;
+  border-radius: 2px;
+  background: rgba(var(--spec-rgb), 0.22);
+  box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.08);
+  transition: background 0.06s;
 }
-.minispec canvas {
-  display: block;
-  width: 92px;
-  height: 34px;
-  position: relative;
-  z-index: 2;
+.mbar[data-lit="1"] {
+  background: var(--accent);
+}
+.mbar.pk[data-lit="1"] {
+  background: var(--accent-2, var(--accent));
 }
 .sig {
   text-align: right;
@@ -1651,7 +1958,6 @@ body {
 }
 .sig .pure-dot.on {
   background: var(--accent);
-  box-shadow: 0 0 6px var(--accent);
 }
 .sig .bp {
   font-size: 8.5px;
@@ -1678,33 +1984,23 @@ body {
 }
 .sig .bp.on .d {
   background: var(--accent);
-  box-shadow: 0 0 6px var(--accent);
 }
-/* Neumorphic volume knob — a raised convex body (diagonal pillow gradient + dual soft shadow)
-   with a recessed centre dish and the accent indicator. */
+/* Pillow volume dial — verbatim from concepts/kit-porcelain/kit.css (.knob-dial). Pure
+   neumorphism: NO background (the knob IS the surface colour; the dome is the box-shadow alone),
+   theme-aware inset highlights via var(--light) — never a gradient or hardcoded white. */
 .knob-dial {
   width: 88px;
   height: 88px;
   border-radius: 50%;
-  background: linear-gradient(145deg, var(--light), var(--bg) 48%, var(--dark));
-  box-shadow:
-    7px 7px 16px var(--dark),
-    -7px -7px 16px var(--light),
-    inset 0 1px 2px rgba(255, 255, 255, 0.55),
-    inset 0 -2px 4px rgba(0, 0, 0, 0.05);
   position: relative;
   flex: 0 0 auto;
   cursor: ns-resize;
-}
-.knob-dial .hub {
-  position: absolute;
-  inset: 17px;
-  border-radius: 50%;
-  background: linear-gradient(145deg, var(--bg2), var(--bg));
+  touch-action: none;
   box-shadow:
-    inset 3px 3px 7px var(--dark),
-    inset -3px -3px 7px var(--light),
-    0 1px 1px rgba(255, 255, 255, 0.4);
+    7px 7px 16px var(--dark),
+    -7px -7px 16px var(--light),
+    inset 0 1px 2px var(--light),
+    inset 0 -2px 4px rgba(0, 0, 0, 0.05);
 }
 .knob-dial .ind {
   position: absolute;
@@ -1715,9 +2011,15 @@ body {
   height: 15px;
   border-radius: 2px;
   background: var(--accent);
-  box-shadow: 0 0 6px var(--accent);
   transform-origin: 50% 35px;
   z-index: 2;
+  transition:
+    box-shadow 0.12s,
+    background 0.12s;
+}
+/* turning the dial illuminates the indicator */
+.knob-dial.live .ind {
+  background: var(--accent-2);
 }
 
 .empty {
@@ -1819,30 +2121,38 @@ body {
   mask-image: none;
 }
 
-/* dropdown (presets) */
+/* dropdown menu — verbatim from kit-porcelain .menu/.mi (placement stays per-use inline,
+   since app menus open in different directions). */
 .menu {
   position: absolute;
   z-index: 80;
-  background: #f4f2ec;
-  border: 1px solid #c6c4bc;
-  border-radius: 10px;
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.28);
-  padding: 5px;
   min-width: 150px;
+  padding: 6px;
+  border-radius: 14px;
+  background: var(--bg2);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  box-shadow: var(--out);
 }
 .menu .mi {
-  padding: 8px 12px;
-  font-size: 12.5px;
-  border-radius: 7px;
+  border: 0;
+  background: transparent;
+  text-align: left;
   cursor: pointer;
   color: var(--ink);
+  font: 600 11px/1.1 var(--font);
+  letter-spacing: 0.4px;
+  padding: 9px 12px;
+  border-radius: 9px;
+  white-space: nowrap;
 }
 .menu .mi:hover {
-  background: rgba(0, 0, 0, 0.05);
+  background: var(--bg);
+  box-shadow: var(--in);
 }
 .menu .mi.on {
-  background: var(--accent);
-  color: #fff;
+  color: var(--accent);
 }
 .backdrop {
   position: fixed;
@@ -2208,6 +2518,58 @@ body {
   height: 1px;
   margin: 5px 8px;
   background: var(--line);
+}
+
+/* ============================================================
+   STUDIO context-menu overrides — matte device panel, not
+   Porcelain neumorphic. Matches the .ctx rules in the concept.
+   ============================================================ */
+[data-skin="studio"] .ctxmenu {
+  background: #f3f1ec;
+  min-width: 194px;
+  border-radius: 13px;
+  border: none;
+  box-shadow:
+    0 20px 44px -16px rgba(62, 58, 50, 0.5),
+    0 2px 4px rgba(62, 58, 50, 0.16),
+    0 14px 24px -12px rgba(62, 58, 50, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.92),
+    0 0 0 1px rgba(255, 255, 255, 0.5);
+}
+[data-skin="studio"] .ctx-item {
+  color: var(--ink);
+  background: transparent;
+  border-radius: 9px;
+  padding: 11px 13px;
+  font: 10px/1 var(--mono);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+[data-skin="studio"] .ctx-item:hover {
+  background: radial-gradient(135% 165% at 50% 28%, var(--accent-2), var(--accent) 82%);
+  color: #fff;
+}
+[data-skin="studio"] .ctx-item.danger {
+  color: #c0563a;
+}
+[data-skin="studio"] .ctx-item.danger:hover {
+  background: #c0563a;
+  color: #fff;
+}
+[data-skin="studio"] .ctx-sep {
+  background: rgba(62, 58, 50, 0.1);
+}
+/* dark variant — warm-dark matte face, dim white edge */
+[data-skin="studio"][data-theme="dark"] .ctxmenu {
+  background: var(--bg2);
+  box-shadow:
+    0 20px 44px -16px rgba(0, 0, 0, 0.65),
+    0 2px 6px rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
+    0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+[data-skin="studio"][data-theme="dark"] .ctx-sep {
+  background: rgba(255, 255, 255, 0.07);
 }
 
 /* ============================================================
@@ -2797,7 +3159,6 @@ body {
 }
 
 /* Inputs — inset ring so the recessed well shape is preserved */
-.search input:focus-visible,
 .pro-key-input:focus-visible,
 .sp-name-input:focus-visible,
 .sp-select:focus-visible,

@@ -1,6 +1,6 @@
 [package]
 name = "eko"
-version = "0.4.2"
+version = "0.4.3"
 description = "Bit-perfect audiophile music player for macOS"
 authors = ["Reactive Pixels"]
 edition = "2021"
@@ -57,7 +57,7 @@ ed25519-dalek = { version = "2", features = ["rand_core"], optional = true }
 rand = { version = "0.8", optional = true }
 aes-gcm = { version = "0.10", optional = true }
 
-
+# ── Pro-only examples (use ed25519-dalek / rand / license module) ─────────────
 [dev-dependencies]
 tempfile = "3"
 

@@ -1,14 +1,21 @@
 import { useUiStore } from "../store/useUiStore";
-import { Spectrum } from "./Spectrum";
+import { Slot } from "./Slot";
 import { LocalCover } from "./LocalCover";
 import { Marquee } from "./Marquee";
 import { SignalPath } from "./SignalPath";
+import { ParametricEqPanel } from "@pro";
 import { useNowPlaying } from "../hooks/useNowPlaying";
 import { useEq } from "../hooks/useEq";
 import { useTransport } from "../hooks/useTransport";
 import { useSignalPath } from "../hooks/useSignalPath";
+import { usePlayerStore } from "../store/usePlayerStore";
 import type { Track } from "../types";
 
+/**
+ * Generic Now-Playing deck — the same layout/chrome as DeckView, but the spectrum and EQ are
+ * SLOTS resolved to the active preset's variant (Porcelain faders / Studio knobs / …). The
+ * display, signal path and EQ-side (preset + preamp) are shared chrome, token-skinned by palette.
+ */
 function fmt(t: Track | null) {
   if (!t) return { container: "—", rate: "—" };
   const m = t.mime ?? "";
@@ -29,11 +36,12 @@ function fmt(t: Track | null) {
   return { container, rate };
 }
 
-export function DeckView() {
+export function DeckShell() {
   const presetsOpen = useUiStore((s) => s.presetsOpen);
   const setPresetsOpen = useUiStore((s) => s.setPresetsOpen);
   const np = useNowPlaying();
   const eq = useEq();
+  const eqMode = usePlayerStore((s) => s.eqMode);
   const { isPlaying } = useTransport();
   const { info: engineInfo } = useSignalPath();
   const cur = np.track;
@@ -74,9 +82,7 @@ export function DeckView() {
                   textOverflow: "ellipsis",
                 }}
               >
-                {cur
-                  ? `${cur.artist ?? ""}${cur.album ? " · " + cur.album : ""}`
-                  : "Nothing playing"}
+                {cur ? `${cur.artist ?? ""}${cur.album ? " · " + cur.album : ""}` : "Nothing playing"}
               </div>
             </div>
             <div className="vfd" style={{ textAlign: "right", flex: "0 0 auto", paddingLeft: 16 }}>
@@ -100,45 +106,17 @@ export function DeckView() {
 
       <SignalPath />
 
-      <div className="deck-spec">
-        <div className="well">
-          <div className="screen">
-            <Spectrum bands={36} segs={30} />
-          </div>
-        </div>
-      </div>
+      {/* Spectrum slot — each theme's variant owns its well/screen */}
+      <Slot slot="spectrum" />
 
+      {/* EQ — graphic/parametric mode bar (Pro) sits above the graphic faders. ParametricEqPanel
+          renders null in the free build, and eqMode stays "graphic", so the free deck is unchanged;
+          in Pro every theme gets the same graphic↔parametric EQ as Studio (feature parity). */}
+      <ParametricEqPanel />
+      {eqMode === "graphic" && (
       <div className="deck-eq">
-        {(
-          <div className="eqfaders">
-            {eq.bands.map((b, i) => {
-              const t = eq.norm(i);
-              return (
-                <div className="fader" key={b}>
-                  <div
-                    className="rail"
-                    {...eq.railHandlers(i)}
-                    role="slider"
-                    tabIndex={0}
-                    aria-label={`EQ ${b}`}
-                    aria-valuemin={0}
-                    aria-valuemax={100}
-                    aria-valuenow={Math.round(t * 100)}
-                  >
-                    <div
-                      className="cap"
-                      aria-hidden="true"
-                      style={{ bottom: `calc(${t * 100}% - 6.5px)` }}
-                    />
-                  </div>
-                  <div className="fl" aria-hidden="true">
-                    {b}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
+        {/* EQ slot — Porcelain faders / Studio knobs */}
+        <Slot slot="eq" />
         <div className="eq-side" style={{ position: "relative" }}>
           <div
             className="pillbtn"
@@ -179,6 +157,7 @@ export function DeckView() {
           )}
         </div>
       </div>
+      )}
     </div>
   );
 }

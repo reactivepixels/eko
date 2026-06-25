@@ -66,6 +66,13 @@ export const nativeEngine = {
   /** Push the parametric EQ configuration to the engine. */
   setParamEq: (enabled: boolean, preamp: number, bands: ParamBand[]) =>
     invoke("engine_set_param_eq", { enabled, preamp, bands }),
+  /**
+   * Compute the parametric EQ frequency-response curve for the on-screen preview.
+   * Returns dB values over a log-spaced grid (20 Hz–20 kHz), computed from the SAME
+   * biquad coefficients the audio path uses — so the curve can't drift from the sound.
+   */
+  eqCurve: (bands: ParamBand[], preamp: number) =>
+    invoke<number[]>("engine_eq_curve", { bands, preamp }),
   /** Parse an AutoEQ ParametricEQ.txt text. Throws on parse failure. */
   parseAutoEq: (text: string) => invoke<AutoEqResult>("engine_parse_autoeq", { text }),
   /** Read + parse an AutoEQ ParametricEQ.txt file at an absolute path. Throws on I/O or parse failure. */
