@@ -1985,6 +1985,113 @@ body {
 .empty-state .btn {
   margin-top: 8px;
 }
+
+/* ── Offline view: storage settings card ──────────────────────────────────────
+   The OfflineView markup carried class names but had no styling, so the rows
+   rendered as raw run-together text ("Storage used0 B"). Style them as one
+   recessed settings card matching the Smart Playlist builder vocabulary. */
+.offline-settings {
+  background: var(--bg);
+  border-radius: 16px;
+  box-shadow: var(--out), var(--bevel);
+  padding: 6px 18px;
+  margin-bottom: 22px;
+}
+.offline-settings__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  min-height: 44px;
+}
+.offline-settings__label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink);
+}
+.offline-settings__note {
+  color: var(--ink-3);
+  font-weight: 400;
+}
+.offline-settings__val {
+  font-size: 13px;
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.offline-cap-input {
+  width: 76px;
+  height: 30px;
+  border-radius: 8px;
+  border: none;
+  background: var(--bg);
+  box-shadow: var(--in);
+  padding: 0 10px;
+  font: 13px var(--font);
+  color: var(--ink);
+  text-align: right;
+  outline: none;
+}
+.offline-cap-input::placeholder {
+  color: var(--ink-3);
+}
+.offline-usage-bar {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--bg);
+  box-shadow: var(--in);
+  overflow: hidden;
+  margin: 0 0 6px;
+}
+.offline-usage-bar__fill {
+  height: 100%;
+  border-radius: 3px;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  transition: width 0.3s ease;
+}
+
+/* ── Offline view: cached-track rows ── */
+.offline-trow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.offline-trow .tt {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.offline-trow .du {
+  flex: 0 0 auto;
+  font-size: 12px;
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+}
+.offline-remove-btn {
+  flex: 0 0 auto;
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  border: none;
+  background: var(--bg);
+  box-shadow: var(--out), var(--bevel);
+  color: var(--ink-3);
+  cursor: pointer;
+  font-size: 12px;
+  display: grid;
+  place-items: center;
+  transition: color 0.15s ease;
+}
+.offline-remove-btn:hover {
+  color: var(--accent);
+}
+.offline-remove-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
 .controls.dim {
   opacity: 0.4;
   pointer-events: none;
