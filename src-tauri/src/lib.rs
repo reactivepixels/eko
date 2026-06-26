@@ -370,9 +370,19 @@ pub fn run() {
                     }
                 }
 
-                let menu = MenuBuilder::new(h)
-                    .items(&[&app_menu, &skins_menu, &visualizer_menu])
-                    .build()?;
+                // The Pro menus (Skins, Visualizer) are shown only to a LICENSED user. The
+                // product's free tier gets just the app menu — which still carries "Enter
+                // License Key…" / "Get EKO Pro" so a free user can upgrade. Read from the
+                // license on disk at startup; activating a key takes effect on next launch.
+                let licensed = crate::pro::license::compute_status(h).tier
+                    == crate::pro::license::Tier::Pro;
+                let menu = if licensed {
+                    MenuBuilder::new(h)
+                        .items(&[&app_menu, &skins_menu, &visualizer_menu])
+                        .build()?
+                } else {
+                    MenuBuilder::new(h).items(&[&app_menu]).build()?
+                };
                 app.set_menu(menu)?;
 
                 // Menu clicks → tell the frontend; it updates the store (source of truth) + re-syncs checks.
