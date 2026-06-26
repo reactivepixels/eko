@@ -1,4 +1,4 @@
-import { useState, type CSSProperties, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import { useSubsonic } from "../subsonic/useSubsonic";
 import { useUiStore } from "../store/useUiStore";
 import type { SubsonicConfig } from "../subsonic/client";
@@ -23,6 +23,11 @@ export function ConnectPanel({ mode = "initial", onSuccess, onCancel }: ConnectP
   const addAndConnect = useSubsonic((s) => s.addAndConnect);
   const status = useSubsonic((s) => s.status);
   const error = useSubsonic((s) => s.error);
+  // The panel renders outside .app, so carry the active theme context onto the
+  // overlay itself — that's what makes its tokens follow skin + accent + light/dark.
+  const theme = useUiStore((s) => s.theme);
+  const accent = useUiStore((s) => s.accent);
+  const skin = useUiStore((s) => s.skin);
   const [baseUrl, setBaseUrl] = useState("http://192.168.86.50:4533");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -47,57 +52,56 @@ export function ConnectPanel({ mode = "initial", onSuccess, onCancel }: ConnectP
   const title = mode === "add" ? "ADD SERVER" : "CONNECT TO NAVIDROME";
 
   return (
-    <div style={overlay} onClick={dismiss}>
-      <form onSubmit={submit} style={card} onClick={(e) => e.stopPropagation()}>
-        <div style={headRow}>
-          <div style={brand}>EKO</div>
+    <div
+      className="connect-overlay"
+      data-theme={theme}
+      data-accent={accent}
+      data-skin={skin}
+      onClick={dismiss}
+    >
+      <form className="connect-card" onSubmit={submit} onClick={(e) => e.stopPropagation()}>
+        <div className="connect-head">
+          <div className="connect-brand">EKO</div>
           <div
-            style={closeBtn}
+            className="connect-close"
             onClick={dismiss}
             title={mode === "add" ? "Cancel" : "Back to Local"}
           >
             ✕
           </div>
         </div>
-        <div style={sub}>{title}</div>
-        <label style={lbl}>
+        <div className="connect-sub">{title}</div>
+        <label className="connect-field">
           SERVER NAME (optional)
           <input
-            style={input}
             value={serverName}
             onChange={(e) => setServerName(e.target.value)}
             placeholder="My Navidrome"
           />
         </label>
-        <label style={lbl}>
+        <label className="connect-field">
           SERVER URL
           <input
-            style={input}
             value={baseUrl}
             onChange={(e) => setBaseUrl(e.target.value)}
             placeholder="http://host:4533"
             autoFocus
           />
         </label>
-        <label style={lbl}>
+        <label className="connect-field">
           USERNAME
-          <input style={input} value={username} onChange={(e) => setUsername(e.target.value)} />
+          <input value={username} onChange={(e) => setUsername(e.target.value)} />
         </label>
-        <label style={lbl}>
+        <label className="connect-field">
           PASSWORD
-          <input
-            style={input}
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
+          <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
         </label>
-        <button type="submit" style={btn} disabled={status === "connecting"}>
+        <button type="submit" className="connect-btn" disabled={status === "connecting"}>
           {status === "connecting" ? "CONNECTING…" : mode === "add" ? "ADD SERVER" : "CONNECT"}
         </button>
-        {error && <div style={errStyle}>✕ {error}</div>}
+        {error && <div className="connect-err">✕ {error}</div>}
         {mode === "initial" && (
-          <div style={backLink} onClick={dismiss}>
+          <div className="connect-back" onClick={dismiss}>
             ← Use local files instead
           </div>
         )}
@@ -105,87 +109,3 @@ export function ConnectPanel({ mode = "initial", onSuccess, onCancel }: ConnectP
     </div>
   );
 }
-
-const headRow: CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "space-between",
-};
-const closeBtn: CSSProperties = {
-  cursor: "pointer",
-  color: "#9b9a92",
-  fontSize: 13,
-  padding: "2px 6px",
-  borderRadius: 6,
-};
-const backLink: CSSProperties = {
-  marginTop: 4,
-  fontSize: 11,
-  color: "#86867e",
-  cursor: "pointer",
-  textAlign: "center",
-};
-
-const overlay: CSSProperties = {
-  position: "fixed",
-  inset: 0,
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  background: "rgba(20,20,18,.55)",
-  zIndex: 100,
-};
-const card: CSSProperties = {
-  width: 300,
-  background: "#eceae1",
-  borderRadius: 10,
-  padding: "22px 24px",
-  boxShadow: "0 20px 50px rgba(0,0,0,.5)",
-  fontFamily: "'Helvetica Neue',Helvetica,Arial,sans-serif",
-  display: "flex",
-  flexDirection: "column",
-  gap: 12,
-  border: "1px solid #c8c6bd",
-};
-const brand: CSSProperties = { fontSize: 18, fontWeight: 600, letterSpacing: 3, color: "#23231f" };
-const sub: CSSProperties = {
-  fontSize: 9,
-  letterSpacing: 2,
-  color: "#86867e",
-  marginTop: -6,
-  marginBottom: 4,
-};
-const lbl: CSSProperties = {
-  fontSize: 8,
-  letterSpacing: 1.5,
-  color: "#7a7a72",
-  display: "flex",
-  flexDirection: "column",
-  gap: 4,
-};
-const input: CSSProperties = {
-  fontSize: 13,
-  padding: "7px 9px",
-  borderRadius: 4,
-  border: "1px solid #c0beb5",
-  background: "#fbfaf4",
-  color: "#23231f",
-  fontFamily: "inherit",
-};
-const btn: CSSProperties = {
-  marginTop: 6,
-  padding: "9px",
-  borderRadius: 4,
-  border: "none",
-  cursor: "pointer",
-  background: "#ef6a1e",
-  color: "#fff",
-  fontWeight: 600,
-  letterSpacing: 1.5,
-  fontSize: 11,
-};
-const errStyle: CSSProperties = {
-  fontSize: 11,
-  color: "#b3402f",
-  fontFamily: "ui-monospace,monospace",
-};

@@ -4,7 +4,25 @@ import { nativeEngine } from "../audio/nativeEngine";
 import type { ReplayGainMode } from "../types";
 
 const khz = (n: number) => (n ? `${(n / 1000).toFixed(n % 1000 ? 1 : 0)} kHz` : "—");
-const XF_OPTIONS = [0, 2000, 4000, 6000, 8000, 12000];
+
+/** The signal-path modifiers that, if any are engaged, forgo the bit-perfect
+ *  (untouched-samples) path. */
+export interface SignalFlags {
+  eqActive: boolean;
+  attenuated: boolean;
+  rgActive: boolean;
+  /** Engine resampled the source to the output rate. */
+  resampled: boolean;
+  /** The OS device runs at a different rate than the engine stream. */
+  osResampled: boolean;
+}
+
+/** Single definition of the bit-perfect contract: playback is bit-perfect only when
+ *  NONE of the modifiers are engaged. Pure + exported so the seal logic is unit-tested
+ *  and can't silently drift. */
+export function isBitPerfect(f: SignalFlags): boolean {
+  return !f.eqActive && !f.attenuated && !f.rgActive && !f.resampled && !f.osResampled;
+}
 
 /**
  * The single source of bit-perfect truth (docs/skin-architecture.md §5 point 1) — formerly
@@ -28,7 +46,6 @@ export function useSignalPath() {
   const outputDevice = usePlayerStore((s) => s.outputDevice);
   const replayGainMode = usePlayerStore((s) => s.replayGainMode);
   const rgAppliedDb = usePlayerStore((s) => s.rgAppliedDb);
-  const crossfadeMs = usePlayerStore((s) => s.crossfadeMs);
 
   const [devices, setDevices] = useState<string[]>([]);
 
@@ -55,7 +72,7 @@ export function useSignalPath() {
   const osResampled = !!info && info.devRate > 0 && info.devRate !== info.rate;
   const attenuated = volume < 1;
   const rgActive = rgAppliedDb != null;
-  const pure = !eqActive && !attenuated && !rgActive && !resampled && !osResampled;
+  const pure = isBitPerfect({ eqActive, attenuated, rgActive, resampled, osResampled });
 
   const codec = (info?.codec || "audio").toUpperCase();
   const src = info
@@ -86,7 +103,6 @@ export function useSignalPath() {
     replayGainMode === "off"
       ? "Off"
       : `${replayGainMode === "album" ? "Album" : "Track"}${rgActive ? ` · ${rgAppliedDb!.toFixed(1)} dB` : ""}`;
-  const xfLabel = crossfadeMs === 0 ? "Off" : `${crossfadeMs / 1000}s`;
 
   return {
     active,
@@ -108,11 +124,6 @@ export function useSignalPath() {
     rgAppliedDb,
     rgLabel,
     setReplayGainMode: (m: ReplayGainMode) => usePlayerStore.getState().setReplayGainMode(m),
-    // crossfade
-    crossfadeMs,
-    xfLabel,
-    xfOptions: XF_OPTIONS,
-    setCrossfade: (ms: number) => usePlayerStore.getState().setCrossfade(ms),
     // output device picker
     outputDevice,
     setOutputDevice: (name: string | null) => usePlayerStore.getState().setOutputDevice(name),

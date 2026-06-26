@@ -380,6 +380,20 @@ body {
   font-weight: 600;
   line-height: 1;
 }
+/* Pro badge — sits beside the wordmark when the license tier is pro/trial.
+   Accent-coloured text on a faint accent tint + ring: legible on every accent and
+   in both themes (doesn't rely on the per-accent ink, which can wash out on the
+   bright accents). */
+.pro-badge {
+  margin-left: -1px;
+  padding: 2.5px 6px;
+  border-radius: 5px;
+  font: 700 8.5px/1 var(--mono);
+  letter-spacing: 2px;
+  color: var(--accent);
+  background: rgba(var(--accent-rgb), 0.16);
+  box-shadow: inset 0 0 0 1px rgba(var(--accent-rgb), 0.55);
+}
 .brand span {
   font-size: 9px;
   letter-spacing: 2px;
@@ -663,38 +677,7 @@ body {
   text-decoration: underline;
 }
 
-/* ---- EKO Pro panel ---- */
-.pro-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin-top: 8px;
-}
-
-/* Status badge */
-.pro-status {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.8px;
-  color: var(--ink-2);
-}
-.pro-status__icon {
-  width: 13px;
-  height: 13px;
-  flex: 0 0 auto;
-}
-.pro-status--licensed {
-  color: var(--accent);
-}
-.pro-status--trial {
-  color: var(--a);
-}
-.pro-status--free {
-  color: var(--ink-3);
-}
+/* ---- Pro-ish UI bits shared by OfflinePanel / Sidebar (scrobble) / UpdatePanel ---- */
 
 /* Gated feature row */
 .pro-feature-row {
@@ -704,9 +687,6 @@ body {
   padding: 7px 0;
   border-top: 1px solid var(--line);
 }
-.pro-feature-row--locked {
-  opacity: 0.65;
-}
 .pro-feature-row__label {
   display: flex;
   align-items: center;
@@ -714,22 +694,6 @@ body {
   font-size: 11.5px;
   font-weight: 600;
   color: var(--ink);
-}
-.pro-lock-badge {
-  display: flex;
-  align-items: center;
-  gap: 3px;
-  font: 700 8px/1 var(--mono);
-  letter-spacing: 0.5px;
-  padding: 3px 6px;
-  border-radius: 5px;
-  background: var(--bg);
-  box-shadow: var(--in);
-  color: var(--ink-3);
-}
-.pro-lock-badge svg {
-  width: 9px;
-  height: 9px;
 }
 
 /* Toggle switch */
@@ -749,9 +713,6 @@ body {
   background: var(--accent);
   box-shadow: 0 0 0 0 transparent;
 }
-.pro-toggle--disabled {
-  cursor: not-allowed;
-}
 .pro-toggle__thumb {
   position: absolute;
   top: 3px;
@@ -767,55 +728,14 @@ body {
   transform: translateX(14px);
 }
 
-/* License key input row */
-.pro-activate {
-  display: flex;
-  gap: 6px;
-  align-items: center;
-}
-.pro-key-input {
-  flex: 1;
-  min-width: 0;
-  height: 30px;
-  border-radius: 8px;
-  border: none;
-  background: var(--bg);
-  box-shadow: var(--in);
-  padding: 0 10px;
-  font: 11px var(--mono);
-  color: var(--ink);
-  outline: none;
-}
-.pro-key-input::placeholder {
-  color: var(--ink-3);
-}
-.pro-key-input:disabled {
-  opacity: 0.5;
-}
-.pro-activate-btn {
-  flex: 0 0 auto;
-  height: 30px;
-  padding: 0 12px;
-  font-size: 10.5px;
-}
-.pro-activate-btn:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-  pointer-events: none;
-}
-
-/* Error text */
+/* Error text (UpdatePanel) */
 .pro-error {
   font-size: 10.5px;
   color: var(--r);
   line-height: 1.4;
 }
 
-/* Deactivate / actions row */
-.dac-card__actions {
-  display: flex;
-  gap: 16px;
-}
+/* Action link (UpdatePanel) */
 .pro-action-link {
   font-size: 11px;
   color: var(--ink-3);
@@ -825,21 +745,6 @@ body {
 .pro-action-link:hover {
   color: var(--r);
   text-decoration: underline;
-}
-
-/* CTA button */
-.pro-cta {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  justify-content: center;
-  text-decoration: none;
-  color: var(--accent);
-  font-size: 11px;
-}
-.pro-cta svg {
-  width: 12px;
-  height: 12px;
 }
 
 /* ---- UpdatePanel ---- */
@@ -1264,6 +1169,12 @@ body {
   flex-direction: column;
   min-height: 0;
   overflow-y: auto;
+  /* overflow-y:auto makes overflow-x compute to `auto` too, so the deck clips
+     horizontally — cutting the neumorphic shadows of edge elements (the cover on
+     the left, the FLAT/PREAMP pills on the right). Bleed out with a negative
+     margin + matching padding (the same trick .grid uses) to give shadows room. */
+  padding: 6px 16px;
+  margin: 0 -16px;
 }
 .well {
   background: var(--bg);
@@ -3161,7 +3072,6 @@ body {
 }
 
 /* Inputs — inset ring so the recessed well shape is preserved */
-.pro-key-input:focus-visible,
 .sp-name-input:focus-visible,
 .sp-select:focus-visible,
 .sp-input:focus-visible,
@@ -3221,4 +3131,284 @@ body {
   .sp-item__spinner {
     animation: none;
   }
+}
+
+/* ── Server connection panel (Navidrome / OpenSubsonic) ──────────────────────
+   Token-driven so it follows the active skin, accent and light/dark theme. The
+   overlay carries its own data-skin/theme/accent (it renders outside .app), so
+   the token overrides resolve here too. */
+.connect-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.42);
+  -webkit-backdrop-filter: blur(3px);
+  backdrop-filter: blur(3px);
+}
+.connect-card {
+  width: 320px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 22px 24px;
+  border-radius: 14px;
+  background: var(--bg2);
+  border: 1px solid var(--line);
+  box-shadow: var(--lift);
+  font-family: var(--font);
+  color: var(--ink);
+}
+.connect-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.connect-brand {
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: 3px;
+  color: var(--ink);
+}
+.connect-close {
+  cursor: pointer;
+  color: var(--ink-3);
+  font-size: 13px;
+  padding: 2px 6px;
+  border-radius: 6px;
+  transition:
+    color 0.15s var(--ec),
+    background 0.15s var(--ec);
+}
+.connect-close:hover {
+  color: var(--ink);
+  background: var(--hover);
+}
+.connect-sub {
+  font-size: 9px;
+  letter-spacing: 2px;
+  color: var(--ink-3);
+  margin-top: -6px;
+}
+.connect-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 8px;
+  letter-spacing: 1.5px;
+  color: var(--ink-2);
+}
+.connect-field input {
+  font: 13px var(--font);
+  letter-spacing: 0;
+  padding: 8px 10px;
+  border-radius: 7px;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  color: var(--ink);
+  box-shadow: var(--in);
+  transition:
+    box-shadow 0.15s var(--ec),
+    border-color 0.15s var(--ec);
+}
+.connect-field input::placeholder {
+  color: var(--ink-3);
+}
+.connect-field input:focus {
+  outline: none;
+  border-color: rgba(var(--accent-rgb), 0.6);
+  box-shadow:
+    var(--in),
+    0 0 0 2px rgba(var(--accent-rgb), 0.22);
+}
+.connect-btn {
+  margin-top: 6px;
+  padding: 10px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  background: linear-gradient(180deg, var(--accent-2), var(--accent));
+  color: var(--accent-ink);
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  font-size: 11px;
+  box-shadow: var(--out-sm);
+  transition: filter 0.15s var(--ec);
+}
+.connect-btn:hover:not(:disabled) {
+  filter: brightness(1.05);
+}
+.connect-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+.connect-err {
+  font: 11px var(--mono);
+  color: var(--r);
+}
+.connect-back {
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--ink-2);
+  cursor: pointer;
+  text-align: center;
+}
+.connect-back:hover {
+  color: var(--ink);
+}
+
+/* ── EKO Pro license modal (opened from EKO ▸ Enter License Key…) ─────────────
+   Token-driven; carries its own data-skin/theme/accent (renders outside .app). */
+.lic-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.42);
+  -webkit-backdrop-filter: blur(3px);
+  backdrop-filter: blur(3px);
+}
+.lic-card {
+  width: 360px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 24px 26px;
+  border-radius: 16px;
+  background: var(--bg2);
+  border: 1px solid var(--line);
+  box-shadow: var(--lift);
+  font-family: var(--font);
+  color: var(--ink);
+}
+.lic-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.lic-brand {
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: 3px;
+  color: var(--ink);
+}
+.lic-brand span {
+  font: 700 9px/1 var(--mono);
+  letter-spacing: 2px;
+  color: var(--accent);
+  padding: 3px 6px;
+  margin-left: 4px;
+  border-radius: 5px;
+  background: rgba(var(--accent-rgb), 0.16);
+  box-shadow: inset 0 0 0 1px rgba(var(--accent-rgb), 0.5);
+  vertical-align: 2px;
+}
+.lic-close {
+  cursor: pointer;
+  color: var(--ink-3);
+  font-size: 13px;
+  padding: 2px 6px;
+  border-radius: 6px;
+  transition:
+    color 0.15s var(--ec),
+    background 0.15s var(--ec);
+}
+.lic-close:hover {
+  color: var(--ink);
+  background: var(--hover);
+}
+.lic-note {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--ink-2);
+}
+.lic-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font: 700 12px/1 var(--mono);
+  letter-spacing: 1px;
+  color: var(--accent);
+}
+.lic-status svg {
+  width: 16px;
+  height: 16px;
+}
+.lic-input {
+  font: 13px var(--font);
+  padding: 9px 11px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  color: var(--ink);
+  box-shadow: var(--in);
+  transition:
+    box-shadow 0.15s var(--ec),
+    border-color 0.15s var(--ec);
+}
+.lic-input::placeholder {
+  color: var(--ink-3);
+}
+.lic-input:focus {
+  outline: none;
+  border-color: rgba(var(--accent-rgb), 0.6);
+  box-shadow:
+    var(--in),
+    0 0 0 2px rgba(var(--accent-rgb), 0.22);
+}
+.lic-error {
+  font: 11px var(--mono);
+  color: var(--r);
+}
+.lic-actions {
+  display: flex;
+  gap: 10px;
+}
+.lic-btn {
+  flex: 1;
+  padding: 10px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 700;
+  letter-spacing: 1px;
+  font-size: 11px;
+  background: linear-gradient(180deg, var(--accent-2), var(--accent));
+  color: var(--accent-ink);
+  box-shadow: var(--out-sm);
+  transition: filter 0.15s var(--ec);
+}
+.lic-btn:hover:not(:disabled) {
+  filter: brightness(1.05);
+}
+.lic-btn:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+.lic-btn--ghost {
+  background: var(--bg);
+  color: var(--ink-2);
+  box-shadow: var(--out-xs);
+}
+.lic-btn--ghost:hover:not(:disabled) {
+  color: var(--ink);
+  filter: none;
+}
+.lic-link {
+  align-self: flex-start;
+  padding: 0;
+  border: none;
+  background: none;
+  font-size: 11px;
+  color: var(--ink-3);
+  cursor: pointer;
+  text-decoration: underline;
+}
+.lic-link:hover {
+  color: var(--ink-2);
 }

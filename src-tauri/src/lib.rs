@@ -20,9 +20,10 @@ use tauri::Manager;
 #[cfg(feature = "pro")]
 use tauri::Emitter;
 
-// Pro builds also need CheckMenuItem for the Skins menu.
+// Pro builds also need CheckMenuItem for the Skins menu and MenuItem for the
+// licensing entries in the app menu.
 #[cfg(feature = "pro")]
-use tauri::menu::CheckMenuItem;
+use tauri::menu::{CheckMenuItem, MenuItem};
 
 /// The configured Navidrome origin the `stream://` proxy is allowed to fetch (SSRF guard).
 #[derive(Default)]
@@ -203,18 +204,42 @@ pub fn run() {
                 ..Default::default()
             };
 
-            // Standard macOS app submenu (About / Hide / Quit).
-            let app_menu = SubmenuBuilder::new(h, "EKO")
-                .item(&PredefinedMenuItem::about(
+            // Standard macOS app submenu (About / Hide / Quit). In Pro builds it also
+            // carries the licensing entries — "Enter License Key…" (opens the activation
+            // dialog) and "Get EKO Pro" (opens the purchase page). Both just emit a
+            // menu-action event; the frontend owns the dialog + URL.
+            let app_menu = {
+                #[allow(unused_mut)]
+                let mut b = SubmenuBuilder::new(h, "EKO").item(&PredefinedMenuItem::about(
                     h,
                     Some("About EKO"),
                     Some(about),
-                )?)
-                .separator()
-                .item(&PredefinedMenuItem::hide(h, None)?)
-                .separator()
-                .item(&PredefinedMenuItem::quit(h, None)?)
-                .build()?;
+                )?);
+                #[cfg(feature = "pro")]
+                {
+                    b = b
+                        .separator()
+                        .item(&MenuItem::with_id(
+                            h,
+                            "license:enter",
+                            "Enter License Key…",
+                            true,
+                            None::<&str>,
+                        )?)
+                        .item(&MenuItem::with_id(
+                            h,
+                            "license:get",
+                            "Get EKO Pro",
+                            true,
+                            None::<&str>,
+                        )?);
+                }
+                b.separator()
+                    .item(&PredefinedMenuItem::hide(h, None)?)
+                    .separator()
+                    .item(&PredefinedMenuItem::quit(h, None)?)
+                    .build()?
+            };
 
             // ── Pro: Skins menu (skin + accent + dark-mode) ───────────────────────────
             // Only built and registered in Pro builds. The free build gets only the app
@@ -357,6 +382,7 @@ pub fn run() {
                         || id.starts_with("accent:")
                         || id.starts_with("theme:")
                         || id.starts_with("visualizer:")
+                        || id.starts_with("license:")
                     {
                         let _ = app.emit("menu-action", id);
                     }
@@ -402,7 +428,6 @@ pub fn run() {
             engine::engine_set_volume,
             engine::engine_set_replaygain,
             engine::engine_enqueue,
-            engine::engine_set_crossfade,
             engine::engine_set_now_playing,
             engine::engine_now_playing,
             engine::engine_list_devices,

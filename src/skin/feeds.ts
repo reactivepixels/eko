@@ -12,7 +12,7 @@
  * catalog as *data* lets the registry, manifest and (later) the builder reason about feeds
  * without importing any component.
  *
- * HONESTY RULE: `derived` feeds (`bitPerfect`, `gapless`) are read-only status, never fake
+ * HONESTY RULE: `derived` feeds (e.g. `bitPerfect`) are read-only status, never fake
  * toggles. A control may only WRITE a feed whose kind allows it.
  */
 
@@ -201,16 +201,8 @@ export const FEEDS = [
     id: "bitPerfect",
     label: "Bit-perfect (locked)",
     kind: "derived",
-    value: "boolean — EQ flat ∧ volume==1 ∧ devRate==srcRate ∧ no ReplayGain ∧ crossfade==0",
-    binding: "derived from engineInfo + eqEnabled/gains + volume + rgAppliedDb + crossfadeMs",
-    category: "signal",
-  },
-  {
-    id: "gapless",
-    label: "Gapless",
-    kind: "derived",
-    value: "boolean — crossfadeMs === 0 (off keeps the bit-perfect bypass)",
-    binding: "derived from playerStore.crossfadeMs",
+    value: "boolean — EQ flat ∧ volume==1 ∧ devRate==srcRate ∧ no ReplayGain",
+    binding: "derived from engineInfo + eqEnabled/gains + volume + rgAppliedDb",
     category: "signal",
   },
   {
@@ -219,14 +211,6 @@ export const FEEDS = [
     kind: "readwrite",
     value: '"off" | "track" | "album"  (+ applied dB read via rgAppliedDb)',
     binding: "playerStore.replayGainMode / setReplayGainMode(); rgAppliedDb (read)",
-    category: "signal",
-  },
-  {
-    id: "crossfade",
-    label: "Crossfade",
-    kind: "readwrite",
-    value: "number (ms, 0..12000; 0 = off)",
-    binding: "playerStore.crossfadeMs / setCrossfade()",
     category: "signal",
   },
 

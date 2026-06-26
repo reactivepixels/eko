@@ -92,8 +92,6 @@ export const nativeEngine = {
   // Play a cached offline track (bit-perfect: EncryptedFileSource → symphonia, same path as local).
   playCached: (trackId: string, plainLen: number) =>
     invoke<EngineStatus>("engine_play_cached", { trackId, plainLen }),
-  // Crossfade duration (ms; 0 = off). Re-pushed per track. Off keeps the bit-perfect path.
-  setCrossfade: (ms: number) => invoke("engine_set_crossfade", { ms }),
   setNowPlaying: (np: NowPlaying) => invoke("engine_set_now_playing", { np }),
   nowPlaying: () => invoke<NowPlaying>("engine_now_playing"),
   listDevices: () => invoke<string[]>("engine_list_devices"),

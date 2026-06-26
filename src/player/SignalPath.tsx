@@ -13,7 +13,6 @@ export function SignalPath() {
   const sp = useSignalPath();
   const [open, setOpen] = useState(false);
   const [rgOpen, setRgOpen] = useState(false);
-  const [xfOpen, setXfOpen] = useState(false);
 
   if (!sp.active || !sp.info) return null;
   const info = sp.info;
@@ -29,10 +28,6 @@ export function SignalPath() {
   const pickRg = (mode: "off" | "track" | "album") => {
     sp.setReplayGainMode(mode);
     setRgOpen(false);
-  };
-  const pickXf = (ms: number) => {
-    sp.setCrossfade(ms);
-    setXfOpen(false);
   };
 
   return (
@@ -144,47 +139,6 @@ export function SignalPath() {
               >
                 Album
               </div>
-            </div>
-          </>
-        )}
-      </div>
-      <div
-        className="sp-node sp-rg"
-        onClick={() => setXfOpen((v) => !v)}
-        title="Crossfade between tracks — off keeps the bit-perfect path; only the overlap is mixed"
-        role="button"
-        tabIndex={0}
-        aria-label={`Crossfade: ${sp.xfLabel}`}
-        aria-expanded={xfOpen}
-        aria-haspopup="listbox"
-        onKeyDown={(e) => (e.key === "Enter" || e.key === " " ? setXfOpen((v) => !v) : undefined)}
-      >
-        <span className="sp-k">
-          XFADE{" "}
-          <span className="sp-caret" aria-hidden="true">
-            ▾
-          </span>
-        </span>
-        <span className="sp-v">{sp.xfLabel}</span>
-        {xfOpen && (
-          <>
-            <div
-              className="backdrop"
-              onClick={(e) => {
-                e.stopPropagation();
-                setXfOpen(false);
-              }}
-            />
-            <div className="menu sp-menu" onClick={(e) => e.stopPropagation()}>
-              {sp.xfOptions.map((ms) => (
-                <div
-                  key={ms}
-                  className={`mi${sp.crossfadeMs === ms ? " on" : ""}`}
-                  onClick={() => pickXf(ms)}
-                >
-                  {ms === 0 ? "Off" : `${ms / 1000}s`}
-                </div>
-              ))}
             </div>
           </>
         )}

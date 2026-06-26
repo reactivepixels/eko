@@ -1,5 +1,8 @@
 import { useUiStore } from "../store/useUiStore";
 import { ThemeSwitcher } from "./ThemeSwitcher";
+// @pro → src/pro-stub in the free build (tier always "free" → no badge); the real
+// license store in the Pro build drives the PRO badge.
+import { useLicenseStore } from "@pro";
 
 export function TopBar() {
   const source = useUiStore((s) => s.source);
@@ -7,6 +10,7 @@ export function TopBar() {
   const query = useUiStore((s) => s.query);
   const setQuery = useUiStore((s) => s.setQuery);
   const toggleCompact = useUiStore((s) => s.toggleCompact);
+  const proTier = useLicenseStore((s) => s.tier);
 
   return (
     <header className="topbar" data-tauri-drag-region>
@@ -19,6 +23,11 @@ export function TopBar() {
             <i />
           </span>
           <b>EKO</b>
+          {proTier === "pro" && (
+            <span className="pro-badge" title="EKO Pro">
+              PRO
+            </span>
+          )}
         </div>
       </div>
       <div className="mainzone" data-tauri-drag-region>

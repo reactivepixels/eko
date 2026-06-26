@@ -189,8 +189,8 @@ function startNativePoll() {
     } else {
       // Arm the next sequential track EARLY — as soon as this track is playing — not near
       // its end. The native decoder races ahead of playback and reaches end-of-decode within
-      // a second or two of a local track; the gapless/crossfade continuation only fires if
-      // the next source is already queued at that moment. (Server streams decode at ~1× as
+      // a second or two of a local track; the gapless continuation only fires if the next
+      // source is already queued at that moment. (Server streams decode at ~1× as
       // they download, so this is also harmless there.) Once consumed the engine clears it;
       // we re-arm when the displayed track advances (enqueuedFor !== currentIndex).
       const sequential = !cur.shuffle && cur.repeat !== "one";
@@ -290,7 +290,6 @@ interface PlayerState {
   shuffle: boolean;
   replayGainMode: ReplayGainMode; // volume normalisation (off by default)
   rgAppliedDb: number | null; // dB currently applied to the engine (null = none); for the seal
-  crossfadeMs: number; // crossfade between tracks in ms (0 = off; off keeps bit-perfect)
 
   // Resume
   pendingResumeSec: number | null; // restored position to seek to on the next play
@@ -340,7 +339,6 @@ interface PlayerState {
   cycleRepeat: () => void;
   toggleShuffle: () => void;
   setReplayGainMode: (mode: ReplayGainMode) => void;
-  setCrossfade: (ms: number) => void;
   setScrobbleEnabled: (on: boolean) => void;
   startSleepTimer: (preset: SleepPreset) => void;
   cancelSleepTimer: () => void;
@@ -365,12 +363,6 @@ function syncParamEq() {
 function syncEqMode() {
   const s = usePlayerStore.getState();
   void nativeEngine.setEqMode(s.eqMode);
-}
-
-/** Push the crossfade duration into the engine. A fresh session resets it to 0, so this is
- *  re-pushed on each track start (like the EQ). 0 keeps the bit-perfect path. */
-function syncCrossfade() {
-  void nativeEngine.setCrossfade(usePlayerStore.getState().crossfadeMs);
 }
 
 /** Compute the ReplayGain adjustment (dB) for a track under the current mode, peak-limited
@@ -482,7 +474,6 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   shuffle: false,
   replayGainMode: "off",
   rgAppliedDb: null,
-  crossfadeMs: 0,
   pendingResumeSec: null,
   scrobbleEnabled: true,
   sleepTimer: null,
@@ -608,7 +599,6 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     syncEqMode();
     syncParamEq();
     syncVol();
-    syncCrossfade();
     applyReplayGain();
     pushNowPlaying();
     pushPlayback();
@@ -842,14 +832,6 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   setReplayGainMode: (mode) => {
     set({ replayGainMode: mode });
     applyReplayGain();
-  },
-
-  // Crossfade between tracks (ms; 0 = off). Off keeps the bit-perfect bypass; any non-zero
-  // value only mixes the short overlap at track transitions (steady-state stays untouched).
-  setCrossfade: (ms) => {
-    const clamped = Math.max(0, Math.min(12000, Math.round(ms)));
-    set({ crossfadeMs: clamped });
-    syncCrossfade();
   },
 
   setScrobbleEnabled: (on) => {

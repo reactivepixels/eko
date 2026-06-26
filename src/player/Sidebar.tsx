@@ -1,7 +1,7 @@
 import { type ReactNode } from "react";
 import { useUiStore, type LibSection } from "../store/useUiStore";
 import { useMusicSource } from "../hooks/useMusicSource";
-import { useIsPro, ProPanel, OfflinePanel } from "@pro";
+import { useIsPro, OfflinePanel } from "@pro";
 import { UpdatePanel } from "./UpdatePanel";
 import { UPDATER_ENABLED } from "../store/useUpdaterStore";
 import { usePlayerStore } from "../store/usePlayerStore";
@@ -269,7 +269,6 @@ export function Sidebar() {
         </div>
       )}
       <OfflinePanel />
-      <ProPanel />
       {UPDATER_ENABLED && <UpdatePanel />}
     </aside>
   );

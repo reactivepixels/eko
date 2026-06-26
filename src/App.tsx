@@ -9,7 +9,7 @@ import { useSubsonic } from "./subsonic/useSubsonic";
 import { useLocal } from "./local/useLocal";
 import { useUiStore } from "./store/useUiStore";
 import { usePlayerStore, pauseMainPoll, resumeMainPoll } from "./store/usePlayerStore";
-import { useLicenseStore, useOfflineStore } from "@pro";
+import { useLicenseStore, useOfflineStore, LicenseModal } from "@pro";
 import { useUpdaterStore } from "./store/useUpdaterStore";
 import { restoreState, startAutosave } from "./store/persist";
 import { AUDIO_EXTENSIONS } from "./audio/loader";
@@ -27,7 +27,7 @@ function App() {
       stopAutosave = startAutosave();
     });
 
-    // Load license status on boot (also starts the 14-day trial on first launch).
+    // Load license status on boot (Pro if a valid key is present, else Free).
     void useLicenseStore.getState().loadStatus();
 
     // Silent background update check — fails gracefully if offline or no latest.json yet.
@@ -184,6 +184,7 @@ function App() {
       <PlayerApp />
       {source === "server" && !connected && <ConnectPanel />}
       <ManageServersPanel />
+      <LicenseModal />
     </>
   );
 }

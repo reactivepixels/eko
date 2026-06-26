@@ -15,35 +15,39 @@ import { create } from "zustand";
 
 // ── License store stubs ───────────────────────────────────────────────────────
 
-export type LicenseTier = "pro" | "trial" | "free";
-export type LicenseSource = "licensed" | "trial" | "none";
+export type LicenseTier = "pro" | "free";
+export type LicenseSource = "licensed" | "none";
 export interface LicenseStatus {
   tier: LicenseTier;
   source: LicenseSource;
-  trialDaysLeft: number | null;
   email: string | null;
 }
 
 interface LicenseState extends LicenseStatus {
   loaded: boolean;
   error: string | null;
+  activateOpen: boolean;
   loadStatus: () => Promise<void>;
-  activate: (key: string) => Promise<void>;
+  activate: (key: string) => Promise<boolean>;
   deactivate: () => Promise<void>;
   clearError: () => void;
+  openActivate: () => void;
+  closeActivate: () => void;
 }
 
 export const useLicenseStore = create<LicenseState>(() => ({
   tier: "free" as LicenseTier,
   source: "none" as LicenseSource,
-  trialDaysLeft: null,
   email: null,
   loaded: true,
   error: null,
+  activateOpen: false,
   loadStatus: async () => {},
-  activate: async (_key: string) => {},
+  activate: async (_key: string) => false,
   deactivate: async () => {},
   clearError: () => {},
+  openActivate: () => {},
+  closeActivate: () => {},
 }));
 
 /** Free build: always false. */
@@ -189,7 +193,7 @@ export async function buildArtistMix(
 
 // ── Component stubs (all render null in the free build) ───────────────────────
 
-export function ProPanel(): null {
+export function LicenseModal(): null {
   return null;
 }
 export function OfflinePanel(): null {

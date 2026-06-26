@@ -65,7 +65,6 @@ export type Role =
   | "repeat"
   | "shuffle"
   | "replayGain"
-  | "crossfade"
   | "deviceSelector"
   // ── appearance pickers (palette + chassis are orthogonal to layout) ──
   | "accentPicker"
@@ -107,7 +106,6 @@ export const ROLE_FEEDS: Record<Role, readonly FeedId[]> = {
   repeat: ["repeat"],
   shuffle: ["shuffle"],
   replayGain: ["replayGain"],
-  crossfade: ["crossfade", "gapless"],
   deviceSelector: ["outputDevice", "engineInfo"],
 
   accentPicker: ["accent"],

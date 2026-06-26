@@ -20,7 +20,6 @@ interface Persisted {
   repeat: "off" | "all" | "one";
   shuffle: boolean;
   replayGainMode: ReplayGainMode;
-  crossfadeMs: number;
   timeDisplay: "elapsed" | "remaining";
   zoom: number;
   eqVisible: boolean;
@@ -57,7 +56,6 @@ export function saveState() {
     repeat: ps.repeat,
     shuffle: ps.shuffle,
     replayGainMode: ps.replayGainMode,
-    crossfadeMs: ps.crossfadeMs,
     timeDisplay: ps.timeDisplay,
     zoom: ui.zoom,
     eqVisible: ui.eqVisible,
@@ -113,7 +111,6 @@ export async function restoreState() {
   useUiStore.getState().setZoom(data.zoom ?? 2);
 
   usePlayerStore.setState({ replayGainMode: data.replayGainMode ?? "off" });
-  usePlayerStore.setState({ crossfadeMs: Math.max(0, Math.min(12000, data.crossfadeMs ?? 0)) });
   if (data.scrobbleEnabled !== undefined) {
     usePlayerStore.setState({ scrobbleEnabled: data.scrobbleEnabled });
   }
