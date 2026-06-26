@@ -1,5 +1,6 @@
 import { useUiStore } from "../store/useUiStore";
 import { useNativeMenu, VisualizerOverlay } from "@pro";
+import { useSleepTimerMenu } from "../hooks/useSleepTimerMenu";
 import { ThemeHost } from "./ThemeHost";
 import "./neu.css";
 
@@ -16,6 +17,7 @@ export function PlayerApp() {
   const accent = useUiStore((s) => s.accent);
   const skin = useUiStore((s) => s.skin);
   useNativeMenu(); // Pro: bridges the native "Skins" menu ↔ the UI store; no-op in free.
+  useSleepTimerMenu(); // Free: bridges the native "Controls ▸ Sleep Timer" menu ↔ the player store.
 
   return (
     <div className="app" data-theme={theme} data-accent={accent} data-skin={skin}>

@@ -14,16 +14,17 @@ mod stream;
 pub mod pro;
 
 use std::sync::Mutex;
-use tauri::menu::{AboutMetadata, MenuBuilder, PredefinedMenuItem, SubmenuBuilder};
+use tauri::menu::{
+    AboutMetadata, MenuBuilder, MenuItem, PredefinedMenuItem, Submenu, SubmenuBuilder,
+};
 use tauri::Manager;
-// Emitter is only needed in Pro builds (app.emit for menu-action events).
-#[cfg(feature = "pro")]
+// Emitter (app.emit for menu-action events) is needed in BOTH builds: the free build
+// still emits `sleep:*` events from the native "Controls ▸ Sleep Timer" menu.
 use tauri::Emitter;
 
-// Pro builds also need CheckMenuItem for the Skins menu and MenuItem for the
-// licensing entries in the app menu.
+// Only the Pro Skins/Visualizer menus use CheckMenuItem (radio checkmarks).
 #[cfg(feature = "pro")]
-use tauri::menu::{CheckMenuItem, MenuItem};
+use tauri::menu::CheckMenuItem;
 
 /// The configured Navidrome origin the `stream://` proxy is allowed to fetch (SSRF guard).
 #[derive(Default)]
@@ -79,6 +80,59 @@ fn sync_visualizer(open: bool, preset: String, items: tauri::State<MenuItems>) {
         };
         let _ = item.set_checked(checked);
     }
+}
+
+/// Build the "Controls" menu (Sleep Timer submenu). FREE feature — present in every build
+/// and skin. The items just emit `menu-action` events (`sleep:off|15|30|45|60|eot`); the
+/// frontend owns the timer state and shows the live countdown pill in the transport.
+fn build_controls_menu(app: &tauri::AppHandle) -> tauri::Result<Submenu<tauri::Wry>> {
+    let sleep = SubmenuBuilder::new(app, "Sleep Timer")
+        .item(&MenuItem::with_id(
+            app,
+            "sleep:off",
+            "Off",
+            true,
+            None::<&str>,
+        )?)
+        .separator()
+        .item(&MenuItem::with_id(
+            app,
+            "sleep:15",
+            "15 Minutes",
+            true,
+            None::<&str>,
+        )?)
+        .item(&MenuItem::with_id(
+            app,
+            "sleep:30",
+            "30 Minutes",
+            true,
+            None::<&str>,
+        )?)
+        .item(&MenuItem::with_id(
+            app,
+            "sleep:45",
+            "45 Minutes",
+            true,
+            None::<&str>,
+        )?)
+        .item(&MenuItem::with_id(
+            app,
+            "sleep:60",
+            "60 Minutes",
+            true,
+            None::<&str>,
+        )?)
+        .separator()
+        .item(&MenuItem::with_id(
+            app,
+            "sleep:eot",
+            "End of Track",
+            true,
+            None::<&str>,
+        )?)
+        .build()?;
+    SubmenuBuilder::new(app, "Controls").item(&sleep).build()
 }
 
 /// Build the native menu for the current license tier and apply it. The Pro menus (Skins,
@@ -140,11 +194,18 @@ fn apply_pro_menu(app: &tauri::AppHandle) -> tauri::Result<()> {
         .item(&PredefinedMenuItem::quit(app, None)?)
         .build()?;
 
+    // Controls (Sleep Timer) — FREE, present regardless of tier.
+    let controls_menu = build_controls_menu(app)?;
+
     // Reset the checkmark-sync map; repopulate only when the Pro menus are present.
     app.state::<MenuItems>().0.lock().unwrap().clear();
 
     if !licensed {
-        app.set_menu(MenuBuilder::new(app).items(&[&app_menu]).build()?)?;
+        app.set_menu(
+            MenuBuilder::new(app)
+                .items(&[&app_menu, &controls_menu])
+                .build()?,
+        )?;
         return Ok(());
     }
 
@@ -237,7 +298,7 @@ fn apply_pro_menu(app: &tauri::AppHandle) -> tauri::Result<()> {
 
     app.set_menu(
         MenuBuilder::new(app)
-            .items(&[&app_menu, &skins_menu, &visualizer_menu])
+            .items(&[&app_menu, &controls_menu, &skins_menu, &visualizer_menu])
             .build()?,
     )?;
     Ok(())
@@ -472,22 +533,9 @@ pub fn run() {
             #[cfg(feature = "pro")]
             {
                 apply_pro_menu(h)?;
-
-                // Menu clicks → tell the frontend; it updates the store (source of truth) + re-syncs checks.
-                app.on_menu_event(move |app, event| {
-                    let id = event.id().as_ref().to_string();
-                    if id.starts_with("skin:")
-                        || id.starts_with("accent:")
-                        || id.starts_with("theme:")
-                        || id.starts_with("visualizer:")
-                        || id.starts_with("license:")
-                    {
-                        let _ = app.emit("menu-action", id);
-                    }
-                });
             }
 
-            // ── Free build: app-only menu (About / Hide / Quit; no Pro entries) ───────
+            // ── Free build: app menu + Controls (Sleep Timer); no Pro entries ─────────
             #[cfg(not(feature = "pro"))]
             {
                 let about = AboutMetadata {
@@ -510,9 +558,27 @@ pub fn run() {
                     .separator()
                     .item(&PredefinedMenuItem::quit(h, None)?)
                     .build()?;
-                let menu = MenuBuilder::new(h).items(&[&app_menu]).build()?;
+                let controls_menu = build_controls_menu(h)?;
+                let menu = MenuBuilder::new(h)
+                    .items(&[&app_menu, &controls_menu])
+                    .build()?;
                 app.set_menu(menu)?;
             }
+
+            // Menu clicks → tell the frontend (both builds; sleep:* is a free menu). The
+            // frontend updates its store (the source of truth) + re-syncs any checkmarks.
+            app.on_menu_event(move |app, event| {
+                let id = event.id().as_ref().to_string();
+                if id.starts_with("sleep:")
+                    || id.starts_with("skin:")
+                    || id.starts_with("accent:")
+                    || id.starts_with("theme:")
+                    || id.starts_with("visualizer:")
+                    || id.starts_with("license:")
+                {
+                    let _ = app.emit("menu-action", id);
+                }
+            });
 
             // System "Now Playing" + hardware media keys (macOS). Must be set up on the
             // main thread, which `setup` runs on.
