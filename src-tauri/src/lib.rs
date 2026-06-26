@@ -81,36 +81,306 @@ fn sync_visualizer(open: bool, preset: String, items: tauri::State<MenuItems>) {
     }
 }
 
-/// Store `value` in the macOS Keychain under the EKO service name + `key`.
-/// Free feature: required for multi-server credential storage.
-#[tauri::command]
-fn secret_set(key: String, value: String) -> Result<(), String> {
-    let entry = keyring::Entry::new("com.reactivepixels.eko", &key).map_err(|e| e.to_string())?;
-    entry.set_password(&value).map_err(|e| e.to_string())
+/// Build the native menu for the current license tier and apply it. The Pro menus (Skins,
+/// Visualizer) are present only for a licensed user; the free tier gets just the app menu
+/// (which still carries Enter License Key… / Get EKO Pro). Called at startup and live on a
+/// license change (via `refresh_menu`), so activating a key reveals the Pro menus without a
+/// relaunch.
+#[cfg(feature = "pro")]
+fn apply_pro_menu(app: &tauri::AppHandle) -> tauri::Result<()> {
+    let about = AboutMetadata {
+        name: Some("EKO".into()),
+        version: Some(app.package_info().version.to_string()),
+        copyright: Some("© 2026 Reactive Pixels".into()),
+        comments: Some("A bit-perfect audiophile music player for macOS.".into()),
+        website: Some("https://github.com/reactivepixels/eko".into()),
+        website_label: Some("GitHub".into()),
+        ..Default::default()
+    };
+    let licensed = crate::pro::license::compute_status(app).tier == crate::pro::license::Tier::Pro;
+
+    // Licensing entries adapt to the tier: licensed → "Remove License"; free → "Enter
+    // License Key…" + "Get EKO Pro" (no purchase link once activated).
+    let mut app_menu_b = SubmenuBuilder::new(app, "EKO")
+        .item(&PredefinedMenuItem::about(
+            app,
+            Some("About EKO"),
+            Some(about),
+        )?)
+        .separator();
+    if licensed {
+        app_menu_b = app_menu_b.item(&MenuItem::with_id(
+            app,
+            "license:remove",
+            "Remove License",
+            true,
+            None::<&str>,
+        )?);
+    } else {
+        app_menu_b = app_menu_b
+            .item(&MenuItem::with_id(
+                app,
+                "license:enter",
+                "Enter License Key…",
+                true,
+                None::<&str>,
+            )?)
+            .item(&MenuItem::with_id(
+                app,
+                "license:get",
+                "Get EKO Pro",
+                true,
+                None::<&str>,
+            )?);
+    }
+    let app_menu = app_menu_b
+        .separator()
+        .item(&PredefinedMenuItem::hide(app, None)?)
+        .separator()
+        .item(&PredefinedMenuItem::quit(app, None)?)
+        .build()?;
+
+    // Reset the checkmark-sync map; repopulate only when the Pro menus are present.
+    app.state::<MenuItems>().0.lock().unwrap().clear();
+
+    if !licensed {
+        app.set_menu(MenuBuilder::new(app).items(&[&app_menu]).build()?)?;
+        return Ok(());
+    }
+
+    let porcelain =
+        CheckMenuItem::with_id(app, "skin:porcelain", "Porcelain", true, true, None::<&str>)?;
+    let studio = CheckMenuItem::with_id(app, "skin:studio", "Studio", true, false, None::<&str>)?;
+    let aether = CheckMenuItem::with_id(app, "skin:aether", "Aether", true, false, None::<&str>)?;
+    let acc_orange =
+        CheckMenuItem::with_id(app, "accent:orange", "Orange", true, true, None::<&str>)?;
+    let acc_violet =
+        CheckMenuItem::with_id(app, "accent:violet", "Violet", true, false, None::<&str>)?;
+    let acc_blue = CheckMenuItem::with_id(app, "accent:blue", "Blue", true, false, None::<&str>)?;
+    let acc_teal = CheckMenuItem::with_id(app, "accent:teal", "Teal", true, false, None::<&str>)?;
+    let acc_graphite = CheckMenuItem::with_id(
+        app,
+        "accent:graphite",
+        "Graphite",
+        true,
+        false,
+        None::<&str>,
+    )?;
+    let acc_cyan = CheckMenuItem::with_id(app, "accent:cyan", "Cyan", true, false, None::<&str>)?;
+    let theme_dark =
+        CheckMenuItem::with_id(app, "theme:dark", "Dark Mode", true, false, None::<&str>)?;
+    let accent_menu = SubmenuBuilder::new(app, "Accent")
+        .item(&acc_orange)
+        .item(&acc_violet)
+        .item(&acc_blue)
+        .item(&acc_teal)
+        .item(&acc_graphite)
+        .item(&acc_cyan)
+        .build()?;
+    let skins_menu = SubmenuBuilder::new(app, "Skins")
+        .item(&porcelain)
+        .item(&studio)
+        .item(&aether)
+        .separator()
+        .item(&accent_menu)
+        .separator()
+        .item(&theme_dark)
+        .build()?;
+    let viz_on = CheckMenuItem::with_id(app, "visualizer:on", "On", true, false, None::<&str>)?;
+    let viz_galaxy =
+        CheckMenuItem::with_id(app, "visualizer:galaxy", "Galaxy", true, true, None::<&str>)?;
+    let viz_cymatics = CheckMenuItem::with_id(
+        app,
+        "visualizer:cymatics",
+        "Cymatics",
+        true,
+        false,
+        None::<&str>,
+    )?;
+    let viz_murmuration = CheckMenuItem::with_id(
+        app,
+        "visualizer:murmuration",
+        "Murmuration",
+        true,
+        false,
+        None::<&str>,
+    )?;
+    let visualizer_menu = SubmenuBuilder::new(app, "Visualizer")
+        .item(&viz_on)
+        .separator()
+        .item(&viz_galaxy)
+        .item(&viz_cymatics)
+        .item(&viz_murmuration)
+        .build()?;
+
+    {
+        let st = app.state::<MenuItems>();
+        let mut map = st.0.lock().unwrap();
+        for it in [
+            &porcelain,
+            &studio,
+            &aether,
+            &acc_orange,
+            &acc_violet,
+            &acc_blue,
+            &acc_teal,
+            &acc_graphite,
+            &acc_cyan,
+            &theme_dark,
+        ] {
+            map.insert(it.id().as_ref().to_string(), it.clone());
+        }
+        for it in [&viz_on, &viz_galaxy, &viz_cymatics, &viz_murmuration] {
+            map.insert(it.id().as_ref().to_string(), it.clone());
+        }
+    }
+
+    app.set_menu(
+        MenuBuilder::new(app)
+            .items(&[&app_menu, &skins_menu, &visualizer_menu])
+            .build()?,
+    )?;
+    Ok(())
 }
 
-/// Retrieve a secret from the Keychain; returns `None` when no entry exists yet.
-/// Free feature: required for multi-server credential storage.
+/// Rebuild the native menu for the current license (called from the frontend after a key
+/// is activated or deactivated). Pro build only.
+#[cfg(feature = "pro")]
 #[tauri::command]
-fn secret_get(key: String) -> Result<Option<String>, String> {
-    let entry = keyring::Entry::new("com.reactivepixels.eko", &key).map_err(|e| e.to_string())?;
-    match entry.get_password() {
-        Ok(v) => Ok(Some(v)),
-        Err(keyring::Error::NoEntry) => Ok(None),
-        Err(e) => Err(e.to_string()),
+fn refresh_menu(app: tauri::AppHandle) -> Result<(), String> {
+    apply_pro_menu(&app).map_err(|e| e.to_string())
+}
+
+// ── Credential persistence (Keychain primary, file mirror fallback) ─────────────
+//
+// The macOS Keychain is the primary, secure credential store. But an UNSIGNED build
+// run under Gatekeeper app-translocation (e.g. a DMG downloaded from GitHub before we
+// have an Apple Developer ID) is mounted from a random read-only path and gets an
+// unstable code identity — so Keychain items written in one launch cannot be read
+// back in the next, and logins appear "not persisted". (Server *metadata* in the
+// WebView's localStorage survives because it's keyed to the bundle id, not the path;
+// the Keychain ACL is keyed to the code signature, which is what breaks.)
+//
+// To make credentials survive relaunch TODAY we mirror them to a 0600 JSON file under
+// the app data dir — which is bundle-id-keyed and therefore stable across
+// translocation — and fall back to it when the Keychain read misses. Values are
+// lightly obfuscated (XOR + base64) so the file isn't casually readable; this is NOT
+// cryptography — the OS file permissions are the real protection. Once Developer ID
+// signing lands, the Keychain round-trips and this becomes a redundant mirror we can
+// encrypt or drop. This whole path is FREE (multi-server credential storage).
+
+const SECRET_PAD: &[u8] = b"eko-secret-pad-v1-not-for-real-security";
+
+/// Detect Gatekeeper app-translocation: a translocated (unsigned/quarantined) bundle
+/// runs from `…/AppTranslocation/…`, where the Keychain neither persists nor reads
+/// reliably (and can raise auth prompts). When translocated we skip the Keychain
+/// entirely and use the file mirror.
+fn keychain_usable() -> bool {
+    std::env::current_exe()
+        .map(|p| !p.to_string_lossy().contains("/AppTranslocation/"))
+        .unwrap_or(true)
+}
+
+fn obfuscate(value: &str) -> String {
+    use base64::Engine;
+    let bytes: Vec<u8> = value
+        .as_bytes()
+        .iter()
+        .enumerate()
+        .map(|(i, b)| b ^ SECRET_PAD[i % SECRET_PAD.len()])
+        .collect();
+    base64::engine::general_purpose::STANDARD.encode(bytes)
+}
+
+fn deobfuscate(encoded: &str) -> Option<String> {
+    use base64::Engine;
+    let bytes = base64::engine::general_purpose::STANDARD
+        .decode(encoded)
+        .ok()?;
+    let plain: Vec<u8> = bytes
+        .iter()
+        .enumerate()
+        .map(|(i, b)| b ^ SECRET_PAD[i % SECRET_PAD.len()])
+        .collect();
+    String::from_utf8(plain).ok()
+}
+
+fn secrets_path(app: &tauri::AppHandle) -> Option<std::path::PathBuf> {
+    app.path()
+        .app_data_dir()
+        .ok()
+        .map(|d| d.join("secrets.json"))
+}
+
+fn read_file_secrets(app: &tauri::AppHandle) -> std::collections::HashMap<String, String> {
+    secrets_path(app)
+        .and_then(|p| std::fs::read_to_string(p).ok())
+        .and_then(|raw| serde_json::from_str(&raw).ok())
+        .unwrap_or_default()
+}
+
+fn write_file_secrets(app: &tauri::AppHandle, map: &std::collections::HashMap<String, String>) {
+    let Some(path) = secrets_path(app) else {
+        return;
+    };
+    if let Some(parent) = path.parent() {
+        let _ = std::fs::create_dir_all(parent);
+    }
+    let Ok(raw) = serde_json::to_string(map) else {
+        return;
+    };
+    if std::fs::write(&path, raw).is_ok() {
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let _ = std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600));
+        }
     }
 }
 
-/// Delete a Keychain secret; treats "no entry" as success (idempotent).
-/// Free feature: required for multi-server credential storage.
+/// Store `value` for `key` — in the Keychain (when usable) and always in the file
+/// mirror so it survives relaunch on unsigned builds. Free feature.
 #[tauri::command]
-fn secret_delete(key: String) -> Result<(), String> {
-    let entry = keyring::Entry::new("com.reactivepixels.eko", &key).map_err(|e| e.to_string())?;
-    match entry.delete_credential() {
-        Ok(()) => Ok(()),
-        Err(keyring::Error::NoEntry) => Ok(()),
-        Err(e) => Err(e.to_string()),
+fn secret_set(app: tauri::AppHandle, key: String, value: String) -> Result<(), String> {
+    if keychain_usable() {
+        if let Ok(entry) = keyring::Entry::new("com.reactivepixels.eko", &key) {
+            let _ = entry.set_password(&value);
+        }
     }
+    let mut map = read_file_secrets(&app);
+    map.insert(key, obfuscate(&value));
+    write_file_secrets(&app, &map);
+    Ok(())
+}
+
+/// Retrieve a secret: prefer the Keychain (authoritative on signed builds), fall back
+/// to the file mirror. Returns `None` when neither has it. Free feature.
+#[tauri::command]
+fn secret_get(app: tauri::AppHandle, key: String) -> Result<Option<String>, String> {
+    if keychain_usable() {
+        if let Ok(entry) = keyring::Entry::new("com.reactivepixels.eko", &key) {
+            if let Ok(v) = entry.get_password() {
+                return Ok(Some(v));
+            }
+        }
+    }
+    Ok(read_file_secrets(&app)
+        .get(&key)
+        .and_then(|v| deobfuscate(v)))
+}
+
+/// Delete a secret from both stores; idempotent. Free feature.
+#[tauri::command]
+fn secret_delete(app: tauri::AppHandle, key: String) -> Result<(), String> {
+    if keychain_usable() {
+        if let Ok(entry) = keyring::Entry::new("com.reactivepixels.eko", &key) {
+            let _ = entry.delete_credential(); // ignore NoEntry / errors — best-effort
+        }
+    }
+    let mut map = read_file_secrets(&app);
+    map.remove(&key);
+    write_file_secrets(&app, &map);
+    Ok(())
 }
 
 /// Push current-track metadata to the OS "Now Playing" card. No-op off macOS.
@@ -193,197 +463,15 @@ pub fn run() {
         .setup(|app| {
             let h = app.handle();
 
-            // Native macOS "About EKO" panel — version + standard info.
-            let about = AboutMetadata {
-                name: Some("EKO".into()),
-                version: Some(app.package_info().version.to_string()),
-                copyright: Some("© 2026 Reactive Pixels".into()),
-                comments: Some("A bit-perfect audiophile music player for macOS.".into()),
-                website: Some("https://github.com/reactivepixels/eko".into()),
-                website_label: Some("GitHub".into()),
-                ..Default::default()
-            };
-
-            // Standard macOS app submenu (About / Hide / Quit). In Pro builds it also
-            // carries the licensing entries — "Enter License Key…" (opens the activation
-            // dialog) and "Get EKO Pro" (opens the purchase page). Both just emit a
-            // menu-action event; the frontend owns the dialog + URL.
-            let app_menu = {
-                #[allow(unused_mut)]
-                let mut b = SubmenuBuilder::new(h, "EKO").item(&PredefinedMenuItem::about(
-                    h,
-                    Some("About EKO"),
-                    Some(about),
-                )?);
-                #[cfg(feature = "pro")]
-                {
-                    b = b
-                        .separator()
-                        .item(&MenuItem::with_id(
-                            h,
-                            "license:enter",
-                            "Enter License Key…",
-                            true,
-                            None::<&str>,
-                        )?)
-                        .item(&MenuItem::with_id(
-                            h,
-                            "license:get",
-                            "Get EKO Pro",
-                            true,
-                            None::<&str>,
-                        )?);
-                }
-                b.separator()
-                    .item(&PredefinedMenuItem::hide(h, None)?)
-                    .separator()
-                    .item(&PredefinedMenuItem::quit(h, None)?)
-                    .build()?
-            };
-
-            // ── Pro: Skins menu (skin + accent + dark-mode) ───────────────────────────
-            // Only built and registered in Pro builds. The free build gets only the app
-            // menu above — no Skins menu, no checkmarks, no theme/skin menu events.
+            // ── Pro: full menu (app + Skins + Visualizer), license-aware ──────────────
+            // `apply_pro_menu` builds the whole menu from the on-disk license: licensed
+            // users get the Skins/Visualizer menus + a "Remove License" entry; free users
+            // get only the app menu with "Enter License Key…" / "Get EKO Pro". The same
+            // function is re-run via the `refresh_menu` command after activate/deactivate
+            // so the menus appear (or disappear) live, with no relaunch.
             #[cfg(feature = "pro")]
             {
-                let porcelain = CheckMenuItem::with_id(
-                    h,
-                    "skin:porcelain",
-                    "Porcelain",
-                    true,
-                    true,
-                    None::<&str>,
-                )?;
-                let studio =
-                    CheckMenuItem::with_id(h, "skin:studio", "Studio", true, false, None::<&str>)?;
-                let aether =
-                    CheckMenuItem::with_id(h, "skin:aether", "Aether", true, false, None::<&str>)?;
-                let acc_orange =
-                    CheckMenuItem::with_id(h, "accent:orange", "Orange", true, true, None::<&str>)?;
-                let acc_violet = CheckMenuItem::with_id(
-                    h,
-                    "accent:violet",
-                    "Violet",
-                    true,
-                    false,
-                    None::<&str>,
-                )?;
-                let acc_blue =
-                    CheckMenuItem::with_id(h, "accent:blue", "Blue", true, false, None::<&str>)?;
-                let acc_teal =
-                    CheckMenuItem::with_id(h, "accent:teal", "Teal", true, false, None::<&str>)?;
-                let acc_graphite = CheckMenuItem::with_id(
-                    h,
-                    "accent:graphite",
-                    "Graphite",
-                    true,
-                    false,
-                    None::<&str>,
-                )?;
-                let acc_cyan =
-                    CheckMenuItem::with_id(h, "accent:cyan", "Cyan", true, false, None::<&str>)?;
-                let theme_dark = CheckMenuItem::with_id(
-                    h,
-                    "theme:dark",
-                    "Dark Mode",
-                    true,
-                    false,
-                    None::<&str>,
-                )?;
-
-                let accent_menu = SubmenuBuilder::new(h, "Accent")
-                    .item(&acc_orange)
-                    .item(&acc_violet)
-                    .item(&acc_blue)
-                    .item(&acc_teal)
-                    .item(&acc_graphite)
-                    .item(&acc_cyan)
-                    .build()?;
-
-                let skins_menu = SubmenuBuilder::new(h, "Skins")
-                    .item(&porcelain)
-                    .item(&studio)
-                    .item(&aether)
-                    .separator()
-                    .item(&accent_menu)
-                    .separator()
-                    .item(&theme_dark)
-                    .build()?;
-
-                // ── Visualizer menu (on/off toggle + preset selection) ────────────────
-                let viz_on =
-                    CheckMenuItem::with_id(h, "visualizer:on", "On", true, false, None::<&str>)?;
-                let viz_galaxy = CheckMenuItem::with_id(
-                    h,
-                    "visualizer:galaxy",
-                    "Galaxy",
-                    true,
-                    true,
-                    None::<&str>,
-                )?;
-                let viz_cymatics = CheckMenuItem::with_id(
-                    h,
-                    "visualizer:cymatics",
-                    "Cymatics",
-                    true,
-                    false,
-                    None::<&str>,
-                )?;
-                let viz_murmuration = CheckMenuItem::with_id(
-                    h,
-                    "visualizer:murmuration",
-                    "Murmuration",
-                    true,
-                    false,
-                    None::<&str>,
-                )?;
-
-                let visualizer_menu = SubmenuBuilder::new(h, "Visualizer")
-                    .item(&viz_on)
-                    .separator()
-                    .item(&viz_galaxy)
-                    .item(&viz_cymatics)
-                    .item(&viz_murmuration)
-                    .build()?;
-
-                // Keep the check-item handles so `sync_menu` / `sync_visualizer` can update
-                // the checkmarks from the frontend.
-                {
-                    let st = app.state::<MenuItems>();
-                    let mut map = st.0.lock().unwrap();
-                    for it in [
-                        &porcelain,
-                        &studio,
-                        &aether,
-                        &acc_orange,
-                        &acc_violet,
-                        &acc_blue,
-                        &acc_teal,
-                        &acc_graphite,
-                        &acc_cyan,
-                        &theme_dark,
-                    ] {
-                        map.insert(it.id().as_ref().to_string(), it.clone());
-                    }
-                    for it in [&viz_on, &viz_galaxy, &viz_cymatics, &viz_murmuration] {
-                        map.insert(it.id().as_ref().to_string(), it.clone());
-                    }
-                }
-
-                // The Pro menus (Skins, Visualizer) are shown only to a LICENSED user. The
-                // product's free tier gets just the app menu — which still carries "Enter
-                // License Key…" / "Get EKO Pro" so a free user can upgrade. Read from the
-                // license on disk at startup; activating a key takes effect on next launch.
-                let licensed = crate::pro::license::compute_status(h).tier
-                    == crate::pro::license::Tier::Pro;
-                let menu = if licensed {
-                    MenuBuilder::new(h)
-                        .items(&[&app_menu, &skins_menu, &visualizer_menu])
-                        .build()?
-                } else {
-                    MenuBuilder::new(h).items(&[&app_menu]).build()?
-                };
-                app.set_menu(menu)?;
+                apply_pro_menu(h)?;
 
                 // Menu clicks → tell the frontend; it updates the store (source of truth) + re-syncs checks.
                 app.on_menu_event(move |app, event| {
@@ -399,9 +487,29 @@ pub fn run() {
                 });
             }
 
-            // ── Free build: app-only menu (no Skins) ─────────────────────────────────
+            // ── Free build: app-only menu (About / Hide / Quit; no Pro entries) ───────
             #[cfg(not(feature = "pro"))]
             {
+                let about = AboutMetadata {
+                    name: Some("EKO".into()),
+                    version: Some(app.package_info().version.to_string()),
+                    copyright: Some("© 2026 Reactive Pixels".into()),
+                    comments: Some("A bit-perfect audiophile music player for macOS.".into()),
+                    website: Some("https://github.com/reactivepixels/eko".into()),
+                    website_label: Some("GitHub".into()),
+                    ..Default::default()
+                };
+                let app_menu = SubmenuBuilder::new(h, "EKO")
+                    .item(&PredefinedMenuItem::about(
+                        h,
+                        Some("About EKO"),
+                        Some(about),
+                    )?)
+                    .separator()
+                    .item(&PredefinedMenuItem::hide(h, None)?)
+                    .separator()
+                    .item(&PredefinedMenuItem::quit(h, None)?)
+                    .build()?;
                 let menu = MenuBuilder::new(h).items(&[&app_menu]).build()?;
                 app.set_menu(menu)?;
             }
@@ -455,6 +563,8 @@ pub fn run() {
             sync_menu,
             #[cfg(feature = "pro")]
             sync_visualizer,
+            #[cfg(feature = "pro")]
+            refresh_menu,
             #[cfg(feature = "pro")]
             engine::engine_play_cached,
             #[cfg(feature = "pro")]
