@@ -941,11 +941,16 @@ fn decode_and_play(
                 let mut continued = false;
                 if let Some(src) = shared.next_src.lock().unwrap().take() {
                     if let Some(nd) = open_source(src) {
-                        // Gapless continuation only when the next track matches the output rate
-                        // (so there's no resampling seam). A rate change ends the session and the
-                        // frontend restarts at the new track's native rate — keeping playback
-                        // bit-perfect.
-                        if nd.file_rate == out_rate {
+                        // Gapless continuation when the next track shares the CURRENT track's
+                        // native rate — both then resample to `out_rate` identically, so the
+                        // join is seamless (and bit-perfect when out_rate == file_rate). Compare
+                        // against `file_rate`, NOT `out_rate`: on a device locked to a different
+                        // rate (e.g. 44.1k files on a 48k Bluetooth/AirPods output) out_rate is
+                        // 48k, so an `== out_rate` check failed on every track and silently
+                        // killed gapless. A genuine rate CHANGE between tracks (file_rate differs)
+                        // still ends the session so the frontend can restart at the new native
+                        // rate.
+                        if nd.file_rate == file_rate {
                             let boundary = shared.samples.lock().unwrap().len();
                             shared.seg_starts.lock().unwrap().push(boundary);
                             let est = nd.n_frames.map(|n| n as usize * out_ch).unwrap_or(0);
