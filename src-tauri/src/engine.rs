@@ -404,6 +404,11 @@ pub struct EngineStatus {
     pub playing: bool,
     pub pos_ms: u64,
     pub dur_ms: u64,
+    /// How far the decode buffer has filled, in ms within the current track. Equals
+    /// `dur_ms` for a local / fully-decoded track; lags it while a server stream is still
+    /// downloading. The frontend draws this as the "buffered" region on the scrubber and
+    /// uses it to show when an armed forward-seek is still waiting for the download.
+    pub buffered_ms: u64,
     pub rate: u32,
     pub channels: u32,
     pub device: String,
@@ -988,10 +993,27 @@ fn decode_and_play(
                     let i = segment_at(&starts, cur);
                     let track_start = starts[i];
                     let len = shared.samples.lock().unwrap().len();
-                    let track_end = starts.get(i + 1).copied().unwrap_or(len);
+                    // Seek upper bound:
+                    //  - a non-final segment ends at the next boundary (fixed);
+                    //  - the final segment, once fully decoded, ends at the real decoded `len`;
+                    //  - the final segment while still STREAMING ends at the ESTIMATED track
+                    //    length (`shared.total`), so a forward seek may land PAST the download
+                    //    edge. The callback outputs silence and holds `pos` while it's beyond
+                    //    the decoded buffer (it only advances when `p + out_ch <= len`), so
+                    //    playback auto-resumes the instant the decoder reaches the target —
+                    //    "arm-and-snap". This needs no realtime-callback change and stays
+                    //    bit-perfect (we still decode the original file, never a transcode).
+                    //    The frontend shows the buffered extent (`buffered_ms`) so the wait is
+                    //    visible. See docs/architecture/overview.md + ROADMAP.
+                    let done = shared.done.load(Ordering::SeqCst);
+                    let end = match starts.get(i + 1).copied() {
+                        Some(next) => next,
+                        None if done => len,
+                        None => (shared.total.load(Ordering::SeqCst)).max(len),
+                    };
                     let target = track_start
                         .saturating_add(frame.saturating_mul(out_ch))
-                        .min(track_end);
+                        .min(end);
                     shared.pos.store(target, Ordering::SeqCst);
                 }
                 Ok(Cmd::Stop) | Err(RecvTimeoutError::Disconnected) => {
@@ -1071,6 +1093,7 @@ fn stub() -> EngineStatus {
         playing: true,
         pos_ms: 0,
         dur_ms: 0,
+        buffered_ms: 0,
         rate: 0,
         channels: 0,
         device: String::new(),
@@ -1431,11 +1454,15 @@ pub fn engine_status(engine: tauri::State<Engine>) -> Option<EngineStatus> {
     };
     let pos_in = pos.saturating_sub(track_start) as u64;
     let denom = rate as u64 * ch as u64;
+    // Decoded-so-far point within the current track (the "buffered" extent on the scrubber).
+    let buffered = sh.samples.lock().unwrap().len();
+    let buffered_in = buffered.saturating_sub(track_start).min(track_total) as u64;
 
     Some(EngineStatus {
         playing,
         pos_ms: pos_in * 1000 / denom,
         dur_ms: track_total as u64 * 1000 / denom,
+        buffered_ms: buffered_in * 1000 / denom,
         rate,
         channels: ch,
         device,

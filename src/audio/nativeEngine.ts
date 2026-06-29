@@ -4,6 +4,7 @@ export interface EngineStatus {
   playing: boolean;
   posMs: number;
   durMs: number;
+  bufferedMs: number; // decode-buffered extent within the current track (== durMs once fully decoded)
   rate: number;
   channels: number;
   device: string;

@@ -19,6 +19,7 @@ const ST0: EngineStatus = {
   playing: false,
   posMs: 0,
   durMs: 0,
+  bufferedMs: 0,
   rate: 0,
   channels: 0,
   device: "",

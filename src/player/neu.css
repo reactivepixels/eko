@@ -1795,6 +1795,18 @@ body {
   top: -9px;
   bottom: -9px;
 }
+/* Buffered (decoded-so-far) extent on a server stream — a faint accent tint behind the
+   bright played fill, so the seekable range is visible and an armed forward-seek's wait
+   reads clearly. Hidden for local / fully-decoded tracks (the variant only renders it
+   while the buffer trails playback). */
+.track .buffered {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  border-radius: 999px;
+  background: rgba(var(--accent-rgb), 0.22);
+}
 .track .fill {
   position: absolute;
   left: 0;

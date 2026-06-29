@@ -10,7 +10,11 @@ import { usePlayerStore } from "../store/usePlayerStore";
 export function useScrub() {
   const currentTime = usePlayerStore((s) => s.currentTime);
   const duration = usePlayerStore((s) => s.duration);
+  const buffered = usePlayerStore((s) => s.buffered);
   const progress = duration > 0 ? currentTime / duration : 0;
+  // Fraction of the track decoded so far (server streams fill progressively; local files
+  // are 1 once playing). Drawn as the scrubber's "buffered" fill behind the played fill.
+  const bufferedProgress = duration > 0 ? Math.min(1, buffered / duration) : 0;
 
   const secsAt = (clientX: number, el: HTMLElement) => {
     const r = el.getBoundingClientRect();
@@ -36,6 +40,7 @@ export function useScrub() {
     currentTime,
     duration,
     progress,
+    bufferedProgress,
     remaining: Math.max(0, duration - currentTime),
     onPointerDown,
     onPointerMove,

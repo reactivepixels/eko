@@ -35,6 +35,10 @@ export function PorcelainVolume() {
 export function PorcelainSeek() {
   const scrub = useScrub();
   const prog = scrub.progress;
+  // Show the buffered fill only when it meaningfully trails the played position — i.e. a
+  // server stream still downloading (local / fully-decoded tracks are buffered to 100%, so
+  // the bar would just match the track and add no information).
+  const showBuffered = scrub.bufferedProgress < 0.999 && scrub.bufferedProgress > prog;
   return (
     <div className="scrub" role="group" aria-label="Seek">
       <span className="t">{formatTime(scrub.currentTime)}</span>
@@ -51,6 +55,13 @@ export function PorcelainSeek() {
         onPointerUp={scrub.onPointerUp}
         onPointerCancel={scrub.onPointerCancel}
       >
+        {showBuffered && (
+          <div
+            className="buffered"
+            aria-hidden="true"
+            style={{ width: `${scrub.bufferedProgress * 100}%` }}
+          />
+        )}
         <div className="fill" style={{ width: `${prog * 100}%` }} />
         <div className="knob" aria-hidden="true" style={{ left: `${prog * 100}%` }} />
       </div>

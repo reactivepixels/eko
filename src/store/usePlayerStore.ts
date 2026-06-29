@@ -141,6 +141,7 @@ function startNativePoll() {
     usePlayerStore.setState({
       ...(acceptTime ? { currentTime: engTime } : {}),
       duration: st.durMs / 1000,
+      buffered: st.bufferedMs / 1000,
       isPlaying: st.playing,
     });
 
@@ -266,6 +267,10 @@ interface PlayerState {
   isPlaying: boolean;
   currentTime: number;
   duration: number;
+  /** Decode-buffered position (seconds) within the current track. Equals `duration` for a
+   *  local / fully-decoded track; lags it while a server stream downloads. Drives the
+   *  scrubber's "buffered" fill and shows when an armed forward-seek is still buffering. */
+  buffered: number;
   timeDisplay: "elapsed" | "remaining";
   engineActive: boolean; // true while the native (local) engine is the audio source
   engineInfo: EngineInfo | null; // live signal-path info from the engine (per track)
@@ -457,6 +462,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   isPlaying: false,
   currentTime: 0,
   duration: 0,
+  buffered: 0,
   timeDisplay: "elapsed",
   engineActive: false,
   engineInfo: null,
@@ -529,6 +535,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       isPlaying: false,
       currentTime: 0,
       duration: 0,
+      buffered: 0,
       engineActive: false,
     });
     mediaStopped();
