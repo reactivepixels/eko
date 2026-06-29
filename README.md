@@ -50,8 +50,7 @@ system resample. Watch **Audio MIDI Setup** follow the music.
 - **Output device selection** — pick your DAC explicitly.
 - **ReplayGain** — track/album volume normalisation read from tags and applied as engine gain
   (off = bit-perfect preserved).
-- **Gapless playback & crossfade** — seamless same-rate album playback, with an optional
-  equal-power crossfade (2–12 s) between tracks.
+- **Gapless playback** — seamless same-rate album playback with no gap between tracks.
 - **Local library & servers** — browse and sort a local library, plus Navidrome / OpenSubsonic
   streaming (multi-server) — all through the one engine.
 - **Queue management** — reorder the queue, play-next / add-to-queue.
@@ -63,20 +62,6 @@ system resample. Watch **Audio MIDI Setup** follow the music.
 - **Keyboard-first** — space/⏯, seek, volume, next/prev, mute — all from the keyboard.
 - **Neumorphic Braun design** — the light/dark **Porcelain** skin (light "Porcelain" + dark
   "Graphite") with a user-selectable accent.
-
-## EKO Pro
-
-EKO Pro is a paid tier that builds on the free core (the bit-perfect engine and everything above
-are unchanged). It adds:
-
-- **Offline playback** — download server tracks for listening without a connection.
-- **Parametric EQ + AutoEQ** — a fully parametric equaliser plus AutoEQ headphone-correction
-  import, alongside the free 10-band graphic EQ.
-- **Smart playlists & instant mix** — rule-based playlists and one-click similar-track mixes.
-- **Alternate skins + Skins menu** — the **Studio** and **Aether** skins (beyond the free
-  Porcelain), selectable from a native Skins menu, plus extra themes/accents.
-
-Pro is licence-gated with a trial; the free build runs fully without it.
 
 ## Screenshots
 
