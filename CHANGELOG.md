@@ -15,54 +15,15 @@ those as shipping-quality until they pass the [QA checklist](docs/QA-CHECKLIST.m
 
 ## [0.4.1] — 2026-06-25
 
-The first release split into a free core and a paid **EKO Pro** tier. The free build still works
-with the `pro/` directories deleted — Pro lives entirely behind a cargo feature + a Vite alias.
-
 ### Added
-- **EKO Pro tier.** A licence-gated paid tier (with a trial) layered over the free core:
-  - **Parametric EQ + AutoEQ** — a fully parametric equaliser (`src-tauri/src/pro/param_eq.rs` +
-    `src/pro/ParametricEqPanel.tsx`) plus AutoEQ headphone-correction import, alongside the free
-    10-band graphic EQ.
-  - **Offline playback** — download server tracks for listening without a connection.
-  - **Smart playlists + instant mix** — rule-based playlists and one-click similar-track mixes.
-  - **Alternate skins + Skins menu** — the **Studio** and **Aether** skins (beyond the free
-    Porcelain), driven by a native Skins menu, plus extra themes/accents.
-  - **Licensing / trial** — the gating + trial machinery that unlocks the above.
 - **Auto-updater** — the in-app update check + one-click background update (`tauri-plugin-updater`)
   is now wired and shipping (previously deferred).
-- **Sleep timer**, **lyrics**, and **scrobbling** in the free core.
+- **Sleep timer**, **lyrics**, and **scrobbling**.
 
 ### Changed
 - **Unified biquad DSP.** The EQ filter math is consolidated into one module
-  (`src-tauri/src/biquad.rs`), imported by both the free graphic EQ (`engine.rs`) and the Pro
-  parametric EQ (`pro/param_eq.rs`); the parametric response curve is computed in Rust via
-  `engine_eq_curve`.
-- **Studio moved into the Pro layer.** Its implementation moved from `src/player/studio/` to
-  `src/pro/studio/` (+ `src/pro/themes/StudioShell.tsx`), so Studio is now strictly a Pro skin.
-- **Aether is the third theme.** Aether superseded the planned Halo as Pro theme #3.
-
-### Removed
-- **The cross-skin "Customize" picker.** The per-slot override that let a config mix variants
-  across skins was removed — forcing one skin's variant into another left material tokens
-  undefined and broke controls. Each skin now renders only its own variants.
-- **Halo skin retired** (replaced by Aether).
-
-## [0.3.3] — 2026-06-20
-
-### Added
-- **Studio EQ is now knobs.** Switching to the Studio skin turns the 10-band EQ faders into
-  flat-top matte **knobs with accent gauge arcs** (drag vertically to set each band) — the
-  concept's EQ, built into `DeckView` (Porcelain keeps the faders). The skin switch is now a
-  real structural change, not just a palette swap.
-
-## [0.3.2] — 2026-06-20
-
-### Changed
-- **Studio skin is now visibly distinct.** It was a near-identical warm palette to Porcelain
-  (and the `.app` background was hard-coded, masking it) — so it read as "no change". Studio is
-  now a cool, clean slate palette with its **own** app background, plus **flat-top matte control
-  faces** (transport pucks, volume-knob hub, EQ fader caps) and an accent **play puck with halo**,
-  in light + dark. (Material pass toward the Studio concept; more to come.)
+  (`src-tauri/src/biquad.rs`), used by the 10-band graphic EQ (`engine.rs`); the EQ response
+  curve is computed in Rust via `engine_eq_curve`.
 
 ## [0.3.1] — 2026-06-20
 
@@ -75,9 +36,8 @@ Patch release: ship a working, downloadable macOS build.
   signed + notarized build the moment the Apple signing secrets are configured. Previously every
   release run died at the codesign step ("failed to import keychain certificate").
 
-> The **skinnable UI** — light/dark theme × user-selectable accent × the matte **Studio** skin
-> (see [docs/skinning.md](docs/skinning.md)) — landed in the 0.3.0 commit; 0.3.1 is the first
-> release you can actually download and run cleanly.
+> The **light/dark theme × user-selectable accent** UI landed in the 0.3.0 commit; 0.3.1 is the
+> first release you can actually download and run cleanly.
 
 ## [0.3.0] — 2026-06-20
 
@@ -92,14 +52,6 @@ Patch release: ship a working, downloadable macOS build.
 - **Right-click context menus** — albums (Play album / Play next / Add to queue), track rows
   (Play / Play next / Add to queue) and queue rows (Play now / Remove). One reusable
   `ContextMenu` component; viewport-clamped, theme-aware, closes on outside-click / Esc / scroll.
-- **Crossfade between tracks** (`off` by default) — a same-rate transition can overlap with an
-  equal-power fade (2–12 s, picker in the signal-path strip). The fade is baked into the shared
-  PCM buffer by the decode thread, so **the realtime cpal callback is unchanged and steady-state
-  playback (plus the bit-perfect bypass) is untouched** — only the short overlap region holds
-  mixed samples. Falls back to the hard gapless join when the overlap can't be staged safely
-  ahead of the play head (e.g. download-paced server streams). The next track is now armed as
-  soon as it's playing (not 12 s before the end) so the decode-ahead continuation reliably fires.
-  **[needs ear-verify.]**
 
 ## [0.2.0] — 2026-06-20
 
