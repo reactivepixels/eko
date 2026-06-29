@@ -65,10 +65,9 @@ system resample. Watch **Audio MIDI Setup** follow the music.
 
 ## Screenshots
 
-> Captures from the running app are coming. In the meantime the whole site — and a playable
-> "EKO Web Lite" — are live at **[eko.reactivepixels.com](https://eko.reactivepixels.com)**:
-> [landing](https://eko.reactivepixels.com) · [docs](https://eko.reactivepixels.com/docs.html)
-> · [web player](https://eko.reactivepixels.com/web-player.html).
+> Captures from the running app are coming. In the meantime the site is live at
+> **[eko.reactivepixels.com](https://eko.reactivepixels.com)**:
+> [landing](https://eko.reactivepixels.com) · [docs](https://eko.reactivepixels.com/docs.html).
 
 ## Requirements
 
