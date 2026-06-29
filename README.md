@@ -84,9 +84,18 @@ xattr -dr com.apple.quarantine /Applications/EKO.app
 
 ## Screenshots
 
-> Captures from the running app are coming. In the meantime the site is live at
-> **[eko.reactivepixels.com](https://eko.reactivepixels.com)**:
-> [landing](https://eko.reactivepixels.com) · [docs](https://eko.reactivepixels.com/docs.html).
+<p align="center">
+  <img src="./screenshots/eko-light.webp" alt="EKO Now Playing — light (Porcelain): Radiohead, Kid A, FLAC 44.1k, bit-perfect, with the signal-path seal, spectrum and 10-band EQ" width="840" />
+  <br><sub><em>Now Playing — light (Porcelain)</em></sub>
+</p>
+
+<p align="center">
+  <img src="./screenshots/eko-dark.webp" alt="EKO Now Playing — dark (Graphite): Jamiroquai, FLAC 44.1k, bit-perfect, driving a Topping E50 in exclusive mode at 768k" width="840" />
+  <br><sub><em>Now Playing — dark (Graphite)</em></sub>
+</p>
+
+The site and docs are live at **[eko.reactivepixels.com](https://eko.reactivepixels.com)**:
+[landing](https://eko.reactivepixels.com) · [docs](https://eko.reactivepixels.com/docs.html).
 
 ## Requirements
 
