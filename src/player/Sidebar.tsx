@@ -119,9 +119,11 @@ export function Sidebar() {
           active={isLib("playlists")}
           onClick={() => go("playlists")}
         />
-        {/* Smart Playlists — Pro feature (creation gated); viewing stays accessible always
-            when source is server. Show the nav item whenever server is connected. */}
-        {source === "server" && (
+        {/* Smart Playlists + Offline are PRO features — gate them strictly on `isPro` so
+            they never appear in the free build (where `useIsPro()` is hard-false via the
+            @pro stub). Do NOT gate on `source === "server"`: that leaked these Pro entries
+            to any free user connected to Navidrome. */}
+        {isPro && (
           <Item
             id="smart-playlists"
             label="Smart Playlists"
@@ -129,9 +131,7 @@ export function Sidebar() {
             onClick={() => go("smart-playlists")}
           />
         )}
-        {/* Offline is a Pro feature; show the item when Pro OR when already connected to Navidrome
-            (allows browsing cached tracks even if license just lapsed). */}
-        {(isPro || source === "server") && (
+        {isPro && (
           <Item
             id="offline"
             label="Offline"

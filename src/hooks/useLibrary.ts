@@ -227,29 +227,20 @@ export function useLibrary() {
         onSelect: () => void tracksForCard(c).then((t) => usePlayerStore.getState().addToQueue(t)),
       },
     ];
-    // Instant Mix from album — use first track's similarity (server source only).
-    if (source === "server") {
+    // Instant Mix from album — Pro feature, server source only. No "· Pro" teaser in the
+    // free build; the item simply isn't offered when unlicensed.
+    if (source === "server" && isPro) {
       items.push({ separator: true });
-      if (isPro) {
-        items.push({
-          label: "Instant Mix from album",
-          onSelect: () =>
-            void tracksForCard(c).then((tracks) => {
-              const seed = tracks[0];
-              if (seed?.subsonicId) {
-                void useSmartPlaylistStore
-                  .getState()
-                  .instantMixFromTrack(seed.subsonicId, undefined);
-              }
-            }),
-        });
-      } else {
-        items.push({
-          label: "Instant Mix · Pro",
-          onSelect: () => undefined,
-          disabled: true,
-        });
-      }
+      items.push({
+        label: "Instant Mix from album",
+        onSelect: () =>
+          void tracksForCard(c).then((tracks) => {
+            const seed = tracks[0];
+            if (seed?.subsonicId) {
+              void useSmartPlaylistStore.getState().instantMixFromTrack(seed.subsonicId, undefined);
+            }
+          }),
+      });
     }
     return items;
   };
@@ -260,22 +251,15 @@ export function useLibrary() {
       { label: "Play next", onSelect: () => usePlayerStore.getState().playNext([tracks[i]]) },
       { label: "Add to queue", onSelect: () => usePlayerStore.getState().addToQueue([tracks[i]]) },
     ];
-    // Instant Mix — only available for server tracks (need subsonicId for getSimilarSongs2).
-    if (source === "server" && track.subsonicId) {
+    // Instant Mix — Pro feature, server tracks only (needs subsonicId). No "· Pro" teaser
+    // in the free build; the item simply isn't offered when unlicensed.
+    if (source === "server" && track.subsonicId && isPro) {
       items.push({ separator: true });
-      if (isPro) {
-        items.push({
-          label: "Instant Mix from this track",
-          onSelect: () =>
-            void useSmartPlaylistStore.getState().instantMixFromTrack(track.subsonicId!, undefined),
-        });
-      } else {
-        items.push({
-          label: "Instant Mix · Pro",
-          onSelect: () => undefined,
-          disabled: true,
-        });
-      }
+      items.push({
+        label: "Instant Mix from this track",
+        onSelect: () =>
+          void useSmartPlaylistStore.getState().instantMixFromTrack(track.subsonicId!, undefined),
+      });
     }
     return items;
   };
