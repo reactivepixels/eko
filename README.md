@@ -36,6 +36,25 @@ On macOS, EKO sets the output device's nominal sample rate to match the file (vi
 CoreAudio HAL) so a 44.1 kHz track plays at 44.1 and a 96 kHz track plays at 96 — no silent
 system resample. Watch **Audio MIDI Setup** follow the music.
 
+## Download
+
+**[⬇ Download the latest macOS build](https://github.com/reactivepixels/eko/releases/latest)** — a ready-to-run `.dmg` (Apple Silicon). No build step required.
+
+Or install with [Homebrew](https://brew.sh):
+
+```sh
+brew tap reactivepixels/eko
+brew install --cask eko
+```
+
+EKO isn't yet signed with an Apple Developer ID, so on first launch macOS may block it. If it does, allow it in **System Settings → Privacy & Security**, or run:
+
+```sh
+xattr -dr com.apple.quarantine /Applications/EKO.app
+```
+
+> Prefer to build it yourself? See [Requirements](#requirements) and [Build from source](#build-from-source) below — but the download above is the easiest way in.
+
 ## Features
 
 - **Native bit-perfect engine** — `symphonia` decode → `cpal` output at the file's own sample
@@ -75,11 +94,6 @@ system resample. Watch **Audio MIDI Setup** follow the music.
   matching uses the CoreAudio HAL, which has no cross-platform equivalent. Note: the prebuilt
   DMG is Apple Silicon only for now; Intel users should build from source.
 - A DAC or audio interface to hear the difference (though it's a better path on any output).
-
-## Install
-
-Signed, notarized releases and a Homebrew cask (`brew install --cask eko`) are on the
-[roadmap](./docs/ROADMAP.md). Until then, **build from source** — it takes a few minutes.
 
 ## Build from source
 
