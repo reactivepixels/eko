@@ -83,6 +83,22 @@ resamples them. If the device refuses (e.g. a Bluetooth sink locked to 48 kHz),
 `dev_rate` comes back different from `src_rate` and the seal says RESAMPLED. EKO
 never silently lies about what's happening.
 
+### Seeking in a server stream (known limitation)
+
+A Navidrome / Subsonic stream is downloaded and decoded **front-to-back into one growing
+buffer** — `HttpSource` is forward-only (`is_seekable()` is `false`). So you can only seek
+into the part that has already arrived: a forward seek past the downloaded edge is
+**clamped to it** (`engine_seek` → `Cmd::Seek` → `.min(track_end)` in `engine.rs`). On a
+freshly-started track or a slow/remote link this reads as "can't seek too far ahead" until
+more has streamed in. The download runs flat-out (network-bound, no throttle/backpressure),
+so on a fast connection the whole track buffers within seconds and you can then seek
+anywhere. Local files seek freely — the whole file is on disk.
+
+This is **by design**: it keeps streaming bit-perfect (we decode the original file, never a
+server transcode). True instant seek-anywhere would re-request the stream with an HTTP
+`Range` at the estimated byte offset and resync the decoder there (still bit-perfect) — a
+possible future improvement.
+
 ---
 
 ## 3. The bit-perfect bypass and the honest seal
@@ -238,11 +254,6 @@ In practice, contention is very low (the decode thread appends quickly and
 releases; the callback holds for a bounded read), and no dropouts have been
 observed. A lock-free ring buffer would be the correct fix if this becomes a
 problem.
-
-**No gapless yet.** Tracks are played as discrete streams; the cpal stream is torn
-down and rebuilt between tracks. A full gapless design is documented in
-[`docs/architecture/gapless.md`](gapless.md). It is deferred because it requires
-ear-testing with the maintainer present and carries regression risk to the decode loop.
 
 **No MQA or DSD.** symphonia does not decode either format. These are Tier 3
 items.

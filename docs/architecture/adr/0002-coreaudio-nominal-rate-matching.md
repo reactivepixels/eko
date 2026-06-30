@@ -71,7 +71,5 @@ port (parked) will require a different approach via `AVAudioSession`.
   close was considered and rejected: detecting all termination paths
   (normal stop, crash, force-quit) reliably enough to guarantee a restore is
   disproportionate effort.
-- This feature needs verification by ear and via Audio MIDI Setup inspection;
-  it is tagged [needs ear-verify] in the ROADMAP until the maintainer has confirmed it.
 - No equivalent on iOS — the iOS port cannot offer the same bit-perfect
   guarantee without a platform-specific alternative.

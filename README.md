@@ -142,14 +142,14 @@ CoreAudio rate-switching, and more.
 
 ```
 ┌── React + TS UI (Zustand state, Tauri invoke/events) ──┐
-│   transport · signal path · EQ · spectrum · library     │
-└───────────────────────▲────────────────────────────────┘
-                         │  commands / status
-┌───────────────────────┴────────────────────────────────┐
-│  Rust engine (src-tauri)                                 │
-│   symphonia decode → cpal @ native rate → CoreAudio      │
-│   nominal-rate match → DAC   (bit-perfect bypass)        │
-└──────────────────────────────────────────────────────────┘
+│  transport · signal path · EQ · spectrum · library     │
+└─────────────────────────▲──────────────────────────────┘
+                          │  commands / status
+┌─────────────────────────┴──────────────────────────────┐
+│  Rust engine (src-tauri)                               │
+│  symphonia decode → cpal @ native rate → CoreAudio     │
+│  nominal-rate match → DAC   (bit-perfect bypass)       │
+└────────────────────────────────────────────────────────┘
 ```
 
 ## Tech stack
@@ -165,8 +165,9 @@ verification — the PR template walks you through it.
 
 ## Roadmap & status
 
-See **[docs/ROADMAP.md](./docs/ROADMAP.md)**. The path to v1.0 is gapless playback, ReplayGain,
-and resume-last-session, then a signed release. EKO ships excellent and compounds in public.
+EKO is pre-1.0 and actively developed. The core is in place — the bit-perfect engine, gapless
+playback, ReplayGain, the 10-band EQ, Navidrome/Subsonic streaming, lyrics and scrobbling all
+ship today. Near-term focus is a signed & notarized release and continued polish.
 
 ## License
 

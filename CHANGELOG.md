@@ -9,9 +9,6 @@ The project is pre-1.0 — the API and feature set are still settling.
 ## [Unreleased]
 
 Everything below reflects what has been built and verified to compile and run.
-Items marked **[needs ear-verify]** are complete in code but have not been
-confirmed by the maintainer's listening tests or Audio MIDI Setup inspection. Do not treat
-those as shipping-quality until they pass the [QA checklist](docs/QA-CHECKLIST.md).
 
 ## [0.4.1] — 2026-06-25
 
@@ -47,8 +44,7 @@ Patch release: ship a working, downloadable macOS build.
   `MPNowPlayingInfoCenter` / `MPRemoteCommandCenter` (the `souvlaki` crate, `src-tauri/src/media.rs`).
   Remote commands are routed into the existing `eko:cmd` event path, so one command channel
   serves the mini player and the OS alike. Metadata, play/pause and elapsed position push on
-  every transition; server cover art appears on the card. **[needs the maintainer's eyes — media
-  keys bind for the bundled `.app`, not `tauri dev`.]**
+  every transition; server cover art appears on the card.
 - **Right-click context menus** — albums (Play album / Play next / Add to queue), track rows
   (Play / Play next / Add to queue) and queue rows (Play now / Remove). One reusable
   `ContextMenu` component; viewport-clamped, theme-aware, closes on outside-click / Esc / scroll.
@@ -96,8 +92,7 @@ Security + robustness hardening over the v0.1.0 preview (no feature regressions)
 - `EngineStatus` struct exposed to the frontend: `rate` (stream rate), `src_rate`
   (file rate), `dev_rate` (actual device rate read back from CoreAudio), `bits`,
   `codec`, `device`.
-- ReplayGain volume normalisation (**off by default**) — **ear-verified 2026-06-19** (Album
-  mode on a loud master applied −9.2 dB, audibly quieter; seal lit `REPLAYGAIN`). Full
+- ReplayGain volume normalisation (**off by default**). Full
   stack: reads RG tags (`metadata.rs`: track/album gain + peak, tolerant `"-6.34 dB"`
   parser); `engine_set_replaygain` applies the chosen gain in dB as a linear multiplier
   folded into the volume stage; a store mode (`off`/`track`/`album`, persisted) selects
@@ -107,7 +102,7 @@ Security + robustness hardening over the v0.1.0 preview (no feature regressions)
   invariant now pinned by a unit test (`is_bitperfect`, refactored out of the realtime
   callback). Works for **local files and Navidrome/Subsonic** (OpenSubsonic `replayGain` tags
   mapped through the same path).
-- Gapless playback **[needs ear-verify]** — same-rate tracks play through one continuous cpal
+- Gapless playback — same-rate tracks play through one continuous cpal
   stream with no seam (and bit-perfect); a rate change between tracks rebuilds the stream (tiny
   gap, bit-perfect preserved), exactly like Roon. Implemented by continuing the decode loop into
   a queued next source at end-of-track (`engine_enqueue` + `Source` + `open_source`), with
@@ -116,13 +111,12 @@ Security + robustness hardening over the v0.1.0 preview (no feature regressions)
   the bit-perfect path is untouched, and a single track collapses to the previous math. The
   frontend arms the next track ~12s before the end and advances the displayed track on the
   engine's `seg` without restarting. Unit-tested boundary math (`segment_at`).
-- Resume last session (local queues) **[needs verify]** — the last local queue, current
+- Resume last session (local queues) — the last local queue, current
   track, and position persist; on launch they're restored **paused** (never auto-playing),
   and the first play seeks to where you left off. Defensive: wrapped in the existing
-  restore guard, server queues excluded (their stream URLs need a live login). See
-  `docs/architecture/resume-session.md`.
+  restore guard, server queues excluded (their stream URLs need a live login).
 
-#### CoreAudio device-rate matching — macOS **[needs ear-verify]**
+#### CoreAudio device-rate matching — macOS
 - Hand-written CoreAudio HAL FFI (`src-tauri/src/coreaudio.rs`, macOS-only).
   Sets `kAudioDevicePropertyNominalSampleRate` on the selected output device to
   match the playing file's sample rate before the cpal stream opens.
@@ -133,7 +127,7 @@ Security + robustness hardening over the v0.1.0 preview (no feature regressions)
   device's actual operating rate, not the intended one. If the device cannot match
   (e.g. a Bluetooth sink locked to 48 kHz) the seal honestly shows RESAMPLED.
 
-#### Signal path display **[needs ear-verify with CoreAudio]**
+#### Signal path display
 - `SignalPath.tsx` (Concept G): SOURCE → ENGINE → OUTPUT chain rendered in the
   neumorphic deck. The ENGINE stage collapses into the bit-perfect seal — a ring
   that lights orange with a checkmark when the signal is untouched, and shows a
@@ -143,7 +137,7 @@ Security + robustness hardening over the v0.1.0 preview (no feature regressions)
 - FORMAT badge in `DeckView.tsx` reflects the same logic: BIT-PERFECT when the
   bypass is active; PROCESSED otherwise.
 
-#### Mini player **[needs the maintainer's eyes]**
+#### Mini player
 - `MiniWindow.tsx`: a compact always-on-top window that polls Rust state directly
   (`engine_status` / `engine_now_playing`) at 300 ms. Avoids the JS-timer-throttle
   macOS applies to hidden windows by bypassing the main-window event bridge.
@@ -196,16 +190,6 @@ Security + robustness hardening over the v0.1.0 preview (no feature regressions)
   local scanner (`useLocal.ts`) had its own `ScannedTrack`/`toTrack` that didn't copy the new
   RG fields, so `engine_set_replaygain` always received no gain. Both track builders
   (`loader.ts` and `useLocal.ts`) now carry the ReplayGain fields through. (Caught by ear.)
-
-### Deferred (not built yet)
-- **In-app update detection + auto-update** — check GitHub Releases for a newer
-  version on launch and surface an "Update available" prompt; ideally a one-click
-  background update via the Tauri updater (`tauri-plugin-updater` + signed release
-  artifacts). Scaffolding notes already in `docs/RELEASE.md`. Not built yet.
-- **macOS exclusive (hog) mode** — cpal does not expose this cleanly; deferred to
-  Tier 3.
-- **iOS / iPad** — toolchain confirmed ready; parked until macOS build has traction
-  (see ROADMAP for resume triggers).
 
 [Unreleased]: https://github.com/reactivepixels/eko/compare/v0.4.0...HEAD
 [0.4.0]: https://github.com/reactivepixels/eko/compare/v0.3.3...v0.4.0
