@@ -26,3 +26,26 @@ export function mediaPlayback(playing: boolean, elapsed: number) {
 export function mediaStopped() {
   void invoke("media_stopped").catch(() => {});
 }
+
+/** Player-state string a companion app expects — mirrors Spotify's own notification. */
+export type BroadcastPlayerState = "Playing" | "Paused" | "Stopped";
+
+// Skip redundant IPC calls when the poll loop / scrub handlers re-push the same state.
+let lastBroadcast: { state: BroadcastPlayerState; name: string; artist: string } | null = null;
+
+/** Post a macOS distributed notification ("com.reactivepixels.eko.playbackState") so a
+ *  companion app can react to play/pause/stop/track-change, mirroring the shape of
+ *  Spotify's own notification. Best-effort — failures are swallowed like the rest of this
+ *  module. No-op (throws away silently) on non-macOS builds via the Rust side. */
+export function broadcastPlayback(state: BroadcastPlayerState, name: string, artist: string) {
+  if (
+    lastBroadcast &&
+    lastBroadcast.state === state &&
+    lastBroadcast.name === name &&
+    lastBroadcast.artist === artist
+  ) {
+    return;
+  }
+  lastBroadcast = { state, name, artist };
+  void invoke("broadcast_playback", { state, name, artist }).catch(() => {});
+}

@@ -1,6 +1,6 @@
 [package]
 name = "eko"
-version = "0.4.19"
+version = "0.4.20"
 description = "Bit-perfect audiophile music player for macOS"
 authors = ["Reactive Pixels"]
 edition = "2021"
@@ -65,4 +65,14 @@ tempfile = "3"
 # MPRemoteCommandCenter; cross-platform under the hood).
 [target.'cfg(target_os = "macos")'.dependencies]
 souvlaki = "0.7"
+# NSDistributedNotificationCenter broadcast (broadcast.rs) for companion-app playback
+# integration. Both crates are already in the dependency tree transitively (via tauri /
+# muda), so pinning them directly adds no new compiled code.
+objc2 = "0.6"
+objc2-foundation = { version = "0.3", default-features = false, features = [
+    "NSNotification",
+    "NSDictionary",
+    "NSString",
+    "NSObject",
+] }
 

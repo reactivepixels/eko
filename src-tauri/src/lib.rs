@@ -1,5 +1,7 @@
 mod biquad;
 #[cfg(target_os = "macos")]
+mod broadcast;
+#[cfg(target_os = "macos")]
 mod coreaudio;
 mod engine;
 #[cfg(target_os = "macos")]
@@ -478,6 +480,17 @@ fn media_stopped(app: tauri::AppHandle) {
     let _ = app;
 }
 
+/// Post a macOS distributed notification (`com.reactivepixels.eko.playbackState`) so a
+/// companion app can react to play/pause/stop/track-change — mirrors Spotify's
+/// `com.spotify.client.PlaybackStateChanged` shape. No-op off macOS.
+#[tauri::command]
+fn broadcast_playback(state: String, name: String, artist: String) {
+    #[cfg(target_os = "macos")]
+    broadcast::post(&state, &name, &artist);
+    #[cfg(not(target_os = "macos"))]
+    let _ = (state, name, artist);
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     #[allow(unused_mut)]
@@ -620,6 +633,7 @@ pub fn run() {
             media_metadata,
             media_playback,
             media_stopped,
+            broadcast_playback,
             // ── Keychain commands (free — multi-server credential storage) ──
             secret_set,
             secret_get,

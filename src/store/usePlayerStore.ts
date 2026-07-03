@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { toTrack } from "../audio/loader";
 import { nativeEngine } from "../audio/nativeEngine";
 import type { ParamBand, EqMode } from "../audio/nativeEngine";
-import { mediaMetadata, mediaPlayback, mediaStopped } from "../audio/media";
+import { mediaMetadata, mediaPlayback, mediaStopped, broadcastPlayback } from "../audio/media";
 import { streamSrcUrl, coverArtUrl, scrobble } from "../subsonic/client";
 import { EQ_BAND_COUNT, EQ_PRESETS, FLAT_GAINS, type EqPreset } from "../audio/constants";
 import { offlineEntry, useOfflineStore } from "@pro";
@@ -429,11 +429,15 @@ function pushNowPlaying() {
   }
 }
 
-/** Push the current play/pause state + elapsed position to the OS now-playing card.
- *  Only needs calling on transitions — macOS extrapolates the running clock itself. */
+/** Push the current play/pause state + elapsed position to the OS now-playing card, and
+ *  broadcast it (+ the current track) to companion apps via `broadcastPlayback`. Only
+ *  needs calling on transitions — macOS extrapolates the running clock itself, and
+ *  `broadcastPlayback` itself skips redundant re-pushes of the same state/track. */
 function pushPlayback() {
   const s = usePlayerStore.getState();
   mediaPlayback(s.isPlaying, s.currentTime);
+  const t = s.currentIndex != null ? s.tracks[s.currentIndex] : null;
+  broadcastPlayback(s.isPlaying ? "Playing" : "Paused", t?.title ?? "", t?.artist ?? "");
 }
 
 /** Push the current volume (dial 0..1) into the native engine, throttled to ~20/sec so a
@@ -520,6 +524,8 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   },
 
   clearPlaylist: () => {
+    const { currentIndex, tracks } = get();
+    const t = currentIndex != null ? tracks[currentIndex] : null;
     void nativeEngine.stop();
     nativeEngine.stopBands();
     stopNativePoll();
@@ -539,6 +545,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       engineActive: false,
     });
     mediaStopped();
+    broadcastPlayback("Stopped", t?.title ?? "", t?.artist ?? "");
   },
 
   reorder: (from, to) => {
@@ -670,12 +677,15 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   },
 
   stop: () => {
+    const { currentIndex, tracks } = get();
+    const t = currentIndex != null ? tracks[currentIndex] : null;
     void nativeEngine.stop();
     nativeEngine.stopBands();
     stopNativePoll();
     enqueuedFor = null;
     set({ isPlaying: false, currentTime: 0, engineActive: false });
     mediaStopped();
+    broadcastPlayback("Stopped", t?.title ?? "", t?.artist ?? "");
   },
 
   next: async () => {
