@@ -2061,6 +2061,11 @@ body {
   background: linear-gradient(90deg, var(--accent), var(--accent-2));
   transition: width 0.3s ease;
 }
+/* In the sidebar OFFLINE card the usage bar sits directly under the mono
+   "N B / N GiB" line; give it breathing room so it doesn't touch the text. */
+.offline-panel .offline-usage-bar {
+  margin-top: 8px;
+}
 
 /* ── Offline view: cached-track rows ── */
 .offline-trow {

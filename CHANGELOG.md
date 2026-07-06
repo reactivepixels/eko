@@ -10,6 +10,13 @@ The project is pre-1.0 — the API and feature set are still settling.
 
 Everything below reflects what has been built and verified to compile and run.
 
+## [0.4.22] — 2026-07-06
+
+### Fixed
+- **Sidebar OFFLINE card spacing.** The storage usage bar sat flush against the
+  "N B / N GiB (N%)" line above it; it now has a small gap so it no longer touches
+  the text.
+
 ## [0.4.21] — 2026-07-06
 
 ### Fixed
