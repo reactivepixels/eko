@@ -5,6 +5,9 @@ import { useIsPro, OfflinePanel } from "@pro";
 import { UpdatePanel } from "./UpdatePanel";
 import { UPDATER_ENABLED } from "../store/useUpdaterStore";
 import { usePlayerStore } from "../store/usePlayerStore";
+import { useSignalPath } from "../hooks/useSignalPath";
+
+const khz = (n: number) => (n ? `${(n / 1000).toFixed(n % 1000 ? 1 : 0)} kHz` : "—");
 
 const ICON: Record<string, ReactNode> = {
   albums: (
@@ -80,6 +83,7 @@ export function Sidebar() {
   const { source, serverConfigured, localRoot, serverList, switchServer, openManageServers } = src;
   const scrobbleEnabled = usePlayerStore((s) => s.scrobbleEnabled);
   const setScrobbleEnabled = usePlayerStore((s) => s.setScrobbleEnabled);
+  const sp = useSignalPath();
 
   const go = (s: LibSection) => {
     setLibSection(s);
@@ -94,14 +98,17 @@ export function Sidebar() {
     ["folders", "Folders"],
   ];
 
-  const out =
-    source === "server"
-      ? {
-          t: "OUTPUT",
-          n: serverConfigured ? "Topping E50 · USB" : "No device",
-          s: serverConfigured ? "EXCLUSIVE · 768k" : "—",
-        }
-      : { t: "OUTPUT", n: "System default", s: localRoot ? `LOCAL · ${localRoot}` : "Bit-perfect" };
+  // OUTPUT reflects the REAL CoreAudio device, not a placeholder. While a track is
+  // playing the engine reports the device it actually opened (`info.device`) and its
+  // live rate; otherwise fall back to the user's selected device (null = system
+  // default). The status line uses the honest signal-path seal (BIT-PERFECT / the
+  // active modifiers) — never a hardcoded spec. Independent of music source, since the
+  // output device is the same whether streaming from a server or playing local files.
+  const out = {
+    t: "OUTPUT",
+    n: sp.active && sp.info?.device ? sp.info.device : (sp.outputDevice ?? "System default"),
+    s: sp.active && sp.info ? `${sp.sealLabel} · ${khz(sp.info.rate)}` : "—",
+  };
 
   return (
     <aside className="side">

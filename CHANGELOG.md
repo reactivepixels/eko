@@ -10,6 +10,16 @@ The project is pre-1.0 — the API and feature set are still settling.
 
 Everything below reflects what has been built and verified to compile and run.
 
+## [0.4.21] — 2026-07-06
+
+### Fixed
+- **Sidebar OUTPUT showed a placeholder DAC instead of the real device.** When connected
+  to a server the sidebar hardcoded `Topping E50 · USB / EXCLUSIVE · 768k` regardless of
+  the actual output hardware, so e.g. MacBook Pro Speakers users were told they were on a
+  Topping DAC — a mismatch with the (correct) Now Playing signal path. The card now reads
+  the real CoreAudio device and its live rate/seal, consistent with the deck.
+  (Thanks to @tim-lo for the first-ever bug report — #1.)
+
 ## [0.4.1] — 2026-06-25
 
 ### Added
