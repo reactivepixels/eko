@@ -47,11 +47,7 @@ brew tap reactivepixels/eko
 brew install --cask eko
 ```
 
-EKO isn't yet signed with an Apple Developer ID, so on first launch macOS may block it. If it does, allow it in **System Settings → Privacy & Security**, or run:
-
-```sh
-xattr -dr com.apple.quarantine /Applications/EKO.app
-```
+EKO is signed and notarized by Apple, so it opens with a normal double-click — no Gatekeeper prompts or workarounds needed.
 
 > Prefer to build it yourself? See [Requirements](#requirements) and [Build from source](#build-from-source) below — but the download above is the easiest way in.
 

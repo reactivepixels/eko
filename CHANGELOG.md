@@ -10,6 +10,12 @@ The project is pre-1.0 — the API and feature set are still settling.
 
 Everything below reflects what has been built and verified to compile and run.
 
+## [0.4.24] — 2026-07-07
+
+### Changed
+- **Documentation** — updated the README install steps for signed & notarized builds
+  (removed the obsolete `xattr` / Gatekeeper workaround). No app changes since 0.4.23.
+
 ## [0.4.23] — 2026-07-07
 
 ### Changed
