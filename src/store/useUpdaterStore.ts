@@ -2,11 +2,11 @@ import { check } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { create } from "zustand";
 
-// The in-app auto-updater is DISABLED until release signing is set up. There is no
-// Tauri updater private key (TAURI_SIGNING_PRIVATE_KEY) in CI yet, so releases ship no
-// `latest.json` and the update endpoint 404s — checking would only surface errors.
-// Flip to `true` once the updater key (+ Apple signing) are in place. See docs/RELEASE.md.
-export const UPDATER_ENABLED: boolean = false;
+// The in-app auto-updater is ENABLED (2026-07-07). Releases are signed + notarized and the
+// Tauri updater key (TAURI_SIGNING_PRIVATE_KEY) is set in CI, so release.yml signs the
+// update artifact and publishes `latest.json` to the public eko release. The app checks the
+// updater endpoint in tauri.conf.json against the baked prod pubkey. See docs/RELEASE.md.
+export const UPDATER_ENABLED: boolean = true;
 
 // ---------------------------------------------------------------------------
 // Types

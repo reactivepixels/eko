@@ -10,6 +10,18 @@ The project is pre-1.0 — the API and feature set are still settling.
 
 Everything below reflects what has been built and verified to compile and run.
 
+## [0.4.25] — 2026-07-07
+
+### Added
+- **In-app auto-updates.** EKO now checks for new versions on launch and can download,
+  install, and relaunch itself. Update packages are signed and verified against a key
+  built into the app. (Previously download-only.)
+
+### Changed
+- **Universal build — now runs on Intel Macs too.** Releases ship a single universal
+  (Apple Silicon + Intel) `.dmg`, so EKO runs natively on older Intel Macs as well as
+  Apple Silicon.
+
 ## [0.4.24] — 2026-07-07
 
 ### Changed
