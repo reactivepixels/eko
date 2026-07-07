@@ -10,6 +10,16 @@ The project is pre-1.0 — the API and feature set are still settling.
 
 Everything below reflects what has been built and verified to compile and run.
 
+## [0.4.27] — 2026-07-07
+
+### Fixed
+- **Connecting to servers on your local network (macOS 15+).** EKO now declares Local
+  Network usage, so macOS prompts to allow it — previously a signed build could be silently
+  blocked from reaching a Navidrome server by its LAN address. Allow EKO under System
+  Settings → Privacy & Security → Local Network if prompted.
+- **Readable in-app update notes.** The "Updates" panel now shows the release's changelog
+  instead of a raw link.
+
 ## [0.4.26] — 2026-07-07
 
 ### Fixed

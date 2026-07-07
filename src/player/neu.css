@@ -790,6 +790,8 @@ body {
   line-height: 1.5;
   max-height: 72px;
   overflow-y: auto;
+  white-space: pre-line; /* preserve CHANGELOG line breaks */
+  overflow-wrap: anywhere; /* never let a long token/URL blow out the card width */
 }
 .update-actions {
   display: flex;

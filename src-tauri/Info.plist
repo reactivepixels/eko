@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- macOS 15+ (Sequoia) / 26 gate access to LAN devices behind Local Network privacy.
+	     EKO reaches self-hosted music servers (e.g. Navidrome) by IP on the local network,
+	     so this description is shown in the permission prompt. Without it macOS may silently
+	     deny local-network access and the app won't reliably appear in the Local Network list. -->
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>EKO connects to music servers such as Navidrome on your local network.</string>
+</dict>
+</plist>
