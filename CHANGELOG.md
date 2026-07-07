@@ -10,6 +10,13 @@ The project is pre-1.0 — the API and feature set are still settling.
 
 Everything below reflects what has been built and verified to compile and run.
 
+## [0.4.26] — 2026-07-07
+
+### Fixed
+- **Clearer server connection errors.** When EKO can't reach a Navidrome server it now
+  shows a short, actionable message (check the address / that the server is running / macOS
+  Local Network permission) instead of a raw internal request dump.
+
 ## [0.4.25] — 2026-07-07
 
 ### Added

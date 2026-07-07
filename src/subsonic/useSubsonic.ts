@@ -43,6 +43,34 @@ function setStreamOrigin(baseUrl: string | null) {
   void invoke("set_stream_origin", { origin });
 }
 
+/**
+ * Turn a raw connect failure into a short, user-facing message. Subsonic API errors from
+ * `client.ts` (e.g. "Wrong username or password.") are already clean and pass through.
+ * Transport failures from the Tauri HTTP plugin look like
+ * `error sending request for url (http://…/rest/ping?u=…&t=<token>)` — never surface that:
+ * it's noise and it leaks the auth token. Show a friendly, actionable message instead.
+ */
+function friendlyConnectError(e: unknown, baseUrl: string): string {
+  const raw = e instanceof Error ? e.message : String(e);
+  const isTransport =
+    /sending request|failed to fetch|load failed|trying to connect|dns error|timed out|timeout|connection (refused|reset|closed)|network|unreachable|not permitted/i.test(
+      raw,
+    );
+  if (isTransport) {
+    let host = baseUrl;
+    try {
+      host = new URL(baseUrl).host;
+    } catch {
+      /* keep baseUrl as-is */
+    }
+    return `Couldn't reach ${host}. Check the address and that the server is running. If it's on your local network, allow EKO under System Settings → Privacy & Security → Local Network.`;
+  }
+  if (/^HTTP 401$|unauthor|wrong (username|password)/i.test(raw)) {
+    return "Wrong username or password.";
+  }
+  return raw;
+}
+
 function toTrack(s: SubSong): Track {
   return {
     id: s.id,
@@ -130,7 +158,7 @@ export const useSubsonic = create<SubsonicState>((set, get) => ({
     } catch (e) {
       setConfig(null);
       setStreamOrigin(null);
-      set({ connected: false, status: "error", error: String(e instanceof Error ? e.message : e) });
+      set({ connected: false, status: "error", error: friendlyConnectError(e, cfg.baseUrl) });
       return false;
     }
   },
@@ -208,7 +236,7 @@ export const useSubsonic = create<SubsonicState>((set, get) => ({
     } catch (e) {
       setConfig(null);
       setStreamOrigin(null);
-      set({ connected: false, status: "error", error: String(e instanceof Error ? e.message : e) });
+      set({ connected: false, status: "error", error: friendlyConnectError(e, cfg.baseUrl) });
       return false;
     }
   },
