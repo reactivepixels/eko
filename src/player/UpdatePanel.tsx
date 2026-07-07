@@ -69,35 +69,30 @@ export function UpdatePanel() {
         <div className="update-available">
           <div className="update-version">v{availableVersion} available</div>
           {releaseNotes && <div className="update-notes">{releaseNotes}</div>}
-          <div className="update-actions update-actions--row">
-            <button
-              className="pillbtn update-install-btn"
-              onClick={() => void installAndRelaunch()}
+          <button className="pillbtn update-install-btn" onClick={() => void installAndRelaunch()}>
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
             >
-              Download &amp; Install
-              <svg
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M12 5v14M5 12l7 7 7-7" />
-              </svg>
-            </button>
-            <span
-              className="pro-action-link"
-              onClick={dismiss}
-              role="button"
-              tabIndex={0}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") dismiss();
-              }}
-            >
-              Later
-            </span>
-          </div>
+              <path d="M12 5v14M5 12l7 7 7-7" />
+            </svg>
+            Download &amp; Install
+          </button>
+          <span
+            className="update-later"
+            onClick={dismiss}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") dismiss();
+            }}
+          >
+            Later
+          </span>
         </div>
       )}
 

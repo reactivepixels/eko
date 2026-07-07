@@ -10,6 +10,13 @@ The project is pre-1.0 — the API and feature set are still settling.
 
 Everything below reflects what has been built and verified to compile and run.
 
+## [0.4.28] — 2026-07-07
+
+### Changed
+- **Tidier "update available" panel.** Release notes are now a short teaser instead of a
+  wall of text, and the "Download & Install" button sits on its own line (no more awkward
+  wrapping), with "Later" beneath it.
+
 ## [0.4.27] — 2026-07-07
 
 ### Fixed
