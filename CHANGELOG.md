@@ -10,6 +10,14 @@ The project is pre-1.0 — the API and feature set are still settling.
 
 Everything below reflects what has been built and verified to compile and run.
 
+## [0.4.23] — 2026-07-07
+
+### Changed
+- **Releases are now signed & notarized with an Apple Developer ID.** macOS builds are
+  code-signed, notarized by Apple, and stapled (both the app and the DMG), so EKO opens
+  with a normal double-click — no more right-click → Open or `xattr` workaround on first
+  launch. (The in-app auto-updater remains disabled for now; releases are download-only.)
+
 ## [0.4.22] — 2026-07-06
 
 ### Fixed
