@@ -38,7 +38,7 @@ system resample. Watch **Audio MIDI Setup** follow the music.
 
 ## Download
 
-**[⬇ Download the latest macOS build](https://github.com/reactivepixels/eko/releases/latest)** — a ready-to-run `.dmg` (Apple Silicon). No build step required.
+**[⬇ Download the latest macOS build](https://github.com/reactivepixels/eko/releases/latest)** — a ready-to-run **universal** `.dmg` (Apple Silicon & Intel). No build step required.
 
 Or install with [Homebrew](https://brew.sh):
 
@@ -96,8 +96,9 @@ The site and docs are live at **[eko.reactivepixels.com](https://eko.reactivepix
 ## Requirements
 
 - **macOS** (Apple Silicon or Intel). EKO is macOS-only for v1 — the bit-perfect device-rate
-  matching uses the CoreAudio HAL, which has no cross-platform equivalent. Note: the prebuilt
-  DMG is Apple Silicon only for now; Intel users should build from source.
+  matching uses the CoreAudio HAL, which has no cross-platform equivalent. The prebuilt DMG is
+  **universal** — a single signed & notarized download runs natively on both Apple Silicon and
+  Intel Macs.
 - A DAC or audio interface to hear the difference (though it's a better path on any output).
 
 ## Build from source
