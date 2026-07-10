@@ -820,7 +820,11 @@ body {
 .update-actions--row {
   flex-direction: row;
 }
-.update-install-btn {
+/* Compound selector (.pillbtn.update-install-btn) so these win over the base `.pillbtn` rule,
+   which is declared LATER in this file and — at equal specificity — was overriding the accent
+   colour (and display) back to the muted `--ink-2` pill default. That silent cascade override is
+   why the "Download & Install" CTA rendered grey instead of the intended accent. */
+.pillbtn.update-install-btn {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1627,6 +1631,13 @@ body {
   padding: 0 14px;
   border-radius: 999px;
   background: var(--bg);
+  /* Reset the native <button> chrome. Without this, a <button>.pillbtn inherits the UA default
+     `2px outset white` border — a hard 3D-beveled ring that read as the "weird harsh border" on
+     the update CTA. (A <div>.pillbtn like the EQ preset never showed it.) */
+  appearance: none;
+  -webkit-appearance: none;
+  border: 0;
+  /* Same soft neumorphic raise as the transport buttons (.tbtn), which is the look we want. */
   box-shadow: var(--out-sm), var(--bevel);
   display: inline-flex;
   align-items: center;

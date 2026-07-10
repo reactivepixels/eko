@@ -10,6 +10,13 @@ The project is pre-1.0 — the API and feature set are still settling.
 
 Everything below reflects what has been built and verified to compile and run.
 
+## [0.4.30] — 2026-07-10
+
+### Fixed
+- **"Download & Install" button styling.** The update-panel button now shows its intended
+  accent colour (it had been rendering muted grey) and no longer carries a stray hard-edged
+  border — it's a clean raised pill matching the transport controls.
+
 ## [0.4.29] — 2026-07-10
 
 ### Fixed
