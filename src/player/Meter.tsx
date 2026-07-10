@@ -24,7 +24,15 @@ export function Meter() {
   useEffect(() => {
     let raf = 0;
     let smoothed = 0;
-    const tick = () => {
+    // Cap to ~30fps (see Spectrum.tsx) — the meter is imperceptibly different, and uncapped rAF
+    // repaints are a real cost on older integrated graphics.
+    const FRAME_MS = 1000 / 30;
+    let last = 0;
+    const tick = (now: number) => {
+      raf = requestAnimationFrame(tick);
+      if (now - last < FRAME_MS) return;
+      last = now;
+
       const bands = read();
       let target = 0;
       if (bands && bands.length > 0) {
@@ -45,7 +53,6 @@ export function Meter() {
         const el = refs.current[i];
         if (el) el.dataset.lit = i < lit ? "1" : "0";
       }
-      raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);

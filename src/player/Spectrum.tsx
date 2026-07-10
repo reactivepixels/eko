@@ -29,6 +29,10 @@ export function Spectrum({ bands = 36, bargap = 2, dots = false, className }: Pr
     const lvl = new Float32Array(bands);
     const peak = new Float32Array(bands);
     let raf = 0;
+    // Cap the redraw to ~30fps. Uncapped rAF (60–120fps) full-canvas repaints are a real CPU/GPU
+    // cost on older integrated graphics; a segmented LED display is imperceptibly different at 30.
+    const FRAME_MS = 1000 / 30;
+    let last = 0;
 
     const resize = () => {
       const dpr = Math.min(2, window.devicePixelRatio || 1);
@@ -42,7 +46,13 @@ export function Spectrum({ bands = 36, bargap = 2, dots = false, className }: Pr
     const ro = new ResizeObserver(resize);
     ro.observe(canvas);
 
-    const draw = () => {
+    const draw = (now: number) => {
+      // Reschedule FIRST so a single throwing frame can never kill the loop (older WebKit lacking
+      // an API used to freeze the whole display), then throttle the actual draw work to ~30fps.
+      raf = requestAnimationFrame(draw);
+      if (now - last < FRAME_MS) return;
+      last = now;
+
       const w = canvas.clientWidth,
         h = canvas.clientHeight;
       ctx.clearRect(0, 0, w, h);
@@ -97,7 +107,6 @@ export function Spectrum({ bands = 36, bargap = 2, dots = false, className }: Pr
           ctx.fill();
         }
       }
-      raf = requestAnimationFrame(draw);
     };
     raf = requestAnimationFrame(draw);
     return () => {

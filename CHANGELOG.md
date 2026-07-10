@@ -10,6 +10,20 @@ The project is pre-1.0 — the API and feature set are still settling.
 
 Everything below reflects what has been built and verified to compile and run.
 
+## [0.4.29] — 2026-07-10
+
+### Fixed
+- **Spectrum/EQ display now renders on older macOS.** On older macOS versions the Now Playing
+  spectrum could appear frozen or blank (a modern canvas API was missing from the system
+  WebView); it now draws everywhere EKO runs.
+- **Lower CPU during playback on older Intel Macs.** The spectrum and level-meter animations are
+  capped to ~30fps and no longer run a runaway redraw loop — noticeably easier on older hardware
+  (calmer fans).
+
+### Changed
+- Evened out the sidebar module spacing.
+- README: the prebuilt DMG is correctly described as **universal** (Apple Silicon + Intel).
+
 ## [0.4.28] — 2026-07-07
 
 ### Changed

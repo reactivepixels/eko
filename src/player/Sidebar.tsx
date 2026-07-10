@@ -153,7 +153,6 @@ export function Sidebar() {
           onClick={() => setPlayerView("deck")}
         />
       </div>
-      <div className="nav-spacer" />
       {source === "local" && localRoot && (
         <div className="dac-card">
           <div className="t">MUSIC FOLDER</div>
