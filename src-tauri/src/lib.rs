@@ -196,6 +196,20 @@ fn apply_pro_menu(app: &tauri::AppHandle) -> tauri::Result<()> {
         .item(&PredefinedMenuItem::quit(app, None)?)
         .build()?;
 
+    // Edit menu — REQUIRED on macOS for Cmd+X/C/V/A (and undo/redo) to work inside the webview's
+    // text fields, e.g. pasting a server password on the connect screen. WKWebView takes these
+    // shortcuts from the app's native Edit menu; without it they silently do nothing. FREE, every
+    // tier. (github.com/reactivepixels/eko#3)
+    let edit_menu = SubmenuBuilder::new(app, "Edit")
+        .item(&PredefinedMenuItem::undo(app, None)?)
+        .item(&PredefinedMenuItem::redo(app, None)?)
+        .separator()
+        .item(&PredefinedMenuItem::cut(app, None)?)
+        .item(&PredefinedMenuItem::copy(app, None)?)
+        .item(&PredefinedMenuItem::paste(app, None)?)
+        .item(&PredefinedMenuItem::select_all(app, None)?)
+        .build()?;
+
     // Controls (Sleep Timer) — FREE, present regardless of tier.
     let controls_menu = build_controls_menu(app)?;
 
@@ -205,7 +219,7 @@ fn apply_pro_menu(app: &tauri::AppHandle) -> tauri::Result<()> {
     if !licensed {
         app.set_menu(
             MenuBuilder::new(app)
-                .items(&[&app_menu, &controls_menu])
+                .items(&[&app_menu, &edit_menu, &controls_menu])
                 .build()?,
         )?;
         return Ok(());
@@ -300,7 +314,13 @@ fn apply_pro_menu(app: &tauri::AppHandle) -> tauri::Result<()> {
 
     app.set_menu(
         MenuBuilder::new(app)
-            .items(&[&app_menu, &controls_menu, &skins_menu, &visualizer_menu])
+            .items(&[
+                &app_menu,
+                &edit_menu,
+                &controls_menu,
+                &skins_menu,
+                &visualizer_menu,
+            ])
             .build()?,
     )?;
     Ok(())
@@ -571,9 +591,22 @@ pub fn run() {
                     .separator()
                     .item(&PredefinedMenuItem::quit(h, None)?)
                     .build()?;
+                // Edit menu — REQUIRED on macOS so Cmd+X/C/V/A (and undo/redo) work in the
+                // webview's text fields, e.g. pasting a server password on the connect screen.
+                // Without a native Edit menu, WKWebView has no key equivalents and these silently
+                // no-op. (github.com/reactivepixels/eko#3)
+                let edit_menu = SubmenuBuilder::new(h, "Edit")
+                    .item(&PredefinedMenuItem::undo(h, None)?)
+                    .item(&PredefinedMenuItem::redo(h, None)?)
+                    .separator()
+                    .item(&PredefinedMenuItem::cut(h, None)?)
+                    .item(&PredefinedMenuItem::copy(h, None)?)
+                    .item(&PredefinedMenuItem::paste(h, None)?)
+                    .item(&PredefinedMenuItem::select_all(h, None)?)
+                    .build()?;
                 let controls_menu = build_controls_menu(h)?;
                 let menu = MenuBuilder::new(h)
-                    .items(&[&app_menu, &controls_menu])
+                    .items(&[&app_menu, &edit_menu, &controls_menu])
                     .build()?;
                 app.set_menu(menu)?;
             }

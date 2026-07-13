@@ -10,6 +10,14 @@ The project is pre-1.0 — the API and feature set are still settling.
 
 Everything below reflects what has been built and verified to compile and run.
 
+## [0.4.31] — 2026-07-13
+
+### Fixed
+- **Paste now works in text fields (Cmd+V).** Added a native macOS Edit menu, so Cmd+X / C / V / A
+  and Undo/Redo work in inputs — most importantly pasting a password on the server connect screen.
+  (macOS routes these shortcuts through the app's Edit menu, which EKO was missing.) Thanks to
+  @rtconner (#3).
+
 ## [0.4.30] — 2026-07-10
 
 ### Fixed
