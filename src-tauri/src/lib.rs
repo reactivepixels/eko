@@ -16,17 +16,16 @@ mod stream;
 pub mod pro;
 
 use std::sync::Mutex;
+// CheckMenuItem is needed in BOTH builds: the free "Visualizer ▸ On" toggle uses it
+// (Galaxy is a free feature). The Pro Skins menu uses it for skin/accent/theme radios.
 use tauri::menu::{
-    AboutMetadata, MenuBuilder, MenuItem, PredefinedMenuItem, Submenu, SubmenuBuilder,
+    AboutMetadata, CheckMenuItem, MenuBuilder, MenuItem, PredefinedMenuItem, Submenu,
+    SubmenuBuilder,
 };
 use tauri::Manager;
 // Emitter (app.emit for menu-action events) is needed in BOTH builds: the free build
 // still emits `sleep:*` events from the native "Controls ▸ Sleep Timer" menu.
 use tauri::Emitter;
-
-// Only the Pro Skins/Visualizer menus use CheckMenuItem (radio checkmarks).
-#[cfg(feature = "pro")]
-use tauri::menu::CheckMenuItem;
 
 /// The configured Navidrome origin the `stream://` proxy is allowed to fetch (SSRF guard).
 #[derive(Default)]
@@ -40,12 +39,13 @@ fn set_stream_origin(origin: Option<String>, state: tauri::State<StreamOrigin>) 
 
 // ── Pro: native "Skins" menu — skin + accent + dark-mode, mirrored to the frontend store ──
 //
-// In the free build none of this is compiled: no MenuItems state, no sync_menu command,
-// no Skins submenu, and no menu event handler for skin/accent/theme actions.
+// In the free build the Skins menu itself is not compiled: no sync_menu command, no Skins
+// submenu, and no handling of skin/accent/theme actions. `MenuItems` (below) and
+// `sync_visualizer` ARE compiled in both builds — the free Visualizer menu needs them.
 
-/// Holds the skin/accent/theme check-menu items so the frontend can keep their checkmarks
-/// in sync. Pro build only — the free build has no Skins menu.
-#[cfg(feature = "pro")]
+/// Holds the check-menu items so the frontend can keep their checkmarks in sync.
+/// Present in BOTH builds: the free build uses it for the Visualizer menu (Galaxy is free);
+/// the Pro build additionally registers the Skins menu's skin/accent/theme items.
 #[derive(Default)]
 struct MenuItems(Mutex<std::collections::HashMap<String, CheckMenuItem<tauri::Wry>>>);
 
@@ -67,8 +67,8 @@ fn sync_menu(skin: String, accent: String, theme: String, items: tauri::State<Me
 }
 
 /// Sync the native "Visualizer" menu checkmarks to the frontend's current visualizer state.
-/// Pro build only — the free build never calls this; the command is not registered.
-#[cfg(feature = "pro")]
+/// FREE — the Galaxy visualizer ships in every build, so both builds register this. Ids not
+/// present in the current menu (the Pro-only presets, in a free build) are simply skipped.
 #[tauri::command]
 fn sync_visualizer(open: bool, preset: String, items: tauri::State<MenuItems>) {
     let map = items.0.lock().unwrap();
@@ -137,18 +137,65 @@ fn build_controls_menu(app: &tauri::AppHandle) -> tauri::Result<Submenu<tauri::W
     SubmenuBuilder::new(app, "Controls").item(&sleep).build()
 }
 
-/// Build the native menu for the current license tier and apply it. The Pro menus (Skins,
-/// Visualizer) are present only for a licensed user; the free tier gets just the app menu
-/// (which still carries Enter License Key… / Get EKO Pro). Called at startup and live on a
-/// license change (via `refresh_menu`), so activating a key reveals the Pro menus without a
-/// relaunch.
+/// Build the "Visualizer" menu. FREE — the Galaxy GPU visualizer ships in every build, so the
+/// menu (and its `On` toggle) is present for every tier; that toggle IS the only way to open the
+/// overlay, so it must never be license-gated.
+///
+/// `pro_presets` adds the Pro-only presets (Cymatics, Murmuration) and the preset list itself —
+/// with just Galaxy there is nothing to choose between, so the free menu is only `On`.
+///
+/// Returns the submenu plus the check items to register in `MenuItems` for checkmark syncing.
+fn build_visualizer_menu(
+    app: &tauri::AppHandle,
+    pro_presets: bool,
+) -> tauri::Result<(Submenu<tauri::Wry>, Vec<CheckMenuItem<tauri::Wry>>)> {
+    let viz_on = CheckMenuItem::with_id(app, "visualizer:on", "On", true, false, None::<&str>)?;
+    let mut b = SubmenuBuilder::new(app, "Visualizer").item(&viz_on);
+    let mut items = vec![viz_on];
+
+    if pro_presets {
+        let galaxy =
+            CheckMenuItem::with_id(app, "visualizer:galaxy", "Galaxy", true, true, None::<&str>)?;
+        let cymatics = CheckMenuItem::with_id(
+            app,
+            "visualizer:cymatics",
+            "Cymatics",
+            true,
+            false,
+            None::<&str>,
+        )?;
+        let murmuration = CheckMenuItem::with_id(
+            app,
+            "visualizer:murmuration",
+            "Murmuration",
+            true,
+            false,
+            None::<&str>,
+        )?;
+        b = b
+            .separator()
+            .item(&galaxy)
+            .item(&cymatics)
+            .item(&murmuration);
+        items.extend([galaxy, cymatics, murmuration]);
+    }
+
+    Ok((b.build()?, items))
+}
+
+/// Build the native menu for the current license tier and apply it. The Skins menu is present
+/// only for a licensed user; an unlicensed user gets the app menu (which still carries Enter
+/// License Key… / Get EKO Pro) plus Controls and Visualizer, both FREE. The Visualizer menu is
+/// always present — only its extra presets (Cymatics, Murmuration) are license-gated. Called at
+/// startup and live on a license change (via `refresh_menu`), so activating a key reveals the
+/// Pro menu + presets without a relaunch.
 #[cfg(feature = "pro")]
 fn apply_pro_menu(app: &tauri::AppHandle) -> tauri::Result<()> {
     let about = AboutMetadata {
         name: Some("EKO".into()),
         version: Some(app.package_info().version.to_string()),
         copyright: Some("© 2026 Reactive Pixels".into()),
-        comments: Some("A bit-perfect audiophile music player for macOS.".into()),
+        comments: Some("The beautiful native Mac client for Navidrome & self-hosted music.".into()),
         website: Some("https://github.com/reactivepixels/eko".into()),
         website_label: Some("GitHub".into()),
         ..Default::default()
@@ -213,13 +260,23 @@ fn apply_pro_menu(app: &tauri::AppHandle) -> tauri::Result<()> {
     // Controls (Sleep Timer) — FREE, present regardless of tier.
     let controls_menu = build_controls_menu(app)?;
 
-    // Reset the checkmark-sync map; repopulate only when the Pro menus are present.
+    // Reset the checkmark-sync map; repopulate below for whichever menus are present.
     app.state::<MenuItems>().0.lock().unwrap().clear();
+
+    // Visualizer (Galaxy) is FREE — present at every tier. Only the extra presets are Pro.
+    let (visualizer_menu, viz_items) = build_visualizer_menu(app, licensed)?;
+    {
+        let st = app.state::<MenuItems>();
+        let mut map = st.0.lock().unwrap();
+        for it in &viz_items {
+            map.insert(it.id().as_ref().to_string(), it.clone());
+        }
+    }
 
     if !licensed {
         app.set_menu(
             MenuBuilder::new(app)
-                .items(&[&app_menu, &edit_menu, &controls_menu])
+                .items(&[&app_menu, &edit_menu, &controls_menu, &visualizer_menu])
                 .build()?,
         )?;
         return Ok(());
@@ -263,33 +320,6 @@ fn apply_pro_menu(app: &tauri::AppHandle) -> tauri::Result<()> {
         .separator()
         .item(&theme_dark)
         .build()?;
-    let viz_on = CheckMenuItem::with_id(app, "visualizer:on", "On", true, false, None::<&str>)?;
-    let viz_galaxy =
-        CheckMenuItem::with_id(app, "visualizer:galaxy", "Galaxy", true, true, None::<&str>)?;
-    let viz_cymatics = CheckMenuItem::with_id(
-        app,
-        "visualizer:cymatics",
-        "Cymatics",
-        true,
-        false,
-        None::<&str>,
-    )?;
-    let viz_murmuration = CheckMenuItem::with_id(
-        app,
-        "visualizer:murmuration",
-        "Murmuration",
-        true,
-        false,
-        None::<&str>,
-    )?;
-    let visualizer_menu = SubmenuBuilder::new(app, "Visualizer")
-        .item(&viz_on)
-        .separator()
-        .item(&viz_galaxy)
-        .item(&viz_cymatics)
-        .item(&viz_murmuration)
-        .build()?;
-
     {
         let st = app.state::<MenuItems>();
         let mut map = st.0.lock().unwrap();
@@ -307,9 +337,7 @@ fn apply_pro_menu(app: &tauri::AppHandle) -> tauri::Result<()> {
         ] {
             map.insert(it.id().as_ref().to_string(), it.clone());
         }
-        for it in [&viz_on, &viz_galaxy, &viz_cymatics, &viz_murmuration] {
-            map.insert(it.id().as_ref().to_string(), it.clone());
-        }
+        // Visualizer items were already registered above (they exist at every tier).
     }
 
     app.set_menu(
@@ -518,11 +546,9 @@ pub fn run() {
         .manage(engine::Engine::default())
         .manage(StreamOrigin::default());
 
-    // Pro build: register the MenuItems state for Skins menu sync.
-    #[cfg(feature = "pro")]
-    {
-        builder = builder.manage(MenuItems::default());
-    }
+    // Both builds: the checkmark-sync map. Free needs it for the Visualizer menu (Galaxy is
+    // free); the Pro build additionally uses it for the Skins menu.
+    builder = builder.manage(MenuItems::default());
 
     #[cfg(target_os = "macos")]
     {
@@ -558,24 +584,27 @@ pub fn run() {
             let h = app.handle();
 
             // ── Pro: full menu (app + Skins + Visualizer), license-aware ──────────────
-            // `apply_pro_menu` builds the whole menu from the on-disk license: licensed
-            // users get the Skins/Visualizer menus + a "Remove License" entry; free users
-            // get only the app menu with "Enter License Key…" / "Get EKO Pro". The same
-            // function is re-run via the `refresh_menu` command after activate/deactivate
-            // so the menus appear (or disappear) live, with no relaunch.
+            // `apply_pro_menu` builds the whole menu from the on-disk license: licensed users
+            // get the Skins menu, the Pro visualizer presets, and a "Remove License" entry;
+            // unlicensed users get the app menu with "Enter License Key…" / "Get EKO Pro" plus
+            // the FREE Controls and Visualizer menus. The same function is re-run via the
+            // `refresh_menu` command after activate/deactivate so the Pro entries appear (or
+            // disappear) live, with no relaunch.
             #[cfg(feature = "pro")]
             {
                 apply_pro_menu(h)?;
             }
 
-            // ── Free build: app menu + Controls (Sleep Timer); no Pro entries ─────────
+            // ── Free build: app menu + Controls (Sleep Timer) + Visualizer (Galaxy) ───
             #[cfg(not(feature = "pro"))]
             {
                 let about = AboutMetadata {
                     name: Some("EKO".into()),
                     version: Some(app.package_info().version.to_string()),
                     copyright: Some("© 2026 Reactive Pixels".into()),
-                    comments: Some("A bit-perfect audiophile music player for macOS.".into()),
+                    comments: Some(
+                        "The beautiful native Mac client for Navidrome & self-hosted music.".into(),
+                    ),
                     website: Some("https://github.com/reactivepixels/eko".into()),
                     website_label: Some("GitHub".into()),
                     ..Default::default()
@@ -605,8 +634,18 @@ pub fn run() {
                     .item(&PredefinedMenuItem::select_all(h, None)?)
                     .build()?;
                 let controls_menu = build_controls_menu(h)?;
+                // Visualizer (Galaxy) — FREE. The "On" toggle here is the only way to open the
+                // overlay, so it must exist in the free build.
+                let (visualizer_menu, viz_items) = build_visualizer_menu(h, false)?;
+                {
+                    let st = h.state::<MenuItems>();
+                    let mut map = st.0.lock().unwrap();
+                    for it in &viz_items {
+                        map.insert(it.id().as_ref().to_string(), it.clone());
+                    }
+                }
                 let menu = MenuBuilder::new(h)
-                    .items(&[&app_menu, &edit_menu, &controls_menu])
+                    .items(&[&app_menu, &edit_menu, &controls_menu, &visualizer_menu])
                     .build()?;
                 app.set_menu(menu)?;
             }
@@ -671,11 +710,11 @@ pub fn run() {
             secret_set,
             secret_get,
             secret_delete,
+            // ── Visualizer menu sync (free — Galaxy ships in every build) ───
+            sync_visualizer,
             // ── Pro commands (compiled away in free build) ──────────────────
             #[cfg(feature = "pro")]
             sync_menu,
-            #[cfg(feature = "pro")]
-            sync_visualizer,
             #[cfg(feature = "pro")]
             refresh_menu,
             #[cfg(feature = "pro")]

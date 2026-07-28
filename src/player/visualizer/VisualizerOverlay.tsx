@@ -8,12 +8,15 @@
  *
  * Theme and accent are read from useUiStore each frame so they are always live.
  *
- * No native-menu bridge and no license check here — this is the free-tier overlay,
- * gated by tier at the call site (PlayerApp.tsx renders this OR the Pro overlay,
- * never both). The free registry only contains Galaxy, so there is no preset to pick.
+ * Opened from the native "Visualizer ▸ On" menu item (FREE in every build) — this component
+ * owns that bridge for the free tier. No license check here: PlayerApp renders this OR the Pro
+ * overlay, never both, so reaching this code already means "not licensed Pro". The free registry
+ * contains only Galaxy, so there is no preset to pick.
  */
 
 import React, { useEffect, useRef, useCallback } from "react";
+import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import { useVisualizerStore } from "./useVisualizerStore";
 import { useSpectrum } from "../../hooks/useSpectrum";
 import { useUiStore, ACCENTS } from "../../store/useUiStore";
@@ -68,6 +71,30 @@ export function VisualizerOverlay(): React.ReactElement | null {
   useEffect(() => {
     accentRef.current = accent;
   }, [accent]);
+
+  // ── Native "Visualizer" menu bridge ──────────────────────────────────────
+  // Runs regardless of `open` so the menu checkmark stays in sync even when closed.
+  useEffect(() => {
+    void invoke("sync_visualizer", { open, preset: presetId }).catch(() => {});
+  }, [open, presetId]);
+
+  useEffect(() => {
+    const unlisten = listen<string>("menu-action", (e) => {
+      const id = e.payload;
+      if (!id.startsWith("visualizer:")) return;
+      if (id === "visualizer:on") {
+        useVisualizerStore.getState().toggle();
+      } else if (id === "visualizer:galaxy") {
+        // Only preset in the free build; the free menu doesn't list presets, but a Pro-built
+        // binary running unlicensed can still emit this — treat it as "open Galaxy".
+        useVisualizerStore.getState().openWith("galaxy");
+      }
+      // Pro-only presets (cymatics/murmuration) are absent from the free menu and ignored here.
+    });
+    return () => {
+      void unlisten.then((f) => f());
+    };
+  }, []); // stable — store actions are referentially stable
 
   const handleKey = useCallback(
     (e: KeyboardEvent) => {

@@ -10,12 +10,18 @@ The project is pre-1.0 — the API and feature set are still settling.
 
 Everything below reflects what has been built and verified to compile and run.
 
+## [0.4.35] — 2026-07-28
+
+### Changed
+- **The visualizer now opens from the menu bar** (**Visualizer ▸ On**) instead of a top-bar
+  button, matching the rest of EKO's native-menu design.
+
 ## [0.4.34] — 2026-07-28
 
 ### Added
 - **Free GPU visualizer (Galaxy).** A full-window particle-galaxy visualizer, driven live by
-  the audio, is now free — open it from the new button in the top bar. Two additional presets
-  (Cymatics, Murmuration) remain Pro, reachable via the native "Visualizer" menu.
+  the audio, is now free — open it from **Visualizer ▸ On** in the menu bar. Two additional
+  presets (Cymatics, Murmuration) remain Pro.
 
 ## [0.4.33] — 2026-07-28
 
