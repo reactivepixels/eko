@@ -2,9 +2,9 @@
 
 # EKO
 
-**A bit-perfect audiophile music player for macOS.**
+**The beautiful native Mac client for Navidrome & self-hosted music.**
 
-Native Rust audio engine · neumorphic Braun-inspired UI · local files + Navidrome/Subsonic.
+Bit-perfect Rust audio engine · neumorphic Braun-inspired UI · Navidrome/Subsonic + local files.
 
 [![CI](https://github.com/reactivepixels/eko/actions/workflows/ci.yml/badge.svg)](https://github.com/reactivepixels/eko/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-ef6a1e.svg)](./LICENSE)
