@@ -1,4 +1,5 @@
 import { useUiStore } from "../store/useUiStore";
+import { AccentPicker } from "./AccentPicker";
 import { ThemeSwitcher } from "./ThemeSwitcher";
 // @pro → src/pro-stub in the free build (tier always "free" → no badge); the real
 // license store in the Pro build drives the PRO badge.
@@ -103,7 +104,10 @@ export function TopBar() {
           </svg>
         </div>
 
-        {/* skin + accent now live in the native "Skins" menu (menu bar) */}
+        {/* alternate skins remain Pro-only, in the native "Skins" menu (menu bar) */}
+
+        {/* accent color — FREE feature */}
+        <AccentPicker />
 
         {/* dark-mode toggle — FREE feature; Porcelain ↔ Graphite */}
         <ThemeSwitcher />

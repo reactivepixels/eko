@@ -10,6 +10,13 @@ The project is pre-1.0 — the API and feature set are still settling.
 
 Everything below reflects what has been built and verified to compile and run.
 
+## [0.4.32] — 2026-07-28
+
+### Added
+- **Accent color picker.** A free swatch row in the top bar (orange/violet/blue/teal/graphite/cyan)
+  lets you pick an accent color without needing Pro — this was already free at the engine/store
+  level but had no in-app control after the old Customize panel was removed.
+
 ## [0.4.31] — 2026-07-13
 
 ### Fixed
