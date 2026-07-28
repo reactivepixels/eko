@@ -11,10 +11,7 @@ Native Rust audio engine · neumorphic Braun-inspired UI · local files + Navidr
 [![Platform: macOS](https://img.shields.io/badge/platform-macOS-2c2b27.svg)](#requirements)
 [![Built with Tauri](https://img.shields.io/badge/built%20with-Tauri%202-24c8db.svg)](https://tauri.app)
 
-<img src="./docs/assets/og.png" alt="EKO — a bit-perfect audiophile music player for macOS" width="820" />
-
-<!-- This is the brand banner. A real app screenshot (captured at 2× from the running app)
-     should replace it as the hero once available — see “Screenshots” below. -->
+<img src="./screenshots/eko-demo.gif" alt="EKO demo — browsing a library, Now Playing with the bit-perfect signal-path seal, EQ presets, and the light/dark Porcelain skin" width="820" />
 
 </div>
 
@@ -81,13 +78,18 @@ EKO is signed and notarized by Apple, so it opens with a normal double-click —
 ## Screenshots
 
 <p align="center">
-  <img src="./screenshots/eko-light.webp" alt="EKO Now Playing — light (Porcelain): Radiohead, Kid A, FLAC 44.1k, bit-perfect, with the signal-path seal, spectrum and 10-band EQ" width="840" />
+  <img src="./screenshots/eko-light.webp" alt="EKO Now Playing — light (Porcelain): Jeff Buckley, Grace, FLAC 44.1k 16-bit, bit-perfect, with the signal-path seal, spectrum and 10-band EQ" width="840" />
   <br><sub><em>Now Playing — light (Porcelain)</em></sub>
 </p>
 
 <p align="center">
-  <img src="./screenshots/eko-dark.webp" alt="EKO Now Playing — dark (Graphite): Jamiroquai, FLAC 44.1k, bit-perfect, driving a Topping E50 in exclusive mode at 768k" width="840" />
+  <img src="./screenshots/eko-dark.webp" alt="EKO Now Playing — dark (Graphite): MF DOOM, MM..FOOD, FLAC 96k 24-bit, bit-perfect" width="840" />
   <br><sub><em>Now Playing — dark (Graphite)</em></sub>
+</p>
+
+<p align="center">
+  <img src="./screenshots/eko-mini.webp" alt="EKO mini player — a compact always-on-top window showing Jeff Buckley, Lilac Wine, with transport controls" width="560" />
+  <br><sub><em>Mini player — always-on-top, reads engine state directly</em></sub>
 </p>
 
 The site and docs are live at **[eko.reactivepixels.com](https://eko.reactivepixels.com)**:
