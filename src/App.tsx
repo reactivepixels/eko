@@ -11,7 +11,7 @@ import { useUiStore } from "./store/useUiStore";
 import { usePlayerStore, pauseMainPoll, resumeMainPoll } from "./store/usePlayerStore";
 import { useLicenseStore, useOfflineStore, LicenseModal } from "@pro";
 import { useUpdaterStore } from "./store/useUpdaterStore";
-import { restoreState, startAutosave } from "./store/persist";
+import { restoreState, saveState, startAutosave } from "./store/persist";
 import { AUDIO_EXTENSIONS } from "./audio/loader";
 import "./App.css";
 
@@ -50,9 +50,19 @@ function App() {
       }
     });
 
+    // Flush state synchronously right before the window actually closes. The autosave in
+    // startAutosave() is debounced (2500ms) and its timer keeps getting reset by playback
+    // ticking currentTime ~8x/sec, so it may never fire while a track is playing — quitting
+    // mid-playback silently dropped whatever changed that session (e.g. volume). This
+    // guarantees the final state is always saved, regardless of the pending debounce.
+    const unlistenClose = win.onCloseRequested(() => {
+      saveState();
+    });
+
     return () => {
       stopAutosave();
       void unlistenP.then((f) => f());
+      void unlistenClose.then((f) => f());
     };
   }, []);
 

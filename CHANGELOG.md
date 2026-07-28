@@ -10,6 +10,14 @@ The project is pre-1.0 — the API and feature set are still settling.
 
 Everything below reflects what has been built and verified to compile and run.
 
+## [0.4.33] — 2026-07-28
+
+### Fixed
+- **Volume (and other settings) reset after quitting mid-playback.** Autosave was debounced
+  (2500ms) and re-armed on every playback tick (~8x/sec), so the pending write could never
+  fire while a track was playing — quitting during playback silently dropped whatever changed
+  that session. State is now flushed synchronously right before the window closes.
+
 ## [0.4.32] — 2026-07-28
 
 ### Added

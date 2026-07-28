@@ -159,6 +159,12 @@ export function startAutosave(): () => void {
   return () => {
     u1();
     u2();
-    if (timer) clearTimeout(timer);
+    // Flush rather than discard: a pending debounced write means state changed since the
+    // last save, and dropping it silently loses that change (see App.tsx's onCloseRequested,
+    // which is the primary fix for the quit case — this covers any other teardown path).
+    if (timer) {
+      clearTimeout(timer);
+      saveState();
+    }
   };
 }
