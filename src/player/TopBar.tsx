@@ -1,6 +1,7 @@
 import { useUiStore } from "../store/useUiStore";
 import { AccentPicker } from "./AccentPicker";
 import { ThemeSwitcher } from "./ThemeSwitcher";
+import { useVisualizerStore } from "./visualizer/useVisualizerStore";
 // @pro → src/pro-stub in the free build (tier always "free" → no badge); the real
 // license store in the Pro build drives the PRO badge.
 import { useLicenseStore } from "@pro";
@@ -12,6 +13,8 @@ export function TopBar() {
   const setQuery = useUiStore((s) => s.setQuery);
   const toggleCompact = useUiStore((s) => s.toggleCompact);
   const proTier = useLicenseStore((s) => s.tier);
+  const vizOpen = useVisualizerStore((s) => s.open);
+  const toggleVisualizer = useVisualizerStore((s) => s.toggle);
 
   return (
     <header className="topbar" data-tauri-drag-region>
@@ -101,6 +104,33 @@ export function TopBar() {
             <path d="M16 4h3a1 1 0 0 1 1 1v3" />
             <path d="M20 16v3a1 1 0 0 1-1 1h-3" />
             <path d="M8 20H5a1 1 0 0 1-1-1v-3" />
+          </svg>
+        </div>
+
+        {/* GPU visualizer — Galaxy is FREE; Cymatics/Murmuration are Pro-only presets
+            reachable via the native "Visualizer" menu. This button just opens/closes
+            whichever overlay the current license tier renders (PlayerApp.tsx). */}
+        <div
+          className="icon-btn"
+          title="Visualizer"
+          onClick={toggleVisualizer}
+          role="button"
+          tabIndex={0}
+          aria-label="Toggle visualizer"
+          aria-pressed={vizOpen}
+          onKeyDown={(e) => (e.key === "Enter" || e.key === " " ? toggleVisualizer() : undefined)}
+        >
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1" />
+            <circle cx="12" cy="12" r="3" />
           </svg>
         </div>
 

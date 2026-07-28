@@ -218,30 +218,14 @@ export function SmartPlaylistsView(): null {
   return null;
 }
 
-// ── Visualizer stubs (Pro features — locked out in free build) ───────────────
+// ── Visualizer stub (Pro-only PRESETS — Galaxy itself is free, see
+//    src/player/visualizer/) ──────────────────────────────────────────────────
 
-/** Free build: overlay never renders. */
+/** Free build: the Pro overlay (Cymatics/Murmuration) never renders; Galaxy renders via
+ *  src/player/visualizer/VisualizerOverlay instead (PlayerApp.tsx picks by license tier). */
 export function VisualizerOverlay(): null {
   return null;
 }
-
-interface VisualizerStubState {
-  open: boolean;
-  presetId: string;
-  openWith: (id: string) => void;
-  close: () => void;
-  setPreset: (id: string) => void;
-  toggle: () => void;
-}
-
-export const useVisualizerStore = create<VisualizerStubState>(() => ({
-  open: false,
-  presetId: "galaxy",
-  openWith: (_id: string) => {},
-  close: () => {},
-  setPreset: (_id: string) => {},
-  toggle: () => {},
-}));
 
 // ── Theme / skin stubs (Pro features — locked out in free build) ──────────────
 
