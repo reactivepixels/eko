@@ -70,6 +70,33 @@ export function useLibrary() {
   const subAlbums = useSubsonic((s) => s.albums);
   const playlists = useSubsonic((s) => s.playlists);
   const connected = useSubsonic((s) => s.connected);
+  const albumsLoading = useSubsonic((s) => s.albumsLoading);
+  const searchResults = useSubsonic((s) => s.searchResults);
+  const searching = useSubsonic((s) => s.searching);
+
+  /**
+   * Debounced server-side search. Local libraries filter in memory (instant, no request), but a
+   * server library can be far larger than what's loaded, and only `search3` can match song
+   * titles at all.
+   *
+   * 350ms debounce so we don't fire a request per keystroke: Navidrome's search is genuinely
+   * slow on large libraries, and un-debounced typing would queue a dozen expensive queries and
+   * hammer the server. The store discards superseded responses, so late arrivals can't clobber
+   * newer results.
+   */
+  useEffect(() => {
+    if (source !== "server" || !connected) return;
+    const { runSearch, clearSearch } = useSubsonic.getState();
+    if (!query) {
+      clearSearch();
+      return;
+    }
+    const t = setTimeout(() => void runSearch(query), 350);
+    return () => clearTimeout(t);
+  }, [query, source, connected]);
+
+  /** True when the visible server list came from `search3` (already filtered by the server). */
+  const serverSearchActive = source === "server" && !!query && searchResults !== null;
   const localAlbums = useLocal((s) => s.albums);
   const localStatus = useLocal((s) => s.status);
   const localRoot = useLocal((s) => s.rootName);
@@ -88,7 +115,9 @@ export function useLibrary() {
 
   const cards: LibraryCard[] = useMemo(() => {
     if (source === "server") {
-      return subAlbums.map((a) => ({
+      // While searching, show the server's matches instead of the (possibly partial) browse list.
+      const list = serverSearchActive ? searchResults!.albums : subAlbums;
+      return list.map((a) => ({
         id: a.id,
         name: a.name,
         artist: a.artist,
@@ -105,7 +134,7 @@ export function useLibrary() {
       cover: null,
       localPath: a.tracks[0]?.path,
     }));
-  }, [source, subAlbums, localAlbums]);
+  }, [source, subAlbums, localAlbums, serverSearchActive, searchResults]);
 
   // Local tracks grouped by their containing folder.
   const folders: LibraryFolder[] = useMemo(() => {
@@ -127,11 +156,15 @@ export function useLibrary() {
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [source, localAlbums]);
 
-  // Flat all-tracks index (local only).
-  const tracksIndex: Track[] = useMemo(
-    () => (source === "local" ? localAlbums.flatMap((a) => a.tracks) : []),
-    [source, localAlbums],
-  );
+  /**
+   * Flat track index. Local = every scanned track. Server = the song hits from `search3` while a
+   * search is active — a server has no cheap "all tracks" endpoint, but song-title search is the
+   * single most-missed capability, so this is where those results surface.
+   */
+  const tracksIndex: Track[] = useMemo(() => {
+    if (source === "local") return localAlbums.flatMap((a) => a.tracks);
+    return serverSearchActive ? searchResults!.tracks : [];
+  }, [source, localAlbums, serverSearchActive, searchResults]);
 
   // Artists derived from the album cards.
   const artists: LibraryArtist[] = useMemo(() => {
@@ -143,7 +176,9 @@ export function useLibrary() {
   }, [cards]);
 
   const capabilities: LibraryCapabilities = {
-    tracksIndex: source === "local",
+    // Server has no all-tracks endpoint, but a search DOES yield tracks — so the Tracks section
+    // becomes usable on a server whenever a search is active.
+    tracksIndex: source === "local" || serverSearchActive,
     folders: source === "local",
     playlists: source === "server",
   };
@@ -207,8 +242,16 @@ export function useLibrary() {
       );
     return s;
   };
+  /**
+   * Local filtering only. When the server did the filtering (`search3`), everything it returned
+   * is a match by definition — re-filtering here would wrongly drop hits the server matched on
+   * something we can't see (song title, genre, artist alias).
+   */
   const matchesQuery = (c: LibraryCard) =>
-    !query || c.name.toLowerCase().includes(query) || c.artist.toLowerCase().includes(query);
+    serverSearchActive ||
+    !query ||
+    c.name.toLowerCase().includes(query) ||
+    c.artist.toLowerCase().includes(query);
 
   // ---- play / queue actions + context-menu item builders ----
   const tracksForCard = async (c: LibraryCard): Promise<Track[]> => {
@@ -281,6 +324,12 @@ export function useLibrary() {
     capabilities,
     currentTrackId,
     isPro,
+    /** More album pages are still streaming in from the server. */
+    albumsLoading,
+    /** A server-side search request is in flight. */
+    searching,
+    /** The visible server list came from `search3`, not the browse list. */
+    serverSearchActive,
     // data
     cards,
     folders,

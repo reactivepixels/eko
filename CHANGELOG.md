@@ -10,6 +10,19 @@ The project is pre-1.0 — the API and feature set are still settling.
 
 Everything below reflects what has been built and verified to compile and run.
 
+## [0.4.36] — 2026-07-30
+
+### Fixed
+- **Your whole server library now loads.** EKO fetched only the first 500 albums and stopped, so
+  larger libraries silently appeared truncated. It now pages through every album, showing the
+  first page immediately and filling in the rest behind it.
+- **Search actually searches your server** — including by song title, which wasn't possible
+  before. Previously the search box could only filter the albums already on screen.
+
+### Changed
+- The server address field no longer comes pre-filled with a placeholder address you had to
+  clear first.
+
 ## [0.4.35] — 2026-07-28
 
 ### Changed

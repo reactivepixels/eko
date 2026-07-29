@@ -29,6 +29,9 @@ export function LibraryView() {
     localStatus,
     capabilities,
     currentTrackId: curId,
+    albumsLoading,
+    searching,
+    serverSearchActive,
     cards,
     folders,
     playlists,
@@ -270,14 +273,22 @@ export function LibraryView() {
   if (section === "tracks") {
     if (!capabilities.tracksIndex)
       return (
-        <div className="empty">Browse by album, or use search — a full track index is coming.</div>
+        <div className="empty">
+          {searching
+            ? "Searching…"
+            : "Your server has no full track index — search to find tracks by title."}
+        </div>
       );
-    const tracks = query
-      ? tracksIndex.filter((t) => trackLabel(t).toLowerCase().includes(query))
-      : tracksIndex;
+    // Server results are already filtered by `search3`; only filter a local index here.
+    const tracks =
+      query && !serverSearchActive
+        ? tracksIndex.filter((t) => trackLabel(t).toLowerCase().includes(query))
+        : tracksIndex;
     return (
       <div className="view">
-        {tracks.length === 0 ? (
+        {searching && tracks.length === 0 ? (
+          <div className="empty">Searching…</div>
+        ) : tracks.length === 0 ? (
           <div className="empty">{query ? "No matches." : "No tracks."}</div>
         ) : (
           <div className="tracklist">
@@ -356,7 +367,12 @@ export function LibraryView() {
   return (
     <div className="view">
       {cards.length > 1 && sortBar}
-      {albumGrid(list)}
+      {searching && list.length === 0 ? <div className="empty">Searching…</div> : albumGrid(list)}
+      {/* Large libraries stream in page by page — say so, so a partial grid doesn't read as
+          "these are all my albums". */}
+      {albumsLoading && !query && (
+        <div className="loading-more">Loading more albums… ({cards.length} so far)</div>
+      )}
     </div>
   );
 }

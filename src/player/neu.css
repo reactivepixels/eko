@@ -1996,6 +1996,14 @@ body {
   font-size: 13px;
   letter-spacing: 0.3px;
 }
+/* Progressive album paging notice — sits under the grid, deliberately quiet. */
+.loading-more {
+  text-align: center;
+  padding: 14px 30px 26px;
+  color: var(--ink-3);
+  font-size: 12px;
+  letter-spacing: 0.3px;
+}
 .empty-state {
   flex: 1;
   display: flex;

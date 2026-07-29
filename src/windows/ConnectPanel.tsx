@@ -28,7 +28,9 @@ export function ConnectPanel({ mode = "initial", onSuccess, onCancel }: ConnectP
   const theme = useUiStore((s) => s.theme);
   const accent = useUiStore((s) => s.accent);
   const skin = useUiStore((s) => s.skin);
-  const [baseUrl, setBaseUrl] = useState("http://192.168.86.50:4533");
+  // Empty, not a prefilled address: this used to ship a hardcoded developer LAN IP, which every
+  // new user had to notice and delete. The placeholder below shows the expected shape instead.
+  const [baseUrl, setBaseUrl] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [serverName, setServerName] = useState("");
@@ -84,19 +86,35 @@ export function ConnectPanel({ mode = "initial", onSuccess, onCancel }: ConnectP
           <input
             value={baseUrl}
             onChange={(e) => setBaseUrl(e.target.value)}
-            placeholder="http://host:4533"
+            placeholder="http://192.168.1.10:4533"
             autoFocus
+            required
           />
         </label>
         <label className="connect-field">
           USERNAME
-          <input value={username} onChange={(e) => setUsername(e.target.value)} />
+          <input
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            required
+            autoComplete="username"
+          />
         </label>
         <label className="connect-field">
           PASSWORD
-          <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
+          <input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            autoComplete="current-password"
+          />
         </label>
-        <button type="submit" className="connect-btn" disabled={status === "connecting"}>
+        <button
+          type="submit"
+          className="connect-btn"
+          disabled={status === "connecting" || !baseUrl.trim() || !username.trim() || !password}
+        >
           {status === "connecting" ? "CONNECTING…" : mode === "add" ? "ADD SERVER" : "CONNECT"}
         </button>
         {error && <div className="connect-err">✕ {error}</div>}
