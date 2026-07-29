@@ -59,6 +59,8 @@ EKO is signed and notarized by Apple, so it opens with a normal double-click —
   seal that reflects the *actual* state, never an assumption.
 - **Real 10-band graphic EQ** — RBJ peaking biquads in the engine (fully bypassed when flat).
 - **Spectrum analyser** — a 32-band FFT driven by the engine, rendered as segmented LEDs.
+- **GPU visualizer** — a full-window WebGL particle galaxy, a quarter-million particles simulated
+  on the GPU and sculpted by the music in real time (menu bar: **Visualizer ▸ On**).
 - **Output device selection** — pick your DAC explicitly.
 - **ReplayGain** — track/album volume normalisation read from tags and applied as engine gain
   (off = bit-perfect preserved).
