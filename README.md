@@ -94,8 +94,8 @@ EKO is signed and notarized by Apple, so it opens with a normal double-click —
   <br><sub><em>Mini player — always-on-top, reads engine state directly</em></sub>
 </p>
 
-The site and docs are live at **[eko.reactivepixels.com](https://eko.reactivepixels.com)**:
-[landing](https://eko.reactivepixels.com) · [docs](https://eko.reactivepixels.com/docs.html).
+The site and docs are live at **[reactivepixels.com/eko](https://reactivepixels.com/eko)**:
+[landing](https://reactivepixels.com/eko) · [docs](https://reactivepixels.com/eko/docs.html).
 
 ## Requirements
 
