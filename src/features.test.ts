@@ -10,7 +10,7 @@
 import { describe, it, expect } from "vitest";
 import { scrobbleThreshold, SCROBBLE_MAX_SECS, SCROBBLE_MIN_SECS } from "./store/usePlayerStore";
 import { activeLyricLine } from "./lib/lyrics";
-import type { SyncedLyricLine } from "./subsonic/client";
+import type { SyncedLyricLine } from "./subsonic/nativeSubsonic";
 
 // ── #42 Scrobble threshold ────────────────────────────────────────────────────
 

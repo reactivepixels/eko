@@ -1,0 +1,52 @@
+{
+  "_comment": [
+    "A getAlbumList2 page that is SHORTER than the requested size=500. Some servers",
+    "silently cap page size below what the client asked for, so a short page does NOT",
+    "mean the library ended here. Treating it as the last page truncated users'",
+    "libraries once already — see the termination-rule comment at",
+    "src/subsonic/useSubsonic.ts:185. The parser must simply report the 2 albums it got",
+    "and expose nothing that invites the caller to infer 'done'.",
+    "",
+    "MAINTENANCE: this array must stay well under 500 entries. If it ever grew to the",
+    "requested page size, the fixture would silently stop exercising the short-page case."
+  ],
+  "subsonic-response": {
+    "status": "ok",
+    "version": "1.16.1",
+    "type": "navidrome",
+    "serverVersion": "0.53.3 (13af8ed4)",
+    "openSubsonic": true,
+    "albumList2": {
+      "album": [
+        {
+          "id": "al-0501",
+          "isDir": true,
+          "name": "Zaireeka",
+          "album": "Zaireeka",
+          "artist": "The Flaming Lips",
+          "artistId": "ar-0140",
+          "year": 1997,
+          "coverArt": "al-0501",
+          "songCount": 8,
+          "duration": 2447,
+          "created": "2024-11-02T11:02:44.001Z",
+          "mediaType": "album"
+        },
+        {
+          "id": "al-0502",
+          "isDir": true,
+          "name": "Zen Arcade",
+          "album": "Zen Arcade",
+          "artist": "Hüsker Dü",
+          "artistId": "ar-0141",
+          "year": 1984,
+          "coverArt": "al-0502",
+          "songCount": 23,
+          "duration": 4103,
+          "created": "2024-11-02T11:03:12.660Z",
+          "mediaType": "album"
+        }
+      ]
+    }
+  }
+}

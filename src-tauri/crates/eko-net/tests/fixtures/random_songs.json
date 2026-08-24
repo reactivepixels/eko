@@ -1,0 +1,59 @@
+{
+  "subsonic-response": {
+    "status": "ok",
+    "version": "1.16.1",
+    "type": "navidrome",
+    "serverVersion": "0.53.3 (13af8ed4)",
+    "openSubsonic": true,
+    "randomSongs": {
+      "song": [
+        {
+          "id": "so-00404",
+          "parent": "al-0044",
+          "isDir": false,
+          "title": "Windowlicker",
+          "album": "Windowlicker",
+          "artist": "Aphex Twin",
+          "track": 1,
+          "year": 1999,
+          "genre": "Electronic",
+          "coverArt": "mf-00404",
+          "contentType": "audio/flac",
+          "suffix": "flac",
+          "duration": 366,
+          "bitRate": 1017,
+          "samplingRate": 44100,
+          "channelCount": 2,
+          "albumId": "al-0044",
+          "artistId": "ar-0001",
+          "type": "music",
+          "replayGain": {
+            "trackGain": -8.11,
+            "trackPeak": 1.0
+          }
+        },
+        {
+          "id": "so-00811",
+          "parent": "al-0090",
+          "isDir": false,
+          "title": "Idioteque",
+          "album": "Kid A",
+          "artist": "Radiohead",
+          "track": 8,
+          "year": 2000,
+          "genre": "Alternative",
+          "coverArt": "mf-00811",
+          "contentType": "audio/ogg",
+          "suffix": "opus",
+          "duration": 189,
+          "bitRate": 160,
+          "samplingRate": 48000,
+          "channelCount": 2,
+          "albumId": "al-0090",
+          "artistId": "ar-0002",
+          "type": "music"
+        }
+      ]
+    }
+  }
+}

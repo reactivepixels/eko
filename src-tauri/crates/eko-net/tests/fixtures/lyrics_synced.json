@@ -1,0 +1,40 @@
+{
+  "_comment": [
+    "OpenSubsonic getLyricsBySongId with BOTH a synced and an unsynced entry present.",
+    "The synced one must win regardless of array order, which is why the unsynced entry",
+    "is listed first here. `start` is milliseconds from track start."
+  ],
+  "subsonic-response": {
+    "status": "ok",
+    "version": "1.16.1",
+    "type": "navidrome",
+    "serverVersion": "0.53.3 (13af8ed4)",
+    "openSubsonic": true,
+    "lyricsList": {
+      "structuredLyrics": [
+        {
+          "lang": "xxx",
+          "synced": false,
+          "displayArtist": "Radiohead",
+          "displayTitle": "Everything In Its Right Place",
+          "line": [
+            { "value": "Everything in its right place" },
+            { "value": "Yesterday I woke up sucking a lemon" }
+          ]
+        },
+        {
+          "lang": "eng",
+          "synced": true,
+          "displayArtist": "Radiohead",
+          "displayTitle": "Everything In Its Right Place",
+          "offset": 0,
+          "line": [
+            { "start": 12400, "value": "Everything in its right place" },
+            { "start": 18960, "value": "Everything in its right place" },
+            { "start": 25130, "value": "Yesterday I woke up sucking a lemon" }
+          ]
+        }
+      ]
+    }
+  }
+}

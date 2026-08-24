@@ -1,0 +1,106 @@
+[package]
+name = "eko-cli"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+description = "EKO's terminal client — the Deck, in 80 columns."
+
+# NOTE: `eko-cli` is FREE. It deliberately has no `pro` feature and no `src/pro/`
+# module — the terminal client ships whole in the public MIT repo.
+
+[dependencies]
+# The audio engine and the tag reader. NOTE: no `features = ["pro"]` — and there
+# never will be one here.
+eko-core = { path = "../eko-core" }
+# The OpenSubsonic client. FREE, and shared with the desktop app.
+eko-net = { path = "../eko-net" }
+crossterm = "0.29.0"
+dirs = "6.0.0"
+ratatui = "0.30.2"
+serde = { workspace = true, features = ["derive"] }
+toml = "1.1.4"
+
+# ── Cover art (`src/art.rs`) ─────────────────────────────────────────────────
+# **`image` must match `eko-core`'s entry exactly.** Cargo unifies features per
+# package across the workspace, so a wider feature set here silently widens what
+# the desktop app compiles too, and a different major version puts a second copy
+# of `image` and its whole codec tree in the graph for no gain. This crate needs
+# nothing outside that set: it decodes what a Subsonic server or an audio tag can
+# plausibly hold, and re-encodes PNG for iTerm2.
+image = { version = "0.25", default-features = false, features = [
+  "bmp",
+  "png",
+  "jpeg",
+  "webp",
+] }
+# Base64 twice over: `eko_core::metadata::read_cover` answers with a data URI
+# that has to be unwrapped, and both graphics protocols take their payload
+# base64-encoded. Same version `eko-core` uses.
+base64 = "0.22"
+# Cover art is fetched by this crate rather than through `eko_net::Client`, which
+# exposes no raw-bytes GET — see `art::remote_bytes` for why that stayed a local
+# decision. Same version and the same `blocking` feature `eko-net` already pulls
+# in, so this adds no second copy.
+reqwest = { version = "0.12", features = ["blocking"] }
+
+# ── The waveform overview (`src/wave.rs`) ────────────────────────────────────
+# **The workspace entry, verbatim.** `eko-core` already depends on
+# `symphonia = { version = "0.5", features = ["all"] }`, so this adds no crate to
+# the graph and no codec that was not already compiled — Cargo unifies features
+# per package across the workspace, and taking the same entry is what keeps that
+# unification a no-op. A narrower feature set here would be a lie about what is
+# built, not a saving.
+#
+# It is here so that `crates/eko-cli` can decode a **local** file to a peak
+# envelope on a worker thread. It is not a second audio path: nothing in this
+# crate hands a sample to an output device, and `eko_core::engine` remains the
+# only thing that plays anything.
+symphonia.workspace = true
+
+[dev-dependencies]
+# The connection tests run against a mock Subsonic server; there is no real
+# Navidrome here or in CI. Same version `eko-net`'s HTTP suite uses.
+mockito = "1"
+
+# `keyring` needs an explicit per-platform backend feature. With none enabled it
+# resolves to the crate's in-memory **mock** store — which would make
+# `eko-cli login` appear to work and forget the password the moment the process
+# exits. (`crates/eko-tauri`'s featureless `keyring = "3"` is exactly that; its
+# secrets really live in its own obfuscated `secrets.json` mirror. One more
+# reason this crate does not share that namespace — see `src/server.rs`.)
+#
+# CAUTION — enabling a backend here changes what a *workspace* build resolves.
+# Cargo unifies features per package across the whole workspace, so `keyring` is
+# built once, with the union of everyone's features. `crates/eko-tauri` depends
+# on a featureless `keyring = "3"` and its shipped binary links the mock; but a
+# `cargo test` from `src-tauri/` (the project gate, and `ci.yml`) builds this
+# crate too, so the single `keyring` rlib that `eko-core`'s Pro-license and
+# offline paths link is now the **real** login keychain. Gate and ship no longer
+# agree, and the gate can no longer detect the mock. That is latent today only
+# because the offline tests inject deterministic keys and never reach
+# `keyring::Entry`. Before you write a test that *does* reach it: on a developer
+# machine it will read and write the real login keychain, and in CI it can raise
+# an auth prompt or fail on a locked keyring. The real fix is for `eko-tauri` and
+# `eko-core` to enable a backend too — a migration decision, not something to
+# paper over from here.
+[target.'cfg(target_os = "macos")'.dependencies]
+keyring = { version = "3", features = ["apple-native"] }
+
+# `vendored` is not optional here — it is what keeps the Linux build free of a
+# system package. `sync-secret-service` pulls `dbus-secret-service` -> `dbus` ->
+# `libdbus-sys`, whose build script otherwise probes pkg-config for `dbus-1` and
+# panics unless `libdbus-1-dev` is installed. Nothing installs it on the bare
+# `ubuntu-latest` runner that builds this whole workspace at release time, so
+# without `vendored` the moat-proof gate fails on the next tag. `vendored` flips
+# `libdbus-sys` to its `cc` path instead: it statically compiles the pinned
+# libdbus 1.14.4 sources that ship inside the crate, and the pkg-config probe is
+# `#[cfg(not(feature = "vendored"))]`-ed out entirely. Upstream blesses exactly
+# this — keyring's own docs say the DBus-library requirement "can be avoided by
+# specifying the `vendored` feature". The cost is a C compiler at build time
+# (every runner has one) and a libdbus that no longer tracks distro security
+# updates. Keep them together: dropping `vendored` re-breaks Linux CI.
+[target.'cfg(target_os = "linux")'.dependencies]
+keyring = { version = "3", features = ["sync-secret-service", "vendored"] }
+
+[target.'cfg(target_os = "windows")'.dependencies]
+keyring = { version = "3", features = ["windows-native"] }

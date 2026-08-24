@@ -1,0 +1,35 @@
+{
+  "subsonic-response": {
+    "status": "ok",
+    "version": "1.16.1",
+    "type": "navidrome",
+    "serverVersion": "0.53.3 (13af8ed4)",
+    "openSubsonic": true,
+    "playlists": {
+      "playlist": [
+        {
+          "id": "pl-01",
+          "name": "Late Night",
+          "comment": "",
+          "owner": "rod",
+          "public": false,
+          "songCount": 42,
+          "duration": 10814,
+          "created": "2025-01-04T22:11:08.331Z",
+          "changed": "2026-06-19T09:44:02.115Z",
+          "coverArt": "pl-pl-01"
+        },
+        {
+          "id": "pl-02",
+          "name": "Empty Shelf",
+          "owner": "rod",
+          "public": true,
+          "songCount": 0,
+          "duration": 0,
+          "created": "2026-05-01T08:00:00.000Z",
+          "changed": "2026-05-01T08:00:00.000Z"
+        }
+      ]
+    }
+  }
+}

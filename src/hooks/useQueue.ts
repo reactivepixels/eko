@@ -1,6 +1,7 @@
 import { usePlayerStore } from "../store/usePlayerStore";
 import { useUiStore } from "../store/useUiStore";
-import { coverArtUrl } from "../subsonic/client";
+import { offlineTrackMenuItems } from "@pro";
+import { coverAt } from "../subsonic/nativeSubsonic";
 import type { Track } from "../types";
 import type { MenuItem } from "../player/ContextMenu";
 
@@ -22,10 +23,14 @@ export function useQueue() {
     clear: () => usePlayerStore.getState().clearPlaylist(),
     reorder: (from: number, to: number) => usePlayerStore.getState().reorder(from, to),
     /** Server cover thumbnail URL, or null (local art uses `<LocalCover>` via the track path). */
-    coverUrl: (t: Track, size: number) =>
-      t.coverArt ? (coverArtUrl(t.coverArt, size) ?? null) : null,
+    coverUrl: (t: Track, size: number) => coverAt(t.coverUrl, size),
     rowMenuItems: (id: string, i: number): MenuItem[] => [
       { label: "Play now", onSelect: () => void usePlayerStore.getState().playAt(i) },
+      // Offline caching, from `@pro`. The free build's `@pro` is the stub, which returns
+      // `[]` — separator included — so nothing appears and this file needs no license
+      // check. The helper decides for itself: server tracks only, and never for a local
+      // file, which has no `subsonicId` and nothing to download.
+      ...offlineTrackMenuItems(tracks[i]),
       { separator: true },
       {
         label: "Remove from queue",

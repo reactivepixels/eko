@@ -3,15 +3,20 @@ import { useUiStore } from "../store/useUiStore";
 import { useSubsonic } from "../subsonic/useSubsonic";
 import { useLocal } from "../local/useLocal";
 import { usePlayerStore } from "../store/usePlayerStore";
-import { useSmartPlaylistStore, useIsPro } from "@pro";
-import { coverArtUrl } from "../subsonic/client";
+import {
+  useSmartPlaylistStore,
+  useIsPro,
+  offlineTrackMenuItems,
+  offlineAlbumMenuItems,
+} from "@pro";
+import { coverAt } from "../subsonic/nativeSubsonic";
 import type { Track } from "../types";
 import type { MenuItem } from "../player/ContextMenu";
 
 /**
  * Headless library logic — the shared "brain" for any theme's library surface
  * (Phase 1 of docs/skin-architecture.md). ALL `source === "server" | "local"` branching,
- * source-normalisation (server fetch vs local lookup, `coverArtUrl` vs local path), the
+ * source-normalisation (server fetch vs local lookup, the server's `coverUrl` vs a local path), the
  * per-source capability flags, master/detail navigation state, and the play/queue menu
  * actions live HERE, once. A theme component consumes this and renders pixels only — it
  * never imports `useSubsonic` / `useLocal` (Gate 2).
@@ -45,7 +50,7 @@ export interface LibraryArtist {
 }
 /** What the current source can actually show — a theme can't silently lose a feature. */
 export interface LibraryCapabilities {
-  tracksIndex: boolean; // a flat all-tracks list (local only)
+  tracksIndex: boolean; // a flat all-tracks list (local always; server once indexed)
   folders: boolean; // browse by containing folder (local only)
   playlists: boolean; // server playlists (server only)
 }
@@ -73,6 +78,9 @@ export function useLibrary() {
   const albumsLoading = useSubsonic((s) => s.albumsLoading);
   const searchResults = useSubsonic((s) => s.searchResults);
   const searching = useSubsonic((s) => s.searching);
+  const serverSongs = useSubsonic((s) => s.songs);
+  const songsLoading = useSubsonic((s) => s.songsLoading);
+  const songsLoaded = useSubsonic((s) => s.songsLoaded);
 
   /**
    * Debounced server-side search. Local libraries filter in memory (instant, no request), but a
@@ -94,6 +102,19 @@ export function useLibrary() {
     const t = setTimeout(() => void runSearch(query), 350);
     return () => clearTimeout(t);
   }, [query, source, connected]);
+
+  /**
+   * Build the server's track index the first time Tracks is opened — not on connect.
+   *
+   * The walk is one request for a small library but ~200 for a very large one, and most
+   * sessions never open this section, so paying for it up front would tax everyone for a
+   * feature few use. `loadSongs` is itself idempotent, so re-entering the section (or a
+   * re-render) costs nothing.
+   */
+  useEffect(() => {
+    if (source !== "server" || !connected || section !== "tracks") return;
+    void useSubsonic.getState().loadSongs();
+  }, [source, connected, section]);
 
   /** True when the visible server list came from `search3` (already filtered by the server). */
   const serverSearchActive = source === "server" && !!query && searchResults !== null;
@@ -123,7 +144,7 @@ export function useLibrary() {
         artist: a.artist,
         year: a.year,
         sub: `${a.year ? a.year + " · " : ""}${a.songCount ?? ""} ${a.songCount ? "tracks" : ""}`.trim(),
-        cover: coverArtUrl(a.coverArt, 300),
+        cover: coverAt(a.coverUrl, 300),
       }));
     }
     return localAlbums.map((a) => ({
@@ -157,14 +178,16 @@ export function useLibrary() {
   }, [source, localAlbums]);
 
   /**
-   * Flat track index. Local = every scanned track. Server = the song hits from `search3` while a
-   * search is active — a server has no cheap "all tracks" endpoint, but song-title search is the
-   * single most-missed capability, so this is where those results surface.
+   * Flat track index. Local = every scanned track. Server = the full index walked from
+   * `search3` with an empty query (see `useSubsonic.loadSongs`), or the search hits while a
+   * search is active — search wins because the server has already filtered, and it can match
+   * titles beyond whatever the index holds.
    */
   const tracksIndex: Track[] = useMemo(() => {
     if (source === "local") return localAlbums.flatMap((a) => a.tracks);
-    return serverSearchActive ? searchResults!.tracks : [];
-  }, [source, localAlbums, serverSearchActive, searchResults]);
+    if (serverSearchActive) return searchResults!.tracks;
+    return serverSongs;
+  }, [source, localAlbums, serverSearchActive, searchResults, serverSongs]);
 
   // Artists derived from the album cards.
   const artists: LibraryArtist[] = useMemo(() => {
@@ -176,9 +199,10 @@ export function useLibrary() {
   }, [cards]);
 
   const capabilities: LibraryCapabilities = {
-    // Server has no all-tracks endpoint, but a search DOES yield tracks — so the Tracks section
-    // becomes usable on a server whenever a search is active.
-    tracksIndex: source === "local" || serverSearchActive,
+    // Local always has one. A server has one once the walk finds anything, and always while a
+    // search is active. It stays FALSE for a server whose walk came back empty — that server
+    // doesn't support the empty-query trick, and Tracks explains itself instead of pretending.
+    tracksIndex: source === "local" || serverSearchActive || songsLoading || serverSongs.length > 0,
     folders: source === "local",
     playlists: source === "server",
   };
@@ -190,7 +214,7 @@ export function useLibrary() {
       setDetail({
         name: album.name,
         artist: album.artist,
-        cover: coverArtUrl(album.coverArt, 600),
+        cover: coverAt(album.coverUrl, 600),
         tracks,
         from: artist ?? "Albums",
       });
@@ -285,6 +309,15 @@ export function useLibrary() {
           }),
       });
     }
+    // Offline caching, from `@pro` — `[]` in the free build, separator included.
+    //
+    // Server albums only, and that gate belongs here rather than in the helper: a local
+    // album's card id addresses the local scan, so `getAlbum` (which the helper uses to
+    // find the album's tracks and their download URLs) has nothing to look up. Same
+    // free-side distinction Instant Mix draws just above.
+    if (source === "server") {
+      items.push(...offlineAlbumMenuItems(c.id));
+    }
     return items;
   };
   const trackMenuItems = (tracks: Track[], i: number): MenuItem[] => {
@@ -304,6 +337,10 @@ export function useLibrary() {
           void useSmartPlaylistStore.getState().instantMixFromTrack(track.subsonicId!, undefined),
       });
     }
+    // Offline caching, from `@pro` — `[]` in the free build, separator included. No source
+    // check needed: the helper omits the item for anything without a `subsonicId`, which is
+    // exactly what a local file is.
+    items.push(...offlineTrackMenuItems(track));
     return items;
   };
 
@@ -330,6 +367,10 @@ export function useLibrary() {
     searching,
     /** The visible server list came from `search3`, not the browse list. */
     serverSearchActive,
+    /** True while the server's track index is still being walked. */
+    songsLoading,
+    /** True once the index walk has settled — an empty index is a final answer. */
+    songsLoaded,
     // data
     cards,
     folders,

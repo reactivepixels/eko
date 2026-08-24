@@ -10,7 +10,7 @@
 
 import { describe, it, expect, vi } from "vitest";
 import { walkAlbumPages } from "./useSubsonic";
-import type { SubAlbum } from "./client";
+import type { SubAlbum } from "./nativeSubsonic";
 
 /** `n` synthetic albums, ids offset by `from` so pages are distinguishable. */
 function albums(n: number, from = 0): SubAlbum[] {

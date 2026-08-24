@@ -37,7 +37,7 @@ Three sources disagree and it has never been resolved:
 |---|---|
 | Shipped app (`LSMinimumSystemVersion`, verified on v0.4.35) | **10.13** High Sierra |
 | Live cask (`depends_on macos:`) | **:big_sur** (11) |
-| `src-tauri/tauri.conf.json` → `bundle.macOS` | nothing set (Tauri default) |
+| `src-tauri/crates/eko-tauri/tauri.conf.json` → `bundle.macOS` | nothing set (Tauri default) |
 
 Consequences today: a user on 10.13–10.15 can download and launch the DMG (the app claims to
 support them) but `brew install --cask eko` refuses them. And nobody has verified the app actually

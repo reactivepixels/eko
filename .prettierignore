@@ -1,7 +1,7 @@
 dist
 node_modules
 src-tauri/target
-src-tauri/gen
+src-tauri/crates/eko-tauri/gen
 concepts
 site
 *.md

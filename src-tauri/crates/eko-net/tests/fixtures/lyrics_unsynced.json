@@ -1,0 +1,41 @@
+{
+  "_comment": [
+    "getLyricsBySongId with only an unsynced entry. Note the lines carry NO `start` key",
+    "at all — Navidrome omits it for unsynced lyrics. Requiring `start` here would make",
+    "every unsynced response fail to parse and fall through to the legacy endpoint,",
+    "silently losing lyrics the server actually had. The lines join with newlines.",
+    "The second entry has NO `synced` key: `!undefined` is true in the TypeScript, so it",
+    "counts as unsynced too — but the first non-empty unsynced entry still wins."
+  ],
+  "subsonic-response": {
+    "status": "ok",
+    "version": "1.16.1",
+    "type": "navidrome",
+    "serverVersion": "0.53.3 (13af8ed4)",
+    "openSubsonic": true,
+    "lyricsList": {
+      "structuredLyrics": [
+        {
+          "lang": "xxx",
+          "synced": true,
+          "line": []
+        },
+        {
+          "lang": "eng",
+          "synced": false,
+          "displayArtist": "Massive Attack",
+          "displayTitle": "Teardrop",
+          "line": [
+            { "value": "Love, love is a verb" },
+            { "value": "Love is a doing word" },
+            { "value": "Feathers on my breath" }
+          ]
+        },
+        {
+          "lang": "deu",
+          "line": [{ "value": "Liebe ist ein Verb" }]
+        }
+      ]
+    }
+  }
+}

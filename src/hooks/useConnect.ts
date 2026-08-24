@@ -1,6 +1,6 @@
 import { useSubsonic } from "../subsonic/useSubsonic";
 import { useUiStore } from "../store/useUiStore";
-import type { SubsonicConfig } from "../subsonic/client";
+import type { SubsonicConfig } from "../subsonic/nativeSubsonic";
 
 /** Navidrome/OpenSubsonic connection logic for the connect form — keeps `useSubsonic` out of
  *  the presentation component. The form owns only its input state. */

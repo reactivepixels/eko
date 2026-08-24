@@ -1,9 +1,9 @@
 import { create } from "zustand";
 import { toTrack } from "../audio/loader";
 import { nativeEngine } from "../audio/nativeEngine";
-import type { ParamBand, EqMode } from "../audio/nativeEngine";
+import type { ParamBand, EqMode, SealInput, SignalPathReport } from "../audio/nativeEngine";
 import { mediaMetadata, mediaPlayback, mediaStopped, broadcastPlayback } from "../audio/media";
-import { streamSrcUrl, coverArtUrl, scrobble } from "../subsonic/client";
+import { coverAt, scrobble } from "../subsonic/nativeSubsonic";
 import { EQ_BAND_COUNT, EQ_PRESETS, FLAT_GAINS, type EqPreset } from "../audio/constants";
 import { offlineEntry, useOfflineStore } from "@pro";
 import type { ReplayGainMode, RepeatMode, Track } from "../types";
@@ -210,7 +210,10 @@ function startNativePoll() {
           if (cached) {
             void nativeEngine.enqueue(null, null, cached.trackId, cached.bytes);
           } else {
-            void nativeEngine.enqueue(null, streamSrcUrl(nt.subsonicId));
+            // Pre-signed by Rust when the payload was built — the frontend can no longer
+            // mint it from the id. A track without one arms nothing, which costs the
+            // gapless seam and nothing else.
+            void nativeEngine.enqueue(null, nt.streamSrcUrl ?? null);
           }
         } else {
           void nativeEngine.enqueue(nt.path, null);
@@ -219,7 +222,7 @@ function startNativePoll() {
     }
     // Signal-path info changes only per track — only write (and re-render) when it does.
     const prev = usePlayerStore.getState().engineInfo;
-    if (
+    const infoChanged =
       !prev ||
       prev.rate !== st.rate ||
       prev.srcRate !== st.srcRate ||
@@ -227,8 +230,8 @@ function startNativePoll() {
       prev.bits !== st.bits ||
       prev.codec !== st.codec ||
       prev.device !== st.device ||
-      prev.channels !== st.channels
-    ) {
+      prev.channels !== st.channels;
+    if (infoChanged) {
       usePlayerStore.setState({
         engineInfo: {
           device: st.device,
@@ -241,6 +244,12 @@ function startNativePoll() {
         },
       });
     }
+    // Re-derive the seal (in Rust) on the same per-track edge — a new rate or device can
+    // start or stop a resample. Also derive whenever the seal is missing while the engine
+    // is reporting: `playAt` drops it because `engineInfo` is the PREVIOUS track's until
+    // this poll lands, and a new track with identical rate/codec/device would otherwise
+    // never trigger the edge above. Self-terminating — it stops as soon as one lands.
+    if (infoChanged || usePlayerStore.getState().signalPath == null) refreshSignalPath();
     if (ended) {
       stopNativePoll();
       // Sleep timer "end of track": pause instead of advancing.
@@ -274,6 +283,10 @@ interface PlayerState {
   timeDisplay: "elapsed" | "remaining";
   engineActive: boolean; // true while the native (local) engine is the audio source
   engineInfo: EngineInfo | null; // live signal-path info from the engine (per track)
+  /** The bit-perfect seal, as derived by Rust. Null = not derived yet; consumers must
+   *  render nothing rather than assume anything. Never write this from the frontend —
+   *  `refreshSignalPath()` owns it. */
+  signalPath: SignalPathReport | null;
   outputDevice: string | null; // preferred DAC name (null = system default)
 
   // Output
@@ -294,7 +307,10 @@ interface PlayerState {
   repeat: RepeatMode;
   shuffle: boolean;
   replayGainMode: ReplayGainMode; // volume normalisation (off by default)
-  rgAppliedDb: number | null; // dB currently applied to the engine (null = none); for the seal
+  /** The dB the seal should report (null = the seal treats ReplayGain as inactive).
+   *  Decided by Rust and dead-banded there — NOT the raw dB sent to the engine, which can
+   *  be a negligible non-zero value that must still read as bit-perfect. */
+  rgAppliedDb: number | null;
 
   // Resume
   pendingResumeSec: number | null; // restored position to seek to on the next play
@@ -352,48 +368,229 @@ interface PlayerState {
 // Guards against attaching audio element listeners twice (e.g. StrictMode in dev).
 let storeInitialized = false;
 
+// ── The bit-perfect seal ───────────────────────────────────────────────────
+//
+// The seal is derived in Rust (`eko_core::signal_path::derive`) so the desktop app and
+// the terminal client cannot report different things about the same playback. That
+// derivation is only reachable over async IPC, so it is refreshed HERE — once per
+// change to one of its inputs — and cached in the store. `useSignalPath` is then a
+// synchronous store read, exactly as it was before the move:
+//
+//   * every consumer of the seal reads the same object, so two seals on screen can
+//     never disagree with each other;
+//   * nothing is derived per render, so there is no render loop and no per-frame IPC;
+//   * `signalPath` is null until the first real derivation lands, and consumers render
+//     NOTHING while it is null. The seal never shows a default or a guess — a seal
+//     that flickered to BIT-PERFECT while resampling would be a lying seal.
+//
+// Every input funnels through the `sync*` helpers below, `applyReplayGain`, or the
+// native poll's per-track `engineInfo` write, so those are the only call sites needed.
+//
+// Moving the derivation into Rust made it ASYNCHRONOUS, and that opened a window the
+// synchronous TypeScript version never had: between an input changing and the reply
+// landing, the cached verdict describes the *previous* settings. Drag the volume off
+// unity on a bit-perfect track and, for that window, the seal was still rendering a
+// green BIT-PERFECT over samples the engine had already begun attenuating.
+//
+// `unconfirmSeal()` below closes it. The asymmetry that makes this safe:
+//
+//   * the frontend can always withdraw a claim without asking Rust — withdrawing
+//     asserts nothing;
+//   * the frontend can NEVER make one. Resampling and OS-resampling are engine facts,
+//     so volume back at unity and a flat EQ still do not add up to BIT-PERFECT.
+//
+// So: downgrade eagerly, upgrade lazily. Nothing here derives a seal, and nothing here
+// invents a modifier — the verdict is still 100% Rust's.
+let sealGen = 0;
+
+/**
+ * The seal label shown while a derivation is in flight over settings the cached verdict
+ * no longer covers. Deliberately NOT a verdict: it names no modifier and makes no claim,
+ * because at this point the frontend genuinely does not know one. Rust replaces it a
+ * round trip later with the real thing.
+ */
+const CHECKING_SEAL_LABEL = "CHECKING…";
+
+/**
+ * Withdraw the cached seal's bit-perfect claim, synchronously, because one of its inputs
+ * just changed and the reply that would confirm it has not landed yet.
+ *
+ * Only ever fires on the one transition that can lie — a cached `pure` seal. A cached
+ * NON-pure seal is left completely alone: it is not overclaiming, and rewriting it would
+ * make its label churn on every tick of a volume drag.
+ *
+ * It also never blanks. `clearSignalPath()` is the honest response to "nothing is
+ * playing", but using it here would unmount the whole signal-path row mid-drag (see
+ * `SignalPath.tsx`'s `if (!sp.active) return null`) and make the seal blink. Everything
+ * that does not depend on the changed input — SOURCE, OUTPUT, RG, `active` — is kept
+ * exactly as it was, so only the claim itself changes.
+ *
+ * Does NOT bump `sealGen`: the pending reply is the authority and must still win.
+ */
+function unconfirmSeal() {
+  const cached = usePlayerStore.getState().signalPath;
+  if (!cached?.pure) return;
+  usePlayerStore.setState({
+    signalPath: {
+      ...cached,
+      pure: false,
+      // Non-committal on purpose. The five modifier flags come through the spread above
+      // untouched — all false, because they came off a pure seal — and are deliberately
+      // NOT guessed at: this state means "no modifier is known yet", never "no modifier
+      // exists". Naming one here (`"VOLUME"`) would be deriving the seal in TypeScript,
+      // which is the one thing the front end must never do.
+      sealLabel: CHECKING_SEAL_LABEL,
+      // Empty, so the long-form tooltip cannot read "Processing: Bit-perfect". Consumers
+      // treat an empty `engineLabel` on a non-pure seal as "no claim yet".
+      engineLabel: "",
+    },
+  });
+}
+
+/** The exact snapshot Rust derives from. Built in one place so a reply can be checked
+ *  against the settings that are current when it lands, not just when it was sent. */
+function sealInputs(): SealInput {
+  const s = usePlayerStore.getState();
+  return {
+    engineActive: s.engineActive,
+    info: s.engineInfo
+      ? {
+          rate: s.engineInfo.rate,
+          srcRate: s.engineInfo.srcRate,
+          devRate: s.engineInfo.devRate,
+          bits: s.engineInfo.bits,
+          codec: s.engineInfo.codec,
+          device: s.engineInfo.device,
+        }
+      : null,
+    eq: {
+      mode: s.eqMode,
+      enabled: s.eqEnabled,
+      preamp: s.preamp,
+      gains: s.gains,
+      paramEnabled: s.paramEqEnabled,
+      paramPreamp: s.paramEqPreamp,
+      paramBands: s.paramEqBands,
+    },
+    volume: s.volume,
+    replaygainDb: s.rgAppliedDb,
+    replaygainMode: s.replayGainMode,
+  };
+}
+
+/** Whether two snapshots describe the same playback. Both are plain data built by the
+ *  single literal above, so their key order is identical and a serialised compare is
+ *  exact — no field can be added to the payload and silently skipped here. */
+function sameSealInputs(a: SealInput, b: SealInput): boolean {
+  return JSON.stringify(a) === JSON.stringify(b);
+}
+
+/** Snapshot the seal's inputs and hand them to Rust. Never derives anything locally. */
+function refreshSignalPath() {
+  // The inputs have moved; the cached verdict no longer covers them.
+  unconfirmSeal();
+  const input = sealInputs();
+  const gen = ++sealGen;
+  void nativeEngine
+    .signalPath(input)
+    .then((sp) => {
+      // Last request wins: a volume drag fires these faster than they can resolve, and
+      // an out-of-order reply would show a seal for settings that no longer apply.
+      if (gen !== sealGen) return;
+      usePlayerStore.setState({ signalPath: sp });
+      // A verdict is only valid for the inputs it was derived from. `sealGen` catches a
+      // reply that a NEWER request has superseded, but `syncVol`'s throttle can move the
+      // volume without sending one — so dragging down through unity could land a reply
+      // derived at 1.0, repainting a green BIT-PERFECT over an attenuated stream. The
+      // throttle's trailing call re-requests within 50 ms; until it answers, claim nothing.
+      if (!sameSealInputs(input, sealInputs())) unconfirmSeal();
+    })
+    .catch(() => {
+      // The seal cannot be guessed. Drop it rather than show a stale or invented one.
+      if (gen === sealGen) usePlayerStore.setState({ signalPath: null });
+    });
+}
+
+/** Drop the seal — nothing is going through the engine, so "no seal" is the honest
+ *  state. Bumps the generation so an in-flight derivation can't land afterwards. */
+function clearSignalPath() {
+  sealGen++;
+  usePlayerStore.setState({ signalPath: null });
+}
+
 /** Push the current EQ (enabled + preamp + gains) into the native engine. */
 function syncEq() {
   const s = usePlayerStore.getState();
   void nativeEngine.setEq(s.eqEnabled, s.preamp, s.gains);
+  refreshSignalPath();
 }
 
 /** Push the current parametric EQ config into the native engine. */
 function syncParamEq() {
   const s = usePlayerStore.getState();
   void nativeEngine.setParamEq(s.paramEqEnabled, s.paramEqPreamp, s.paramEqBands);
+  refreshSignalPath();
 }
 
 /** Push the EQ mode (graphic/parametric) into the native engine. */
 function syncEqMode() {
   const s = usePlayerStore.getState();
   void nativeEngine.setEqMode(s.eqMode);
+  refreshSignalPath();
 }
 
-/** Compute the ReplayGain adjustment (dB) for a track under the current mode, peak-limited
- *  so a positive gain can't push the file's peak past full scale (clipping). Returns null
- *  when RG is off or the track has no usable tags (→ engine stays bit-perfect). */
-function rgGainDbFor(track: Track | undefined, mode: ReplayGainMode): number | null {
-  if (!track || mode === "off") return null;
-  const gain = mode === "album" ? (track.rgAlbumGain ?? track.rgTrackGain) : track.rgTrackGain;
-  if (gain == null) return null;
-  const peak = mode === "album" ? (track.rgAlbumPeak ?? track.rgTrackPeak) : track.rgTrackPeak;
-  let g = gain;
-  if (peak != null && peak > 0) {
-    const maxSafeDb = -20 * Math.log10(peak); // headroom (dB) before the peak clips
-    g = Math.min(g, maxSafeDb);
-  }
-  return g;
-}
-
-/** Apply ReplayGain for the current track to the engine and record the applied dB (so the
- *  signal-path seal can show it honestly). A 0 dB adjustment is still bit-perfect. */
+/**
+ * Apply ReplayGain for the current track to the engine and record the dB the seal should
+ * report.
+ *
+ * BOTH numbers come from Rust (`eko_core::signal_path::replaygain_decision`) — the
+ * peak-limited value the engine receives, and that value with the ±0.01 dB dead-band
+ * applied for the seal. Neither is computed here, and neither may be: the dead-band is the
+ * single boundary that decides whether EKO claims bit-perfect, so a TypeScript-only copy
+ * would let the desktop app and the terminal client disagree about the same track. (This
+ * used to be `rgGainDbFor` plus an inline `Math.abs(db) > 0.01`, both frontend-only.)
+ *
+ * Async, so `rgGen` guards against an out-of-order reply reporting a gain for a track that
+ * is no longer playing.
+ */
+let rgGen = 0;
 function applyReplayGain() {
+  // This one refreshes the seal only in its `.then()`, so without this the cached verdict
+  // would survive the WHOLE round trip after the ReplayGain picker moved.
+  unconfirmSeal();
   const s = usePlayerStore.getState();
   const track = s.currentIndex != null ? s.tracks[s.currentIndex] : undefined;
-  const db = rgGainDbFor(track, s.replayGainMode);
-  void nativeEngine.setReplayGain(db);
-  usePlayerStore.setState({ rgAppliedDb: db != null && Math.abs(db) > 0.01 ? db : null });
+  const gen = ++rgGen;
+  void nativeEngine
+    .replaygain(
+      {
+        trackGain: track?.rgTrackGain ?? null,
+        trackPeak: track?.rgTrackPeak ?? null,
+        albumGain: track?.rgAlbumGain ?? null,
+        albumPeak: track?.rgAlbumPeak ?? null,
+      },
+      s.replayGainMode,
+    )
+    .then(({ engineDb, sealDb }) => {
+      if (gen !== rgGen) return;
+      void nativeEngine.setReplayGain(engineDb);
+      usePlayerStore.setState({ rgAppliedDb: sealDb });
+      refreshSignalPath();
+    })
+    .catch(() => {
+      if (gen !== rgGen) return;
+      // Could not decide the gain. "No ReplayGain" is NOT a safe fallback here: it is
+      // itself an assertion, and the strongest one this product makes. A previous
+      // successful decision may have already pushed a real gain to the engine, so
+      // reporting null would leave the seal claiming BIT-PERFECT over gain-adjusted audio.
+      //
+      // So do both: clear the gain in the engine so it matches what we can honestly
+      // claim, and DROP the seal rather than derive one. `clearSignalPath` also bumps
+      // `sealGen`, so no in-flight derivation can land after this.
+      void nativeEngine.setReplayGain(null);
+      usePlayerStore.setState({ rgAppliedDb: null });
+      clearSignalPath();
+    });
 }
 
 /** Push current-track metadata into the engine so the mini player can read it directly
@@ -410,7 +607,7 @@ function pushNowPlaying() {
   void nativeEngine.setNowPlaying({
     title: t?.title ?? "EKO",
     artist: t ? (t.artist ?? "") : "Pick an album",
-    coverUrl: t?.coverArt ? (coverArtUrl(t.coverArt, 160) ?? "") : "",
+    coverUrl: coverAt(t?.coverUrl, 160) ?? "",
     coverPath: t?.path && !t.subsonicId ? t.path : "",
     theme,
     index: s.currentIndex ?? -1,
@@ -423,7 +620,7 @@ function pushNowPlaying() {
       title: t.title ?? "Unknown",
       artist: t.artist ?? "",
       album: t.album ?? "",
-      coverUrl: t.coverArt ? (coverArtUrl(t.coverArt, 512) ?? undefined) : undefined,
+      coverUrl: coverAt(t.coverUrl, 512) ?? undefined,
       duration: t.duration,
     });
   }
@@ -445,11 +642,18 @@ function pushPlayback() {
 let volTimer: ReturnType<typeof setTimeout> | null = null;
 let volPending = false;
 function syncVol() {
+  // BEFORE the throttle gate, not after: a drag's 2nd..Nth ticks return early below and
+  // never reach `refreshSignalPath`, so a claim withdrawn only there would leave the
+  // in-flight reply for the PREVIOUS volume landing as a fresh green BIT-PERFECT over an
+  // already-attenuated stream — the same lie, just 50 ms later.
+  unconfirmSeal();
   if (volTimer) {
     volPending = true;
     return;
   }
   void nativeEngine.setVolume(usePlayerStore.getState().volume);
+  // Inherits this throttle, so a drag refreshes the seal ~20/sec rather than per frame.
+  refreshSignalPath();
   volTimer = setTimeout(() => {
     volTimer = null;
     if (volPending) {
@@ -470,6 +674,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   timeDisplay: "elapsed",
   engineActive: false,
   engineInfo: null,
+  signalPath: null,
   outputDevice: null,
   volume: 0.8,
   eqEnabled: true,
@@ -544,6 +749,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       buffered: 0,
       engineActive: false,
     });
+    clearSignalPath();
     mediaStopped();
     broadcastPlayback("Stopped", t?.title ?? "", t?.artist ?? "");
   },
@@ -581,7 +787,21 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       isPlaying: true,
       engineActive: true,
       pendingResumeSec: null,
+      // Drop the OUTGOING track's stream info. It is the seal's dominant input, and until
+      // the poll reports the incoming stream it describes the wrong track — a 44.1 kHz
+      // source followed by a 96 kHz one the device will resample would go on claiming
+      // BIT-PERFECT. Cleared, `derive` returns `active: false` and every consumer renders
+      // nothing until the truth arrives; the poll's `!prev` then makes `infoChanged` true
+      // on the next tick.
+      //
+      // This MUST be cleared here rather than merely blanking the seal via
+      // `clearSignalPath()`: `syncEq/syncEqMode/syncParamEq/syncVol/applyReplayGain` at
+      // the end of this function each trigger a `refreshSignalPath()` in this same
+      // synchronous tick, and any one of them would re-derive from the stale info and
+      // repaint the previous track's verdict — outliving the blank entirely.
+      engineInfo: null,
     });
+    clearSignalPath();
     // ── Scrobble: reset per-track state and fire "now playing" ────────────
     _scrobbleId = track.subsonicId ?? null;
     _submissionSent = false;
@@ -601,8 +821,29 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       if (cached) {
         // Play from the encrypted local cache — no network, fully bit-perfect.
         void nativeEngine.playCached(cached.trackId, cached.bytes);
+      } else if (track.streamSrcUrl) {
+        void nativeEngine.playUrl(track.streamSrcUrl);
       } else {
-        void nativeEngine.playUrl(streamSrcUrl(track.subsonicId));
+        // A server track carries its own pre-signed stream URL; signing needs the
+        // password, which never reaches the frontend now, so there is nothing to
+        // reconstruct from the id. Leave the engine idle rather than open a session that
+        // can never produce audio.
+        //
+        // This is the app's only silent no-play, and it can only happen if a `Track` was
+        // built without carrying `streamSrcUrl` across — i.e. a bug in a `SubSong → Track`
+        // conversion, not anything the user did or can fix. It replaced a path that used
+        // to throw, so log loudly: the store has no error channel and the app has no
+        // toast/banner surface, and inventing one here would be a feature, not a port.
+        // `isPlaying: false` at least keeps the transport honest — the play button pops
+        // back out instead of showing a stuck "playing" state.
+        console.error(
+          "playAt: server track has no streamSrcUrl — not playing.",
+          track.subsonicId,
+          track.title,
+        );
+        void nativeEngine.stop();
+        set({ isPlaying: false, engineActive: false });
+        clearSignalPath();
       }
     } else {
       void nativeEngine.play(track.path);
@@ -684,6 +925,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     stopNativePoll();
     enqueuedFor = null;
     set({ isPlaying: false, currentTime: 0, engineActive: false });
+    clearSignalPath();
     mediaStopped();
     broadcastPlayback("Stopped", t?.title ?? "", t?.artist ?? "");
   },

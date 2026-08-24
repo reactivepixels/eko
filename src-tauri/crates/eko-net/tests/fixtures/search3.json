@@ -1,0 +1,50 @@
+{
+  "subsonic-response": {
+    "status": "ok",
+    "version": "1.16.1",
+    "type": "navidrome",
+    "serverVersion": "0.53.3 (13af8ed4)",
+    "openSubsonic": true,
+    "searchResult3": {
+      "artist": [],
+      "album": [
+        {
+          "id": "al-0002",
+          "isDir": true,
+          "name": "Kid A",
+          "album": "Kid A",
+          "artist": "Radiohead",
+          "artistId": "ar-0002",
+          "year": 2000,
+          "coverArt": "al-0002",
+          "songCount": 10,
+          "duration": 2999,
+          "mediaType": "album"
+        }
+      ],
+      "song": [
+        {
+          "id": "so-00022",
+          "parent": "al-0002",
+          "isDir": false,
+          "title": "Kid A",
+          "album": "Kid A",
+          "artist": "Radiohead",
+          "track": 2,
+          "year": 2000,
+          "coverArt": "mf-00022",
+          "contentType": "audio/flac",
+          "suffix": "flac",
+          "duration": 264,
+          "bitRate": 1411,
+          "samplingRate": 44100,
+          "channelCount": 2,
+          "albumId": "al-0002",
+          "artistId": "ar-0002",
+          "type": "music",
+          "mediaType": "song"
+        }
+      ]
+    }
+  }
+}

@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { useSubsonic } from "../subsonic/useSubsonic";
 import { useUiStore } from "../store/useUiStore";
-import type { SubsonicConfig } from "../subsonic/client";
+import type { SubsonicConfig } from "../subsonic/nativeSubsonic";
 
 interface ConnectPanelProps {
   /**

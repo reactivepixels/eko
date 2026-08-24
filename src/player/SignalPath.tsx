@@ -1,21 +1,18 @@
 import { useState } from "react";
 import { useSignalPath } from "../hooks/useSignalPath";
 
-const khz = (n: number) => (n ? `${(n / 1000).toFixed(n % 1000 ? 1 : 0)} kHz` : "—");
-
 /**
  * Roon-style signal path: SOURCE → ENGINE → OUTPUT, with an honest seal that's only "pure"
- * when nothing alters the bits. Pure presentation over `useSignalPath()` (the single
- * bit-perfect truth + device/ReplayGain/crossfade actions); this file owns only the
- * dropdown open-state.
+ * when nothing alters the bits. Pure presentation over `useSignalPath()` (which reads the
+ * seal Rust derived — see `eko_core::signal_path`); this file owns only the dropdown
+ * open-state and formats NOTHING about the signal path itself.
  */
 export function SignalPath() {
   const sp = useSignalPath();
   const [open, setOpen] = useState(false);
   const [rgOpen, setRgOpen] = useState(false);
 
-  if (!sp.active || !sp.info) return null;
-  const info = sp.info;
+  if (!sp.active) return null;
 
   const openPicker = async () => {
     await sp.loadDevices();
@@ -36,7 +33,13 @@ export function SignalPath() {
       title={
         sp.pure
           ? "Untouched signal path — bit-for-bit to your DAC"
-          : `Processing: ${sp.engineLabel}`
+          : // A non-pure seal carrying no long-form label is one whose claim was
+            // withdrawn while Rust re-derives it (`unconfirmSeal` in the store). There is
+            // no processing to name yet, and "Processing: " with nothing after it would
+            // read as a broken string. Say what is actually true instead.
+            sp.engineLabel
+            ? `Processing: ${sp.engineLabel}`
+            : "Checking the signal path — nothing is claimed until it is verified"
       }
     >
       <div className="sp-node sp-source">
@@ -61,9 +64,7 @@ export function SignalPath() {
             ▾
           </span>
         </span>
-        <span className="sp-v">
-          {info.device || "Output"} · {khz(info.rate)}
-        </span>
+        <span className="sp-v">{sp.output}</span>
         {open && (
           <>
             <div

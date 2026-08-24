@@ -1,0 +1,22 @@
+{
+  "_comment": [
+    "Navidrome sends albumCount alongside songCount, but client.ts:158-161 rebuilds each",
+    "entry as {value, songCount} only — so albumCount must be DROPPED, not passed",
+    "through. The last entry is missing both keys, which must default to \"\" and 0."
+  ],
+  "subsonic-response": {
+    "status": "ok",
+    "version": "1.16.1",
+    "type": "navidrome",
+    "serverVersion": "0.53.3 (13af8ed4)",
+    "openSubsonic": true,
+    "genres": {
+      "genre": [
+        { "value": "Ambient", "songCount": 214, "albumCount": 19 },
+        { "value": "Alternative", "songCount": 1877, "albumCount": 143 },
+        { "value": "Drum & Bass", "songCount": 96, "albumCount": 8 },
+        { "albumCount": 1 }
+      ]
+    }
+  }
+}

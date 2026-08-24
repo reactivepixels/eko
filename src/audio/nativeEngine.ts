@@ -40,6 +40,84 @@ export interface AutoEqResult {
   bands: ParamBand[];
 }
 
+/** The `EngineStatus` fields the seal reads. Mirrors the Rust `StreamInfo` struct. */
+export interface StreamInfo {
+  rate: number;
+  srcRate: number;
+  devRate: number;
+  bits: number;
+  codec: string;
+  device: string;
+}
+
+/** ReplayGain mode. Mirrors the Rust `RgMode` enum. */
+export type RgMode = "off" | "track" | "album";
+
+/** A track's ReplayGain tags. Mirrors the Rust `ReplayGainTags` struct. */
+export interface ReplayGainTags {
+  trackGain: number | null;
+  trackPeak: number | null;
+  albumGain: number | null;
+  albumPeak: number | null;
+}
+
+/**
+ * Both ReplayGain values, from one Rust derivation. Mirrors `ReplayGainDecision`.
+ *
+ * They are NOT interchangeable: `engineDb` is peak-limited, and `sealDb` additionally has
+ * the ±0.01 dB dead-band applied. Computing one without the other is how one front end
+ * ends up reporting REPLAYGAIN where another reports BIT-PERFECT for identical playback,
+ * so they arrive together and the frontend derives neither.
+ */
+export interface ReplayGainDecision {
+  engineDb: number | null;
+  sealDb: number | null;
+}
+
+/**
+ * Everything the seal derivation needs. Mirrors the Rust `SealInput` struct.
+ *
+ * Both EQs are always sent and Rust decides which one is routed — the frontend must
+ * NOT pre-compute "is the EQ active", or the GUI and the CLI could disagree about
+ * whether playback is bit-perfect.
+ */
+export interface SealInput {
+  engineActive: boolean;
+  info: StreamInfo | null;
+  eq: {
+    mode: EqMode;
+    enabled: boolean;
+    preamp: number;
+    gains: number[];
+    paramEnabled: boolean;
+    paramPreamp: number;
+    paramBands: ParamBand[];
+  };
+  volume: number;
+  replaygainDb: number | null;
+  replaygainMode: RgMode;
+}
+
+/**
+ * The reported signal path. Mirrors the Rust `SignalPath` struct — the ONE derivation
+ * of EKO's central claim, shared with the terminal client.
+ */
+export interface SignalPathReport {
+  active: boolean;
+  pure: boolean;
+  eqActive: boolean;
+  attenuated: boolean;
+  rgActive: boolean;
+  resampled: boolean;
+  osResampled: boolean;
+  codec: string;
+  src: string;
+  output: string;
+  engineLabel: string;
+  sealLabel: string;
+  rgLabel: string;
+}
+
 export interface NowPlaying {
   title: string;
   artist: string;
@@ -99,6 +177,18 @@ export const nativeEngine = {
   setDevice: (name: string | null) => invoke("engine_set_device", { name }),
   stop: () => invoke("engine_stop"),
   status: () => invoke<EngineStatus | null>("engine_status"),
+  /**
+   * Derive the bit-perfect seal in Rust (`eko_core::signal_path::derive`). The GUI does
+   * NOT derive the seal itself — see `useSignalPath`.
+   */
+  signalPath: (input: SealInput) => invoke<SignalPathReport>("signal_path", { input }),
+  /**
+   * Decide a track's ReplayGain in Rust: the peak-limited dB for the engine and the
+   * dead-banded dB for the seal. The frontend computes neither — the ±0.01 dB dead-band
+   * is the boundary that settles whether EKO claims bit-perfect.
+   */
+  replaygain: (tags: ReplayGainTags, mode: RgMode) =>
+    invoke<ReplayGainDecision>("signal_replaygain", { tags, mode }),
   // Live spectrum bands (0..1) computed in Rust; polled while native playback is active.
   getBands: () => bandData,
   startBands: () => {

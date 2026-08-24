@@ -32,6 +32,8 @@ export function LibraryView() {
     albumsLoading,
     searching,
     serverSearchActive,
+    songsLoading,
+    songsLoaded,
     cards,
     folders,
     playlists,
@@ -271,12 +273,17 @@ export function LibraryView() {
 
   // ---- TRACKS ----
   if (section === "tracks") {
+    // Server-only branch: a local library always has an index. Three distinct states, because
+    // "not yet walked" and "walked, and this server can't do it" are not the same thing — the
+    // old copy collapsed them into one message that read as a fault in the user's server.
     if (!capabilities.tracksIndex)
       return (
         <div className="empty">
           {searching
             ? "Searching…"
-            : "Your server has no full track index — search to find tracks by title."}
+            : !songsLoaded
+              ? "Building the track index…"
+              : "Your server doesn't serve a full track list — browse via Albums or Artists, or search to find tracks by title."}
         </div>
       );
     // Server results are already filtered by `search3`; only filter a local index here.
@@ -288,6 +295,9 @@ export function LibraryView() {
       <div className="view">
         {searching && tracks.length === 0 ? (
           <div className="empty">Searching…</div>
+        ) : songsLoading && tracks.length === 0 ? (
+          // The walk streams pages in, so this only shows before page 1 lands.
+          <div className="empty">Building the track index…</div>
         ) : tracks.length === 0 ? (
           <div className="empty">{query ? "No matches." : "No tracks."}</div>
         ) : (

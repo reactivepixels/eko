@@ -1,0 +1,38 @@
+[package]
+name = "eko-core"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+description = "EKO's bit-perfect audio engine — decode, output, DSP, spectrum."
+
+[features]
+pro = ["dep:ed25519-dalek", "dep:rand", "dep:aes-gcm", "dep:keyring"]
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+cpal.workspace = true
+symphonia.workspace = true
+rustfft.workspace = true
+triple_buffer.workspace = true
+lofty.workspace = true
+base64 = "0.22"
+image = { version = "0.25", default-features = false, features = ["bmp", "png", "jpeg", "webp"] }
+zip = { version = "2", default-features = false, features = ["deflate"] }
+reqwest = { version = "0.12", features = ["blocking"] }
+url = "2"
+ed25519-dalek = { version = "2", features = ["rand_core"], optional = true }
+rand = { version = "0.8", optional = true }
+aes-gcm = { version = "0.10", optional = true }
+# Keychain — holds the offline cache's AES key + base nonce (Pro only).
+keyring = { version = "3", optional = true }
+
+# ── Pro-only examples (use ed25519-dalek / rand / license module) ─────────────
+[dev-dependencies]
+tempfile = "3"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = "0.6"
+objc2-foundation = { version = "0.3", default-features = false, features = [
+    "alloc", "NSNotification", "NSDictionary", "NSString", "NSObject",
+] }

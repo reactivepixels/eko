@@ -1,4 +1,4 @@
-import type { SyncedLyricLine } from "../subsonic/client";
+import type { SyncedLyricLine } from "../subsonic/nativeSubsonic";
 
 /** Return the index of the currently-active synced lyric line given the current position (ms).
  *  Returns -1 for an empty line list.

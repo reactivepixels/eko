@@ -1,0 +1,54 @@
+{
+  "subsonic-response": {
+    "status": "ok",
+    "version": "1.16.1",
+    "type": "gonic",
+    "album": {
+      "id": 4471,
+      "name": "Mezzanine",
+      "artist": "Massive Attack",
+      "artistId": "ar-0044",
+      "songCount": "3",
+      "year": "1998",
+      "coverArt": "al-4471",
+      "song": [
+        {
+          "id": 44711,
+          "title": "Angel",
+          "artist": "Massive Attack",
+          "album": "Mezzanine",
+          "duration": 379.5,
+          "bitRate": "1005",
+          "samplingRate": "44100",
+          "channelCount": "2",
+          "track": "1",
+          "suffix": "flac",
+          "contentType": "audio/flac",
+          "coverArt": "mf-44711",
+          "replayGain": {
+            "trackGain": "-7.2",
+            "albumGain": "-6.85",
+            "trackPeak": "0.977",
+            "albumPeak": "1.0"
+          }
+        },
+        {
+          "id": "so-44712",
+          "title": "Risingson",
+          "artist": "Massive Attack",
+          "album": "Mezzanine",
+          "duration": 297,
+          "bitRate": -1,
+          "samplingRate": "unknown",
+          "channelCount": null,
+          "track": 2,
+          "suffix": "flac"
+        },
+        {
+          "title": "A Track With No Id At All",
+          "duration": 200
+        }
+      ]
+    }
+  }
+}

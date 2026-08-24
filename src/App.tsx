@@ -55,8 +55,17 @@ function App() {
     // ticking currentTime ~8x/sec, so it may never fire while a track is playing — quitting
     // mid-playback silently dropped whatever changed that session (e.g. volume). This
     // guarantees the final state is always saved, regardless of the pending debounce.
+    // NOTE: registering this listener makes Tauri PREVENT the native close (see
+    // tauri's manager/window.rs), so the window now only closes via the destroy() that
+    // onCloseRequested issues after this handler resolves. Two consequences, both load-bearing:
+    // the capability must permit `core:window:allow-destroy`, and this handler must never
+    // throw — a rejection skips destroy and the red traffic light does nothing at all.
     const unlistenClose = win.onCloseRequested(() => {
-      saveState();
+      try {
+        saveState();
+      } catch {
+        /* never block the close on a failed save */
+      }
     });
 
     return () => {

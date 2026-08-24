@@ -1,0 +1,66 @@
+{
+  "_comment": [
+    "getPlaylist puts its tracks under `entry`, not `song` like every other endpoint.",
+    "Mixing those up would yield a silently empty playlist rather than an error."
+  ],
+  "subsonic-response": {
+    "status": "ok",
+    "version": "1.16.1",
+    "type": "navidrome",
+    "serverVersion": "0.53.3 (13af8ed4)",
+    "openSubsonic": true,
+    "playlist": {
+      "id": "pl-01",
+      "name": "Late Night",
+      "owner": "rod",
+      "public": false,
+      "songCount": 2,
+      "duration": 515,
+      "created": "2025-01-04T22:11:08.331Z",
+      "changed": "2026-06-19T09:44:02.115Z",
+      "coverArt": "pl-pl-01",
+      "entry": [
+        {
+          "id": "so-00021",
+          "parent": "al-0002",
+          "isDir": false,
+          "title": "Everything In Its Right Place",
+          "album": "Kid A",
+          "artist": "Radiohead",
+          "track": 1,
+          "year": 2000,
+          "coverArt": "mf-00021",
+          "contentType": "audio/flac",
+          "suffix": "flac",
+          "duration": 251,
+          "bitRate": 1411,
+          "samplingRate": 44100,
+          "channelCount": 2,
+          "albumId": "al-0002",
+          "artistId": "ar-0002",
+          "type": "music"
+        },
+        {
+          "id": "so-00095",
+          "parent": "al-0011",
+          "isDir": false,
+          "title": "Teardrop",
+          "album": "Mezzanine",
+          "artist": "Massive Attack",
+          "track": 3,
+          "year": 1998,
+          "coverArt": "mf-00095",
+          "contentType": "audio/mp4",
+          "suffix": "m4a",
+          "duration": 264,
+          "bitRate": 256,
+          "samplingRate": 44100,
+          "channelCount": 2,
+          "albumId": "al-0011",
+          "artistId": "ar-0019",
+          "type": "music"
+        }
+      ]
+    }
+  }
+}

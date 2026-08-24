@@ -1,0 +1,19 @@
+{
+  "_comment": [
+    "The pre-OpenSubsonic `getLyrics` shape: one plain-text blob under lyrics.value,",
+    "keyed by artist + title rather than song id. Note the leading/trailing whitespace —",
+    "client.ts:320 trims it, and a value that trims to nothing must become None so",
+    "callers see one single 'no lyrics' case."
+  ],
+  "subsonic-response": {
+    "status": "ok",
+    "version": "1.16.1",
+    "type": "navidrome",
+    "serverVersion": "0.51.1",
+    "lyrics": {
+      "artist": "Massive Attack",
+      "title": "Teardrop",
+      "value": "\n  Love, love is a verb\nLove is a doing word\nFeathers on my breath  \n"
+    }
+  }
+}

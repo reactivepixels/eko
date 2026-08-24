@@ -1,0 +1,57 @@
+{
+  "_comment": [
+    "A getAlbum response from a server with no ReplayGain support: the songs have no",
+    "`replayGain` object at all, and the album has no `coverArt`. Every one of these",
+    "absences must parse to None rather than failing — plenty of Navidrome libraries",
+    "are tagged this sparsely, and the volume-levelling code is expected to cope."
+  ],
+  "subsonic-response": {
+    "status": "ok",
+    "version": "1.16.1",
+    "type": "navidrome",
+    "serverVersion": "0.51.1",
+    "album": {
+      "id": "al-0003",
+      "isDir": true,
+      "name": "Untitled Bootleg",
+      "album": "Untitled Bootleg",
+      "artist": "Unknown Artist",
+      "songCount": 2,
+      "duration": 812,
+      "created": "2025-02-18T04:51:00.000Z",
+      "mediaType": "album",
+      "song": [
+        {
+          "id": "so-00031",
+          "parent": "al-0003",
+          "isDir": false,
+          "title": "Track 01",
+          "album": "Untitled Bootleg",
+          "artist": "Unknown Artist",
+          "size": 8912896,
+          "suffix": "mp3",
+          "duration": 402,
+          "path": "bootlegs/untitled/01.mp3",
+          "type": "music",
+          "isVideo": false
+        },
+        {
+          "id": "so-00032",
+          "parent": "al-0003",
+          "isDir": false,
+          "title": "Track 02",
+          "album": "Untitled Bootleg",
+          "artist": "Unknown Artist",
+          "size": 9109504,
+          "contentType": "audio/mpeg",
+          "suffix": "mp3",
+          "duration": 410,
+          "bitRate": 192,
+          "path": "bootlegs/untitled/02.mp3",
+          "type": "music",
+          "isVideo": false
+        }
+      ]
+    }
+  }
+}

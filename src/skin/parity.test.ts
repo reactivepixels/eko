@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { DEFAULT_SLOT_VARIANT, presetSlots, GENERIC_SHELL_PRESETS } from "./presets";
+import { isProSkin, SKINS as REGISTERED_SKINS } from "../store/useUiStore";
 import type { Role } from "./vocabulary";
 
 /**
@@ -50,5 +51,26 @@ describe("theme feature parity", () => {
       );
     }
     expect(DEFAULT_SLOT_VARIANT.meter).toBe("meter");
+  });
+});
+
+/**
+ * Skin Pro-gating. Moved here verbatim from `src/signalPath.test.ts`, whose
+ * `isBitPerfect` half now lives in Rust (`crates/eko-core/src/signal_path.rs`) —
+ * these cases were only ever co-located with it, never related to the seal.
+ */
+describe("isProSkin", () => {
+  it("porcelain is the only free skin", () => {
+    expect(isProSkin("porcelain")).toBe(false);
+  });
+
+  it("alternate skins are Pro-gated", () => {
+    expect(isProSkin("studio")).toBe(true);
+    expect(isProSkin("aether")).toBe(true);
+  });
+
+  it("exactly one registered skin is free", () => {
+    const free = REGISTERED_SKINS.filter((s) => !isProSkin(s.id));
+    expect(free.map((s) => s.id)).toEqual(["porcelain"]);
   });
 });

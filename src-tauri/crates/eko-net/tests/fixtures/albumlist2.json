@@ -1,0 +1,78 @@
+{
+  "subsonic-response": {
+    "status": "ok",
+    "version": "1.16.1",
+    "type": "navidrome",
+    "serverVersion": "0.53.3 (13af8ed4)",
+    "openSubsonic": true,
+    "albumList2": {
+      "album": [
+        {
+          "id": "al-0001",
+          "parent": "ar-0001",
+          "isDir": true,
+          "title": "Selected Ambient Works 85-92",
+          "name": "Selected Ambient Works 85-92",
+          "album": "Selected Ambient Works 85-92",
+          "artist": "Aphex Twin",
+          "year": 1992,
+          "genre": "Ambient",
+          "coverArt": "al-0001",
+          "duration": 4574,
+          "playCount": 12,
+          "created": "2024-11-02T10:14:22.417Z",
+          "artistId": "ar-0001",
+          "songCount": 13,
+          "isVideo": false,
+          "played": "2026-07-30T21:02:11.004Z",
+          "bpm": 0,
+          "comment": "",
+          "sortName": "selected ambient works 85-92",
+          "mediaType": "album",
+          "musicBrainzId": "d6cd0b4b-1a6d-4f9e-9cd1-9f0b3e7ba2b1",
+          "isCompilation": false,
+          "explicitStatus": ""
+        },
+        {
+          "id": "al-0002",
+          "parent": "ar-0002",
+          "isDir": true,
+          "title": "Kid A",
+          "name": "Kid A",
+          "album": "Kid A",
+          "artist": "Radiohead",
+          "year": 2000,
+          "genre": "Alternative",
+          "coverArt": "al-0002",
+          "duration": 2999,
+          "playCount": 41,
+          "created": "2024-11-02T10:16:09.882Z",
+          "artistId": "ar-0002",
+          "songCount": 10,
+          "isVideo": false,
+          "bpm": 0,
+          "comment": "",
+          "sortName": "kid a",
+          "mediaType": "album",
+          "isCompilation": false,
+          "explicitStatus": ""
+        },
+        {
+          "id": "al-0003",
+          "parent": "ar-0003",
+          "isDir": true,
+          "title": "Untitled Bootleg",
+          "name": "Untitled Bootleg",
+          "album": "Untitled Bootleg",
+          "artist": "Unknown Artist",
+          "songCount": 4,
+          "duration": 812,
+          "created": "2025-02-18T04:51:00.000Z",
+          "isVideo": false,
+          "mediaType": "album",
+          "isCompilation": false
+        }
+      ]
+    }
+  }
+}

@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { usePlayerStore } from "../store/usePlayerStore";
-import { getLyricsBySongId, getLyricsLegacy, getConfig } from "../subsonic/client";
-import type { LyricsResult } from "../subsonic/client";
+import { getLyricsBySongId, getLyricsLegacy } from "../subsonic/nativeSubsonic";
+import type { LyricsResult } from "../subsonic/nativeSubsonic";
+import { useSubsonic } from "../subsonic/useSubsonic";
 import { activeLyricLine } from "../lib/lyrics";
 
 /** Lyrics panel — fetches and displays synced or plain lyrics for the current track.
@@ -23,8 +24,10 @@ export function LyricsPanel({ onClose }: { onClose: () => void }) {
     const trackKey = track?.subsonicId ?? track?.path ?? null;
     if (!track || trackKey === loadedForId.current) return;
 
-    // Only fetch lyrics when a Subsonic server is configured.
-    if (!getConfig()) {
+    // Only fetch lyrics when a Subsonic server is configured. The config itself lives in
+    // Rust now, so this reads the store's copy of the server identity rather than the
+    // old `getConfig()`; both are set on connect and cleared on disconnect.
+    if (!useSubsonic.getState().config) {
       setLyrics({ synced: null, unsynced: null });
       loadedForId.current = trackKey;
       return;

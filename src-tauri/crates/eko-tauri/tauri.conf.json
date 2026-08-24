@@ -1,0 +1,73 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "EKO",
+  "version": "0.4.37",
+  "identifier": "com.reactivepixels.eko",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../../../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "EKO",
+        "width": 1200,
+        "height": 800,
+        "minWidth": 940,
+        "minHeight": 700,
+        "resizable": true,
+        "decorations": true,
+        "transparent": false,
+        "fullscreen": false,
+        "titleBarStyle": "Overlay",
+        "hiddenTitle": true,
+        "trafficLightPosition": { "x": 18, "y": 20 },
+        "shadow": true
+      },
+      {
+        "label": "mini",
+        "title": "EKO Mini",
+        "width": 520,
+        "height": 96,
+        "resizable": false,
+        "decorations": false,
+        "transparent": true,
+        "alwaysOnTop": true,
+        "visible": false,
+        "skipTaskbar": true,
+        "shadow": true
+      }
+    ],
+    "macOSPrivateApi": true,
+    "security": {
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' asset: stream: data: blob: https://asset.localhost; media-src 'self' asset: stream: data: blob: https://asset.localhost; font-src 'self'; connect-src 'self' ipc: http://ipc.localhost",
+      "assetProtocol": {
+        "enable": true,
+        "scope": ["**"]
+      }
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "createUpdaterArtifacts": true,
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "macOS": {}
+  },
+  "plugins": {
+    "updater": {
+      "__comment": "PROD pubkey (2026-07-07). Private key is the TAURI_SIGNING_PRIVATE_KEY CI secret on eko-pro (+ _PASSWORD); a gitignored backup lives in dev-keys/updater_prod.key(.password). Regenerate with `npm run tauri -- signer generate -w dev-keys/updater_prod.key`.",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDIxMTcyMkFGREQ3MEYyNDEKUldSQjhuRGRyeUlYSWQyMVBtajJxUlA2MG5PeWVSMlRuMzRNU2I2bGRZUlZuakxkYlBSajhERlIK",
+      "endpoints": ["https://github.com/reactivepixels/eko/releases/latest/download/latest.json"]
+    }
+  }
+}

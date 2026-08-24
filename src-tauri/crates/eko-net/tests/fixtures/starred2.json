@@ -1,0 +1,50 @@
+{
+  "subsonic-response": {
+    "status": "ok",
+    "version": "1.16.1",
+    "type": "navidrome",
+    "serverVersion": "0.53.3 (13af8ed4)",
+    "openSubsonic": true,
+    "starred2": {
+      "album": [
+        {
+          "id": "al-0001",
+          "isDir": true,
+          "name": "Selected Ambient Works 85-92",
+          "album": "Selected Ambient Works 85-92",
+          "artist": "Aphex Twin",
+          "artistId": "ar-0001",
+          "year": 1992,
+          "coverArt": "al-0001",
+          "songCount": 13,
+          "duration": 4574,
+          "starred": "2026-03-11T18:22:04.000Z",
+          "mediaType": "album"
+        }
+      ],
+      "song": [
+        {
+          "id": "so-00021",
+          "parent": "al-0002",
+          "isDir": false,
+          "title": "Everything In Its Right Place",
+          "album": "Kid A",
+          "artist": "Radiohead",
+          "track": 1,
+          "year": 2000,
+          "coverArt": "mf-00021",
+          "contentType": "audio/flac",
+          "suffix": "flac",
+          "duration": 251,
+          "bitRate": 1411,
+          "samplingRate": 44100,
+          "channelCount": 2,
+          "starred": "2026-04-02T07:15:31.000Z",
+          "albumId": "al-0002",
+          "artistId": "ar-0002",
+          "type": "music"
+        }
+      ]
+    }
+  }
+}

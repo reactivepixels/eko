@@ -1,130 +1,72 @@
 import { useState } from "react";
 import { usePlayerStore } from "../store/usePlayerStore";
 import { nativeEngine } from "../audio/nativeEngine";
+import type { SignalPathReport } from "../audio/nativeEngine";
 import type { ReplayGainMode } from "../types";
 
-const khz = (n: number) => (n ? `${(n / 1000).toFixed(n % 1000 ? 1 : 0)} kHz` : "—");
-
-/** The signal-path modifiers that, if any are engaged, forgo the bit-perfect
- *  (untouched-samples) path. */
-export interface SignalFlags {
-  eqActive: boolean;
-  attenuated: boolean;
-  rgActive: boolean;
-  /** Engine resampled the source to the output rate. */
-  resampled: boolean;
-  /** The OS device runs at a different rate than the engine stream. */
-  osResampled: boolean;
-}
-
-/** Single definition of the bit-perfect contract: playback is bit-perfect only when
- *  NONE of the modifiers are engaged. Pure + exported so the seal logic is unit-tested
- *  and can't silently drift. */
-export function isBitPerfect(f: SignalFlags): boolean {
-  return !f.eqActive && !f.attenuated && !f.rgActive && !f.resampled && !f.osResampled;
-}
-
 /**
- * The single source of bit-perfect truth (docs/skin-architecture.md §5 point 1) — formerly
- * derived in BOTH `TransportBar` and `SignalPath`, slightly differently. Reads live engine
- * info (real device + rates), derives `pure` honestly (no EQ, unity volume, no ReplayGain,
- * no resample at either the engine or the OS device), and exposes the output-device /
- * ReplayGain / crossfade pickers' state + actions. A `StatusLamp`/seal binds `pure`; it is a
- * lit status, NEVER a toggle.
+ * The single source of bit-perfect truth — read, not derived.
+ *
+ * The derivation lives in Rust (`eko_core::signal_path::derive`, tested in
+ * `crates/eko-core/src/signal_path.rs`) so the desktop app and the terminal client
+ * report the same seal for the same playback. This hook does NOT compute the seal, and
+ * must not start to: any rule added here would be a rule the CLI does not apply, and
+ * the product's central claim would then depend on which front end you looked at.
+ *
+ * `usePlayerStore`'s `refreshSignalPath()` calls Rust once per change to one of the
+ * seal's inputs and caches the result, so this stays a synchronous store read — no
+ * per-render IPC, and every consumer sees the same object at the same time.
+ *
+ * When no seal has been derived yet, `active` is false and every field is empty. That
+ * is deliberate: consumers render NOTHING rather than a default. A seal that flickered
+ * to BIT-PERFECT while the signal was being resampled would be a lying seal.
+ *
+ * There is a second, narrower "not yet" state, and consumers must handle it too. Because
+ * the derivation is asynchronous, an input can change while the reply that would confirm
+ * the verdict is still in flight. The store withdraws the cached bit-perfect claim the
+ * instant that happens (`unconfirmSeal` in `usePlayerStore.ts`), so what arrives here is
+ * `pure: false`, a `sealLabel` naming no modifier, and an EMPTY `engineLabel`. The rest
+ * of the seal — `active`, SOURCE, OUTPUT, RG — is untouched and still true, so nothing
+ * blanks and nothing blinks. Read an empty `engineLabel` on a non-pure seal as "no claim
+ * yet", never as "no processing".
+ *
+ * A `StatusLamp`/seal binds `pure`; it is a lit status, NEVER a toggle.
  */
+export const NO_SEAL: SignalPathReport = Object.freeze({
+  active: false,
+  pure: false,
+  eqActive: false,
+  attenuated: false,
+  rgActive: false,
+  resampled: false,
+  osResampled: false,
+  codec: "",
+  src: "",
+  output: "",
+  engineLabel: "",
+  sealLabel: "",
+  rgLabel: "",
+});
+
 export function useSignalPath() {
   const info = usePlayerStore((s) => s.engineInfo);
-  const engineActive = usePlayerStore((s) => s.engineActive);
-  const eqEnabled = usePlayerStore((s) => s.eqEnabled);
-  const preamp = usePlayerStore((s) => s.preamp);
-  const gains = usePlayerStore((s) => s.gains);
-  const eqMode = usePlayerStore((s) => s.eqMode);
-  const paramEqEnabled = usePlayerStore((s) => s.paramEqEnabled);
-  const paramEqPreamp = usePlayerStore((s) => s.paramEqPreamp);
-  const paramEqBands = usePlayerStore((s) => s.paramEqBands);
-  const volume = usePlayerStore((s) => s.volume);
+  const signalPath = usePlayerStore((s) => s.signalPath);
   const outputDevice = usePlayerStore((s) => s.outputDevice);
   const replayGainMode = usePlayerStore((s) => s.replayGainMode);
   const rgAppliedDb = usePlayerStore((s) => s.rgAppliedDb);
 
   const [devices, setDevices] = useState<string[]>([]);
 
-  // Whether a full signal-path display has live data to show.
-  const active = !!(engineActive && info && info.rate);
-
-  const graphicEqActive =
-    eqMode === "graphic" && eqEnabled && (preamp !== 0 || gains.some((g) => g !== 0));
-  const paramEqActive =
-    eqMode === "parametric" &&
-    paramEqEnabled &&
-    (paramEqPreamp !== 0 ||
-      paramEqBands.some(
-        (b) =>
-          b.enabled &&
-          (b.filterType === "lowPass" ||
-            b.filterType === "highPass" ||
-            b.filterType === "notch" ||
-            b.gainDb !== 0),
-      ));
-  const eqActive = graphicEqActive || paramEqActive;
-  const resampled = !!info && info.srcRate > 0 && info.srcRate !== info.rate;
-  // The OS device runs at a different rate than EKO's stream → macOS is resampling.
-  const osResampled = !!info && info.devRate > 0 && info.devRate !== info.rate;
-  const attenuated = volume < 1;
-  const rgActive = rgAppliedDb != null;
-  const pure = isBitPerfect({ eqActive, attenuated, rgActive, resampled, osResampled });
-
-  const codec = (info?.codec || "audio").toUpperCase();
-  const src = info
-    ? `${codec} · ${khz(info.srcRate)}${info.bits ? ` · ${info.bits}-bit` : ""}`
-    : "";
-  const engineLabel = pure
-    ? "Bit-perfect"
-    : [
-        resampled && info && `Resampled → ${khz(info.rate)}`,
-        osResampled && info && `OS resample → ${khz(info.devRate)}`,
-        eqActive && "EQ",
-        attenuated && "Volume",
-        rgActive && `ReplayGain ${rgAppliedDb!.toFixed(1)} dB`,
-      ]
-        .filter(Boolean)
-        .join(" · ");
-  const sealLabel = pure
-    ? "BIT-PERFECT"
-    : [
-        (resampled || osResampled) && "RESAMPLED",
-        eqActive && "EQ",
-        attenuated && "VOLUME",
-        rgActive && "REPLAYGAIN",
-      ]
-        .filter(Boolean)
-        .join(" · ") || "PROCESSED";
-  const rgLabel =
-    replayGainMode === "off"
-      ? "Off"
-      : `${replayGainMode === "album" ? "Album" : "Track"}${rgActive ? ` · ${rgAppliedDb!.toFixed(1)} dB` : ""}`;
+  const sp = signalPath ?? NO_SEAL;
 
   return {
-    active,
+    // ── The seal and its breakdown, derived in Rust ──
+    ...sp,
     info,
-    // bit-perfect truth + breakdown
-    pure,
-    eqActive,
-    resampled,
-    osResampled,
-    attenuated,
-    rgActive,
-    // display strings
-    codec,
-    src,
-    engineLabel,
-    sealLabel,
-    // ReplayGain
+    // ── Raw store state the pickers bind to ──
     replayGainMode,
     rgAppliedDb,
-    rgLabel,
     setReplayGainMode: (m: ReplayGainMode) => usePlayerStore.getState().setReplayGainMode(m),
-    // output device picker
     outputDevice,
     setOutputDevice: (name: string | null) => usePlayerStore.getState().setOutputDevice(name),
     devices,

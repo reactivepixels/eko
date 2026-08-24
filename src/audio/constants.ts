@@ -25,6 +25,13 @@ export type EqPreset = {
 // Musical presets tuned for these 10 broad (Q≈1) peaking bands. Because the bands
 // overlap, boosts add up — so each preset carries a negative `preamp` for headroom,
 // keeping the signal under 0 dBFS (no clipping/harshness). gains are low→high.
+//
+// ⚠ ALSO DEFINED IN RUST: `src-tauri/crates/eko-core/src/eq_presets.rs` owns this same
+// table for the terminal client. This copy stays because it is a synchronous skin
+// data-feed binding (`constants.EQ_PRESETS` in src/skin/feeds.ts). A changed gain is an
+// AUDIBLE change, so both tables are pinned by tests — `preset_values_are_the_ported_table`
+// in Rust and `the preset table matches the Rust source of truth` below. Editing one
+// without the other fails a test, by design.
 export const EQ_PRESETS: EqPreset[] = [
   { name: "Flat", preamp: 0, gains: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0] },
   { name: "Rock", preamp: -5, gains: [5, 3, -1, -2, -1, 1, 3, 4, 5, 5] },

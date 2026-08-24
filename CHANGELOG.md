@@ -10,6 +10,21 @@ The project is pre-1.0 — the API and feature set are still settling.
 
 Everything below reflects what has been built and verified to compile and run.
 
+## [0.4.37] — 2026-08-24
+
+### Fixed
+- **The window's close button works again.** Since 0.4.33 clicking the red button did nothing,
+  leaving ⌘Q or the EKO menu as the only way to quit.
+
+### Added
+- **Tracks now lists your whole server library.** The section stayed empty until you typed a
+  search; it now loads every track on your server the first time you open it, filling in as it
+  goes. Searching still narrows to the server's own matches.
+
+### Changed
+- **Server search returns up to 200 matching tracks**, up from 50 — enough to find a song in a
+  library too large to browse.
+
 ## [0.4.36] — 2026-07-30
 
 ### Fixed

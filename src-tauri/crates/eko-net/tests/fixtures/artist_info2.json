@@ -1,0 +1,21 @@
+{
+  "subsonic-response": {
+    "status": "ok",
+    "version": "1.16.1",
+    "type": "navidrome",
+    "serverVersion": "0.53.3 (13af8ed4)",
+    "openSubsonic": true,
+    "artistInfo2": {
+      "biography": "Richard David James, better known as Aphex Twin, is a British electronic musician.",
+      "musicBrainzId": "f22942a1-6f70-4f48-866e-238cb2308fbd",
+      "lastFmUrl": "https://www.last.fm/music/Aphex+Twin",
+      "smallImageUrl": "https://music.example.com/artist-sm.jpg",
+      "mediumImageUrl": "https://music.example.com/artist-md.jpg",
+      "largeImageUrl": "https://music.example.com/artist-lg.jpg",
+      "similarArtist": [
+        { "id": "ar-0055", "name": "Squarepusher", "albumCount": 6 },
+        { "id": "ar-0056", "name": "Autechre", "albumCount": 11 }
+      ]
+    }
+  }
+}

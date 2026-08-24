@@ -1,0 +1,92 @@
+{
+  "subsonic-response": {
+    "status": "ok",
+    "version": "1.16.1",
+    "type": "navidrome",
+    "serverVersion": "0.53.3 (13af8ed4)",
+    "openSubsonic": true,
+    "album": {
+      "id": "al-0002",
+      "parent": "ar-0002",
+      "isDir": true,
+      "title": "Kid A",
+      "name": "Kid A",
+      "album": "Kid A",
+      "artist": "Radiohead",
+      "artistId": "ar-0002",
+      "year": 2000,
+      "genre": "Alternative",
+      "coverArt": "al-0002",
+      "duration": 2999,
+      "songCount": 2,
+      "created": "2024-11-02T10:16:09.882Z",
+      "mediaType": "album",
+      "song": [
+        {
+          "id": "so-00021",
+          "parent": "al-0002",
+          "isDir": false,
+          "title": "Everything In Its Right Place",
+          "album": "Kid A",
+          "artist": "Radiohead",
+          "track": 1,
+          "year": 2000,
+          "genre": "Alternative",
+          "coverArt": "mf-00021",
+          "size": 47118336,
+          "contentType": "audio/flac",
+          "suffix": "flac",
+          "duration": 251,
+          "bitRate": 1411,
+          "samplingRate": 44100,
+          "bitDepth": 16,
+          "channelCount": 2,
+          "path": "Radiohead/Kid A/01 Everything In Its Right Place.flac",
+          "albumId": "al-0002",
+          "artistId": "ar-0002",
+          "type": "music",
+          "isVideo": false,
+          "mediaType": "song",
+          "replayGain": {
+            "trackGain": -6.48,
+            "albumGain": -7.21,
+            "trackPeak": 0.988556,
+            "albumPeak": 0.999969
+          }
+        },
+        {
+          "id": "so-00022",
+          "parent": "al-0002",
+          "isDir": false,
+          "title": "Kid A",
+          "album": "Kid A",
+          "artist": "Radiohead",
+          "track": 2,
+          "year": 2000,
+          "genre": "Alternative",
+          "coverArt": "mf-00022",
+          "size": 42991616,
+          "contentType": "audio/flac",
+          "suffix": "flac",
+          "duration": 264,
+          "bitRate": 1411,
+          "samplingRate": 44100,
+          "bitDepth": 16,
+          "channelCount": 2,
+          "path": "Radiohead/Kid A/02 Kid A.flac",
+          "albumId": "al-0002",
+          "artistId": "ar-0002",
+          "type": "music",
+          "isVideo": false,
+          "mediaType": "song",
+          "replayGain": {
+            "trackGain": -5.02,
+            "albumGain": -7.21,
+            "trackPeak": 0.94165,
+            "albumPeak": 0.999969
+          }
+        }
+      ]
+    }
+  }
+}

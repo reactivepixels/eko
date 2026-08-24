@@ -1,78 +1,19 @@
-[package]
-name = "eko"
-version = "0.4.36"
-description = "The beautiful native Mac client for Navidrome & self-hosted music"
-authors = ["Reactive Pixels"]
+[workspace]
+members = ["crates/eko-core", "crates/eko-tauri", "crates/eko-net", "crates/eko-cli"]
+resolver = "2"
+
+[workspace.package]
+version = "0.4.37"
 edition = "2021"
+authors = ["Reactive Pixels"]
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
-[lib]
-# The `_lib` suffix may seem redundant but it is necessary
-# to make the lib name unique and wouldn't conflict with the bin name.
-# This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
-name = "eko_lib"
-crate-type = ["staticlib", "cdylib", "rlib"]
-
-# ── Open-core feature flags ────────────────────────────────────────────────────
-#
-# `pro` (default OFF) gates:
-#   - license validation / trial management (license.rs)
-#   - offline cache / encrypted playback (offline.rs + engine Source::Cached)
-#   - parametric EQ + AutoEQ (ParamBand* types + engine_set_param_eq etc.)
-#
-# The free (default) build compiles and runs without any Pro source present.
-# `keyring` (Keychain) is FREE — secure credential storage for multi-server is a
-# free table-stakes feature, not a Pro feature.
-[features]
-pro = ["dep:ed25519-dalek", "dep:rand", "dep:aes-gcm"]
-
-[build-dependencies]
-tauri-build = { version = "2", features = [] }
-
-[dependencies]
-tauri = { version = "2", features = ["macos-private-api", "protocol-asset"] }
-tauri-plugin-opener = "2"
-tauri-plugin-dialog = "2"
-tauri-plugin-fs = "2"
+# Shared dependencies used by more than one workspace member — pinned once here so
+# every crate stays on the same version. Member crates opt in with `dep.workspace = true`.
+[workspace.dependencies]
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-lofty = "0.22"
-zip = { version = "2", default-features = false, features = ["deflate"] }
-image = { version = "0.25", default-features = false, features = ["bmp", "png", "jpeg", "webp"] }
-base64 = "0.22"
-tauri-plugin-http = "2.5.9"
-reqwest = { version = "0.12", features = ["blocking"] }
-url = "2"
 cpal = "0.15"
 symphonia = { version = "0.5", features = ["all"] }
 rustfft = "6"
-tauri-plugin-updater = "2.10.1"
-tauri-plugin-process = "2.3.1"
 triple_buffer = "9.0.0"
-# Keychain integration — always compiled (multi-server credential storage is a free feature).
-keyring = "3"
-# Pro-only deps — pulled in only when the `pro` feature is enabled.
-ed25519-dalek = { version = "2", features = ["rand_core"], optional = true }
-rand = { version = "0.8", optional = true }
-aes-gcm = { version = "0.10", optional = true }
-
-# ── Pro-only examples (use ed25519-dalek / rand / license module) ─────────────
-[dev-dependencies]
-tempfile = "3"
-
-# System "Now Playing" + hardware media keys (macOS MPNowPlayingInfoCenter /
-# MPRemoteCommandCenter; cross-platform under the hood).
-[target.'cfg(target_os = "macos")'.dependencies]
-souvlaki = "0.7"
-# NSDistributedNotificationCenter broadcast (broadcast.rs) for companion-app playback
-# integration. Both crates are already in the dependency tree transitively (via tauri /
-# muda), so pinning them directly adds no new compiled code.
-objc2 = "0.6"
-objc2-foundation = { version = "0.3", default-features = false, features = [
-    "NSNotification",
-    "NSDictionary",
-    "NSString",
-    "NSObject",
-] }
-
+lofty = "0.22"

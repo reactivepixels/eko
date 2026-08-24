@@ -1,0 +1,70 @@
+{
+  "_comment": [
+    "A compilation album where the middle track carries NO `artist` tag and the last",
+    "carries no `title` — routine on rips and bootlegs. useSubsonic.ts:76-78 coalesces",
+    "both to null and every render site reads them through `?? \"\"`, so the TypeScript",
+    "shows blank text and keeps going.",
+    "",
+    "The point of this fixture is the SIBLINGS: serde rejects the whole Vec if one",
+    "element fails, so requiring these fields would make one untagged track fail the",
+    "entire album page. All three songs must come through."
+  ],
+  "subsonic-response": {
+    "status": "ok",
+    "version": "1.16.1",
+    "type": "navidrome",
+    "serverVersion": "0.53.3 (13af8ed4)",
+    "openSubsonic": true,
+    "album": {
+      "id": "al-0077",
+      "isDir": true,
+      "name": "Now That's What I Call Untagged",
+      "album": "Now That's What I Call Untagged",
+      "artist": "Various Artists",
+      "songCount": 3,
+      "duration": 640,
+      "coverArt": "al-0077",
+      "isCompilation": true,
+      "mediaType": "album",
+      "song": [
+        {
+          "id": "so-00771",
+          "parent": "al-0077",
+          "isDir": false,
+          "title": "Properly Tagged Opener",
+          "album": "Now That's What I Call Untagged",
+          "artist": "The Tagged",
+          "track": 1,
+          "contentType": "audio/flac",
+          "suffix": "flac",
+          "duration": 210,
+          "coverArt": "mf-00771",
+          "type": "music"
+        },
+        {
+          "id": "so-00772",
+          "parent": "al-0077",
+          "isDir": false,
+          "title": "Nobody Knows Who Made This",
+          "album": "Now That's What I Call Untagged",
+          "track": 2,
+          "contentType": "audio/mpeg",
+          "suffix": "mp3",
+          "duration": 195,
+          "type": "music"
+        },
+        {
+          "id": "so-00773",
+          "parent": "al-0077",
+          "isDir": false,
+          "artist": "The Tagged",
+          "album": "Now That's What I Call Untagged",
+          "track": 3,
+          "suffix": "mp3",
+          "duration": 235,
+          "type": "music"
+        }
+      ]
+    }
+  }
+}

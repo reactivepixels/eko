@@ -1,0 +1,72 @@
+[package]
+name = "eko"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+description = "The beautiful native Mac client for Navidrome & self-hosted music"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+# The `_lib` suffix may seem redundant but it is necessary
+# to make the lib name unique and wouldn't conflict with the bin name.
+# This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
+name = "eko_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+# ── Open-core feature flags ────────────────────────────────────────────────────
+#
+# `pro` (default OFF) gates:
+#   - license validation / trial management (license.rs)
+#   - offline cache / encrypted playback (offline.rs + engine Source::Cached)
+#   - parametric EQ + AutoEQ (ParamBand* types + engine_set_param_eq etc.)
+#
+# The free (default) build compiles and runs without any Pro source present.
+# `keyring` (Keychain) is FREE — secure credential storage for multi-server is a
+# free table-stakes feature, not a Pro feature.
+[features]
+pro = ["eko-core/pro"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+eko-core = { path = "../eko-core" }
+# OpenSubsonic / Navidrome client — FREE, no feature gate. Owns the server credentials
+# and every API call; this crate only wraps it in `#[tauri::command]` shims.
+eko-net = { path = "../eko-net" }
+tauri = { version = "2", features = ["macos-private-api", "protocol-asset"] }
+tauri-plugin-opener = "2"
+tauri-plugin-dialog = "2"
+tauri-plugin-fs = "2"
+serde.workspace = true
+serde_json.workspace = true
+base64 = "0.22"
+reqwest = { version = "0.12", features = ["blocking"] }
+url = "2"
+tauri-plugin-updater = "2.10.1"
+tauri-plugin-process = "2.3.1"
+# Keychain integration — always compiled (multi-server credential storage is a free feature).
+keyring = "3"
+
+# The Pro-only examples (gen_keypair / mint_license / verify_license) moved to
+# crates/eko-core with the licensing code — see crates/eko-core/Cargo.toml.
+
+[dev-dependencies]
+tempfile = "3"
+
+# System "Now Playing" + hardware media keys (macOS MPNowPlayingInfoCenter /
+# MPRemoteCommandCenter; cross-platform under the hood).
+[target.'cfg(target_os = "macos")'.dependencies]
+souvlaki = "0.7"
+# NSDistributedNotificationCenter broadcast (broadcast.rs) for companion-app playback
+# integration. Both crates are already in the dependency tree transitively (via tauri /
+# muda), so pinning them directly adds no new compiled code.
+objc2 = "0.6"
+objc2-foundation = { version = "0.3", default-features = false, features = [
+    "alloc",
+    "NSNotification",
+    "NSDictionary",
+    "NSString",
+    "NSObject",
+] }

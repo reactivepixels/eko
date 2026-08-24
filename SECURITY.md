@@ -19,7 +19,7 @@ The most relevant surfaces are:
 - **Local file handling** — metadata/cover parsing of untrusted audio files.
 - **Subsonic/Navidrome credentials** — stored locally; how they're persisted and used.
 - **The `stream://` proxy** and any network requests to a user-configured server.
-- **Tauri capabilities** (`src-tauri/capabilities/`) — the allowlist of what the webview can do.
+- **Tauri capabilities** (`src-tauri/crates/eko-tauri/capabilities/`) — the allowlist of what the webview can do.
 
 ## Supported versions
 Until v1.0, only the latest release is supported. After v1.0 we'll support the current minor

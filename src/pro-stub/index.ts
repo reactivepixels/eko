@@ -12,6 +12,8 @@
  */
 
 import { create } from "zustand";
+import type { DownloadUrl, Track } from "../types";
+import type { MenuItem } from "../player/ContextMenu";
 
 // ── License store stubs ───────────────────────────────────────────────────────
 
@@ -87,11 +89,14 @@ interface OfflineState {
   progress: Record<string, CacheProgress>;
   loaded: boolean;
   load: () => Promise<void>;
-  cacheTrack: (trackId: string, url: string, codec: string) => Promise<CacheEntry>;
-  cacheAlbum: (trackIds: string[], downloadUrls: string[], codecs: string[]) => Promise<void>;
+  // Branded `DownloadUrl`, matching `src/pro/useOfflineStore.ts`. This is not cosmetic:
+  // `tsconfig.json` points `@pro` at THIS file, so it is the signature `npm run typecheck`
+  // actually enforces against every `@pro` consumer in the shared tree. If the brand were
+  // dropped here, `cacheTrack(id, track.streamSrcUrl, codec)` would typecheck.
+  cacheTrack: (trackId: string, downloadUrl: DownloadUrl, codec: string) => Promise<CacheEntry>;
+  cacheAlbum: (trackIds: string[], downloadUrls: DownloadUrl[], codecs: string[]) => Promise<void>;
   removeOffline: (trackId: string) => Promise<void>;
   setCacheLimit: (bytes: number) => Promise<void>;
-  setCacheBitrate: (transcode: boolean) => Promise<void>;
   listenForProgress: () => Promise<void>;
 }
 
@@ -101,20 +106,23 @@ export const useOfflineStore = create<OfflineState>(() => ({
   progress: {},
   loaded: true,
   load: async () => {},
-  cacheTrack: async (_trackId: string, _url: string, _codec: string): Promise<CacheEntry> => {
+  cacheTrack: async (
+    _trackId: string,
+    _downloadUrl: DownloadUrl,
+    _codec: string,
+  ): Promise<CacheEntry> => {
     throw new Error("offline cache requires Pro");
   },
   cacheAlbum: async () => {},
   removeOffline: async () => {},
   setCacheLimit: async () => {},
-  setCacheBitrate: async () => {},
   listenForProgress: async () => {},
 }));
 
-/** Free build: never downloading. */
-export function useIsDownloading(_trackId?: string): boolean {
-  return false;
-}
+// No `useIsDownloading` stub: `src/pro/index.ts` no longer exports it either (its only
+// consumer, `OfflineBadge`, lives inside `src/pro/` and imports it directly). The two barrels
+// stay in sync.
+
 /** Free build: nothing is offline. */
 export function isOffline(_entries: CacheEntry[], _trackId: string | undefined): boolean {
   return false;
@@ -125,6 +133,25 @@ export function offlineEntry(
   _trackId: string | undefined,
 ): CacheEntry | undefined {
   return undefined;
+}
+
+/**
+ * Offline context-menu items — **the whole free-build gate for offline caching.**
+ *
+ * `useQueue.rowMenuItems`, `useLibrary.trackMenuItems` and `useLibrary.albumMenuItems` are
+ * free code, and they spread these into the `MenuItem[]` they already build. Returning `[]`
+ * here is what makes the free build render no offline items at all, without those builders
+ * containing a single Pro concept or license check. `offlineMenu.test.ts` asserts it.
+ *
+ * The `[]` also has to be a *complete* removal, separator included — which is why the Pro
+ * implementations contribute their own leading separator rather than expecting the caller to
+ * add one. A caller-side separator would survive this `[]` and leave a stray divider.
+ */
+export function offlineTrackMenuItems(_track: Track | undefined): MenuItem[] {
+  return [];
+}
+export function offlineAlbumMenuItems(_albumId: string): MenuItem[] {
+  return [];
 }
 
 // ── Smart playlist stubs ──────────────────────────────────────────────────────
@@ -199,10 +226,24 @@ export function LicenseModal(): null {
 export function OfflinePanel(): null {
   return null;
 }
-export function OfflineBadge(): null {
-  return null;
-}
-export function OfflineAction(): null {
+/**
+ * The prop-taking stubs must declare the real component's props, even though they ignore
+ * them.
+ *
+ * `tsconfig.json` maps `@pro` to this file, so these signatures are what the *free* build
+ * typechecks every `<OfflineBadge …/>` against. A stub declared `(): null` accepts no
+ * attributes at all, so the first consumer to render `<OfflineBadge trackId={…} />` would
+ * fail `npm run typecheck` in the free build while compiling fine in Pro — a trap for
+ * whoever wires the offline UI up, and one that only shows up in the build they are least
+ * likely to be running.
+ *
+ * The same rule covers non-components, and there it also carries the branded-URL guarantee:
+ * `useOfflineStore.cacheTrack` above keeps `downloadUrl` as `DownloadUrl` because the brand
+ * is what makes passing a `streamSrcUrl` (which the server may transcode) a compile error,
+ * and a stub that widened it to `string` would switch that guarantee off in exactly the
+ * build that has no Pro code to catch the mistake later.
+ */
+export function OfflineBadge(_props: { trackId?: string; className?: string }): null {
   return null;
 }
 export function OfflineView(): null {
