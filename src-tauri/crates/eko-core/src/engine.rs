@@ -100,6 +100,7 @@ use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use rustfft::{num_complex::Complex, Fft, FftPlanner};
 use std::f32::consts::PI;
 use std::sync::Arc as StdArc;
+use std::sync::Weak;
 use symphonia::core::audio::SampleBuffer;
 use symphonia::core::codecs::DecoderOptions;
 use symphonia::core::errors::Error as SymError;
@@ -108,6 +109,8 @@ use symphonia::core::io::{MediaSource, MediaSourceStream};
 use symphonia::core::meta::MetadataOptions;
 use symphonia::core::probe::Hint;
 use triple_buffer::triple_buffer;
+
+use crate::player::{EndReason, SessionView};
 
 /// A [`symphonia::core::io::MediaSource`] backed by an in-progress HTTP download.
 ///
@@ -308,7 +311,7 @@ impl DspSnapshot {
 /// by the decode loop at end-of-track when its sample rate matches the open stream.
 ///
 /// `Source::Cached` is a Pro feature — it plays from the offline encrypted cache.
-enum Source {
+pub enum Source {
     File(String),
     Url(String),
     /// Play from the offline encrypted cache (Pro only). `plain_len` is the original
@@ -333,11 +336,105 @@ fn segment_at(starts: &[usize], pos: usize) -> usize {
     i
 }
 
+/// What the decoder is told to join onto the end of the session.
+pub enum Next {
+    /// Nothing: let the session run out.
+    Nothing,
+    /// Open this, and join it if its sample rate matches.
+    Open { uid: String, source: Source },
+    /// There is a next item, but it can't be played right now.
+    Unplayable { uid: String },
+}
+
+/// Decides what follows the last decoded item. The decoder asks at most once per item,
+/// and only once the playhead has reached that item.
+pub trait Continuer: Send + Sync {
+    fn next_after(&self, after: &str) -> Next;
+}
+
+pub(crate) struct NoNext;
+
+impl Continuer for NoNext {
+    fn next_after(&self, _after: &str) -> Next {
+        Next::Nothing
+    }
+}
+
+/// What one stretch of a session's buffer is.
+#[derive(Clone, Debug, Default, PartialEq)]
+struct SegMeta {
+    uid: String,
+    src_rate: u32,
+    bits: u32,
+    codec: String,
+}
+
+/// Whether the decoder may join another item: only while the playhead is in the last
+/// decoded one, so a session never buffers more than one item ahead.
+fn may_join(starts: &[usize], pos: usize) -> bool {
+    segment_at(starts, pos) + 1 == starts.len()
+}
+
+/// Where to cut so that nothing after the playing item survives: the sample index, and
+/// how many segments to keep. `None` when the playing item is already the last.
+fn lookahead_cut(starts: &[usize], pos: usize) -> Option<(usize, usize)> {
+    let i = segment_at(starts, pos);
+    starts.get(i + 1).map(|&at| (at, i + 1))
+}
+
+/// Interleaved output samples for `n_frames` source frames at `file_rate`, resampled to
+/// `out_rate`. 0 when the container does not say.
+fn est_samples(n_frames: Option<u64>, file_rate: u32, out_rate: u32, out_ch: usize) -> usize {
+    n_frames
+        .map(|n| ((n as f64 * out_rate as f64 / file_rate.max(1) as f64) as usize) * out_ch)
+        .unwrap_or(0)
+}
+
+/// What a rearm undid.
+#[derive(Debug, PartialEq)]
+enum Rearmed {
+    /// Decoded audio after the playing item.
+    Lookahead,
+    /// An answer that ended the session early: nothing next, a failure, a rate change.
+    Answer,
+    /// Nothing: the decoder has not asked yet.
+    Nothing,
+}
+
+/// Drop what the decoder was told about the playing item, so it asks again.
+fn rearm(shared: &Shared) -> Rearmed {
+    let found = {
+        // Hold `samples` while reading `pos`: the callback moves `pos` under this lock,
+        // so the playhead cannot cross into the audio being cut.
+        let mut samples = shared.samples.lock().unwrap();
+        let pos = shared.pos.load(Ordering::SeqCst);
+        let mut starts = shared.seg_starts.lock().unwrap();
+        match lookahead_cut(&starts, pos) {
+            Some((at, keep)) => {
+                samples.truncate(at);
+                starts.truncate(keep);
+                shared.seg_meta.lock().unwrap().truncate(keep);
+                shared.total.store(at, Ordering::SeqCst);
+                Rearmed::Lookahead
+            }
+            None if shared.done.load(Ordering::SeqCst) => Rearmed::Answer,
+            None => return Rearmed::Nothing,
+        }
+    };
+    shared.done.store(false, Ordering::SeqCst);
+    shared.playing.store(true, Ordering::SeqCst);
+    *shared.end.lock().unwrap() = EndReason::None;
+    *shared.handover.lock().unwrap() = None;
+    found
+}
+
 /// Commands sent from the Tauri command handlers to the decode/playback thread.
 enum Cmd {
     Pause,
     Resume,
     Seek(usize),
+    /// Drop decoded look-ahead and ask again what follows the playing item.
+    Rearm,
     Stop,
 }
 
@@ -348,38 +445,97 @@ struct Shared {
     total: AtomicUsize,
     rate: AtomicU32,
     channels: AtomicU32,
-    src_rate: AtomicU32,
     dev_rate: AtomicU32,
-    bits: AtomicU32,
-    codec: Mutex<String>,
     paused: AtomicBool,
     playing: AtomicBool,
     done: AtomicBool,
     device: Mutex<String>,
     bands: Mutex<Vec<f32>>,
     samples: Mutex<Vec<f32>>,
-    /// Current graphic EQ parameters, kept for command-handler reads.
-    eq: Mutex<EqParams>,
-    /// Parametric EQ parameters (Pro feature). Kept for command-handler reads.
-    #[cfg(feature = "pro")]
-    param_eq: Mutex<crate::pro::param_eq::ParamEqParams>,
-    /// Which EQ is routed to DSP.
-    eq_mode: Mutex<EqMode>,
     /// Lock-free DSP parameter handoff.
     dsp_input: Mutex<triple_buffer::Input<DspSnapshot>>,
     vol: AtomicU32,
     rg_gain: AtomicU32,
-    next_src: Mutex<Option<Source>>,
     seg_starts: Mutex<Vec<usize>>,
+    /// One per entry in `seg_starts`: which item that stretch is, and its stream facts.
+    seg_meta: Mutex<Vec<SegMeta>>,
+    /// The first source opened and the output started.
+    opened: AtomicBool,
+    /// `Engine::stop` was called. To the player, a stopped session is no session.
+    stopped: AtomicBool,
+    /// Why the decoder stopped offering audio.
+    end: Mutex<EndReason>,
+    /// A source the decoder opened for the next item but could not join (a different
+    /// rate), left for the next session.
+    handover: Mutex<Option<(String, OpenSource)>>,
+    /// Who decides what follows the last decoded item.
+    continuer: Arc<dyn Continuer>,
 }
 
-/// The Tauri-managed engine state, registered once at startup.
+/// The engine. The app registers one at startup; the CLI makes its own.
+///
+/// All of its state lives in [`Inner`] behind an `Arc`, so the player's own thread
+/// (see `crate::player`) can hold the same engine the commands do.
 #[derive(Default)]
 pub struct Engine {
+    inner: Arc<Inner>,
+}
+
+impl std::ops::Deref for Engine {
+    type Target = Inner;
+
+    fn deref(&self) -> &Inner {
+        &self.inner
+    }
+}
+
+/// The engine's state. Opaque outside this crate.
+#[derive(Default)]
+pub struct Inner {
     cmd: Mutex<Option<Sender<Cmd>>>,
-    shared: Arc<SharedHolder>,
+    shared: SharedHolder,
     now: Mutex<NowPlaying>,
     device_pref: Mutex<Option<String>>,
+    /// The DSP settings chosen so far. Every new session starts from them, so a session
+    /// the engine starts by itself sounds like the one before it.
+    settings: Mutex<Settings>,
+    /// The engine-owned player: queue, decisions, and its thread.
+    pub(crate) player: crate::player::driver::PlayerState,
+}
+
+/// DSP and output settings that outlive any one session.
+#[derive(Clone)]
+struct Settings {
+    eq: EqParams,
+    #[cfg(feature = "pro")]
+    param_eq: crate::pro::param_eq::ParamEqParams,
+    eq_mode: EqMode,
+    /// Output gain from the volume dial, already squared.
+    vol_gain: f32,
+}
+
+impl Default for Settings {
+    fn default() -> Self {
+        Settings {
+            eq: EqParams::default(),
+            #[cfg(feature = "pro")]
+            param_eq: crate::pro::param_eq::ParamEqParams::default(),
+            eq_mode: EqMode::default(),
+            vol_gain: 1.0,
+        }
+    }
+}
+
+impl Settings {
+    /// What the audio callback should run with.
+    fn dsp(&self) -> DspSnapshot {
+        DspSnapshot {
+            mode: self.eq_mode,
+            graphic: self.eq.clone(),
+            #[cfg(feature = "pro")]
+            parametric: self.param_eq.clone(),
+        }
+    }
 }
 
 /// Now-playing metadata, set by the main window and read by any window.
@@ -418,6 +574,8 @@ pub struct EngineStatus {
     pub bits: u32,
     pub codec: String,
     pub seg: u32,
+    /// Uid of the item under the playhead (empty for a session the player did not start).
+    pub uid: String,
 }
 
 /// Re-channel `data` from `from`-channel interleaved PCM to `to`-channel interleaved PCM.
@@ -541,8 +699,15 @@ fn analyze(shared: &Shared, fft: &StdArc<dyn Fft<f32>>, fbuf: &mut [Complex<f32>
     *shared.bands.lock().unwrap() = bands;
 }
 
+/// How a session gets its first item.
+pub(crate) enum First {
+    Source(Source),
+    /// Already opened by the session before, which could not join it (a rate change).
+    Opened(OpenSource),
+}
+
 /// Everything the decode loop needs for one source.
-struct OpenSource {
+pub(crate) struct OpenSource {
     format: Box<dyn symphonia::core::formats::FormatReader>,
     decoder: Box<dyn symphonia::core::codecs::Decoder>,
     track_id: u32,
@@ -749,8 +914,39 @@ fn rg_db_to_linear(gain_db: Option<f32>) -> f32 {
     }
 }
 
+/// Output streams whose audio unit still exists, across every session.
+static LIVE_OUTPUTS: AtomicUsize = AtomicUsize::new(0);
+
+/// Counts one output stream for as long as its audio callback exists. The callback owns
+/// it, so the count only drops when the audio unit itself is freed, not merely stopped.
+struct OutputAlive;
+
+impl OutputAlive {
+    fn new() -> Self {
+        LIVE_OUTPUTS.fetch_add(1, Ordering::SeqCst);
+        OutputAlive
+    }
+}
+
+impl Drop for OutputAlive {
+    fn drop(&mut self) {
+        LIVE_OUTPUTS.fetch_sub(1, Ordering::SeqCst);
+    }
+}
+
+/// How many output streams still have a live audio unit.
+///
+/// Exists for `tests/output_release.rs`. A stopped session has to free its audio unit, not
+/// just stop feeding it: cpal 0.15 never freed one opened on a device chosen by name, so
+/// every track change left the previous track playing, with its decoded audio in memory.
+pub fn live_output_streams() -> usize {
+    LIVE_OUTPUTS.load(Ordering::SeqCst)
+}
+
 fn decode_and_play(
-    first: Source,
+    first: First,
+    first_uid: String,
+    start_ms: u64,
     shared: Arc<Shared>,
     rx: mpsc::Receiver<Cmd>,
     device_name: Option<String>,
@@ -758,7 +954,11 @@ fn decode_and_play(
 ) {
     let fail = |shared: &Shared| shared.playing.store(false, Ordering::SeqCst);
 
-    let opened = match open_source(first) {
+    let opened = match first {
+        First::Source(source) => open_source(source),
+        First::Opened(opened) => Some(opened),
+    };
+    let opened = match opened {
         Some(o) => o,
         None => {
             fail(&shared);
@@ -810,16 +1010,29 @@ fn decode_and_play(
     #[cfg(not(target_os = "macos"))]
     let dev_rate = out_rate;
 
-    let est_total = n_frames
-        .map(|n| ((n as f64 * out_rate as f64 / file_rate as f64) as usize) * out_ch)
-        .unwrap_or(0);
+    let est_total = est_samples(n_frames, file_rate, out_rate, out_ch);
     shared.total.store(est_total, Ordering::SeqCst);
     shared.rate.store(out_rate, Ordering::SeqCst);
     shared.channels.store(out_ch as u32, Ordering::SeqCst);
-    shared.src_rate.store(file_rate, Ordering::SeqCst);
     shared.dev_rate.store(dev_rate, Ordering::SeqCst);
-    shared.bits.store(src_bits, Ordering::SeqCst);
-    *shared.codec.lock().unwrap() = codec_name;
+    shared.seg_meta.lock().unwrap().push(SegMeta {
+        uid: first_uid,
+        src_rate: file_rate,
+        bits: src_bits,
+        codec: codec_name,
+    });
+    if start_ms > 0 {
+        // A resumed session: start at the saved position. Past the decoded edge, the
+        // callback holds there until the decoder catches up (the same arm-and-snap a
+        // forward seek uses).
+        let target = (start_ms as u128 * out_rate as u128 / 1000) as usize * out_ch;
+        let target = if est_total > 0 {
+            target.min(est_total)
+        } else {
+            target
+        };
+        shared.pos.store(target, Ordering::SeqCst);
+    }
 
     let cb = shared.clone();
     let err_shared = shared.clone();
@@ -827,9 +1040,12 @@ fn decode_and_play(
     // same array serves the graphic EQ (free) and the parametric EQ (pro).
     // Owned entirely by the audio thread — never shared, never locked.
     let mut band_state = [[(0.0f32, 0.0f32); MAX_CH]; MAX_BAND_STATE];
+    let alive = OutputAlive::new();
     let stream = device.build_output_stream(
         &config,
         move |data: &mut [f32], _: &cpal::OutputCallbackInfo| {
+            // Owned by the callback: it is released only with the audio unit.
+            let _alive = &alive;
             if cb.paused.load(Ordering::Relaxed) {
                 data.iter_mut().for_each(|s| *s = 0.0);
                 return;
@@ -913,12 +1129,15 @@ fn decode_and_play(
         fail(&shared);
         return;
     }
+    shared.opened.store(true, Ordering::SeqCst);
 
     let mut planner = FftPlanner::<f32>::new();
     let fft = planner.plan_fft_forward(FFT_N);
     let mut fbuf = vec![Complex::<f32>::new(0.0, 0.0); FFT_N];
     let mut last_analyze = Instant::now();
     let mut decoding = true;
+    // The decoder has finished an item and not yet asked what follows it.
+    let mut awaiting_next = false;
 
     loop {
         if decoding {
@@ -961,37 +1180,76 @@ fn decode_and_play(
                 shared.samples.lock().unwrap().extend_from_slice(&local);
             }
             if !decoding {
-                let mut continued = false;
-                if let Some(src) = shared.next_src.lock().unwrap().take() {
-                    if let Some(nd) = open_source(src) {
-                        // Gapless continuation when the next track shares the CURRENT track's
-                        // native rate — both then resample to `out_rate` identically, so the
-                        // join is seamless (and bit-perfect when out_rate == file_rate). Compare
-                        // against `file_rate`, NOT `out_rate`: on a device locked to a different
-                        // rate (e.g. 44.1k files on a 48k Bluetooth/AirPods output) out_rate is
-                        // 48k, so an `== out_rate` check failed on every track and silently
-                        // killed gapless. A genuine rate CHANGE between tracks (file_rate differs)
-                        // still ends the session so the frontend can restart at the new native
-                        // rate.
-                        if nd.file_rate == file_rate {
-                            let boundary = shared.samples.lock().unwrap().len();
-                            shared.seg_starts.lock().unwrap().push(boundary);
-                            let est = nd.n_frames.map(|n| n as usize * out_ch).unwrap_or(0);
-                            shared.total.store(boundary + est, Ordering::SeqCst);
-                            shared.src_rate.store(nd.file_rate, Ordering::SeqCst);
-                            shared.bits.store(nd.src_bits, Ordering::SeqCst);
-                            *shared.codec.lock().unwrap() = nd.codec;
-                            format = nd.format;
-                            decoder = nd.decoder;
-                            track_id = nd.track_id;
-                            file_rate = nd.file_rate;
-                            file_ch = nd.file_ch;
-                            decoding = true;
-                            continued = true;
-                        }
-                    }
+                awaiting_next = true;
+            }
+        }
+
+        if awaiting_next
+            && may_join(
+                &shared.seg_starts.lock().unwrap(),
+                shared.pos.load(Ordering::SeqCst),
+            )
+        {
+            awaiting_next = false;
+            let after = shared
+                .seg_meta
+                .lock()
+                .unwrap()
+                .last()
+                .map(|m| m.uid.clone())
+                .unwrap_or_default();
+            let joined = match shared.continuer.next_after(&after) {
+                Next::Nothing => {
+                    *shared.end.lock().unwrap() = EndReason::QueueEnd;
+                    None
                 }
-                if !continued {
+                Next::Unplayable { uid } => {
+                    *shared.end.lock().unwrap() = EndReason::OpenFailed { uid };
+                    None
+                }
+                Next::Open { uid, source } => match open_source(source) {
+                    None => {
+                        *shared.end.lock().unwrap() = EndReason::OpenFailed { uid };
+                        None
+                    }
+                    // Join when the next item shares the CURRENT item's native rate: both
+                    // then resample to `out_rate` identically, so the join is seamless (and
+                    // bit-perfect when out_rate == file_rate). Compare against `file_rate`,
+                    // NOT `out_rate`: on a device locked to another rate (44.1k files on a
+                    // 48k Bluetooth output) an `== out_rate` check fails on every track and
+                    // silently kills gapless.
+                    Some(nd) if nd.file_rate == file_rate => Some((uid, nd)),
+                    // A real rate change: this session can't play it. Leave it opened for
+                    // the next one, so a stream is not downloaded twice.
+                    Some(nd) => {
+                        *shared.handover.lock().unwrap() = Some((uid.clone(), nd));
+                        *shared.end.lock().unwrap() = EndReason::RateChange { uid };
+                        None
+                    }
+                },
+            };
+            match joined {
+                Some((uid, nd)) => {
+                    let boundary = shared.samples.lock().unwrap().len();
+                    shared.seg_starts.lock().unwrap().push(boundary);
+                    shared.seg_meta.lock().unwrap().push(SegMeta {
+                        uid,
+                        src_rate: nd.file_rate,
+                        bits: nd.src_bits,
+                        codec: nd.codec,
+                    });
+                    shared.total.store(
+                        boundary + est_samples(nd.n_frames, nd.file_rate, out_rate, out_ch),
+                        Ordering::SeqCst,
+                    );
+                    format = nd.format;
+                    decoder = nd.decoder;
+                    track_id = nd.track_id;
+                    file_rate = nd.file_rate;
+                    file_ch = nd.file_ch;
+                    decoding = true;
+                }
+                None => {
                     let actual = shared.samples.lock().unwrap().len();
                     shared.total.store(actual, Ordering::SeqCst);
                     shared.done.store(true, Ordering::SeqCst);
@@ -1044,6 +1302,14 @@ fn decode_and_play(
                         .min(end);
                     shared.pos.store(target, Ordering::SeqCst);
                 }
+                Ok(Cmd::Rearm) => match rearm(&shared) {
+                    Rearmed::Lookahead => {
+                        decoding = false;
+                        awaiting_next = true;
+                    }
+                    Rearmed::Answer => awaiting_next = true,
+                    Rearmed::Nothing => {}
+                },
                 Ok(Cmd::Stop) | Err(RecvTimeoutError::Disconnected) => {
                     stop = true;
                     break;
@@ -1071,45 +1337,47 @@ fn stop_current(engine: &Engine) {
     }
 }
 
-fn new_shared() -> (Arc<Shared>, triple_buffer::Output<DspSnapshot>) {
-    let (dsp_input, dsp_output) = triple_buffer(&DspSnapshot::default());
+fn new_shared(
+    settings: &Settings,
+    continuer: Arc<dyn Continuer>,
+) -> (Arc<Shared>, triple_buffer::Output<DspSnapshot>) {
+    let (dsp_input, dsp_output) = triple_buffer(&settings.dsp());
     let shared = Arc::new(Shared {
         pos: AtomicUsize::new(0),
         total: AtomicUsize::new(0),
         rate: AtomicU32::new(0),
         channels: AtomicU32::new(2),
-        src_rate: AtomicU32::new(0),
         dev_rate: AtomicU32::new(0),
-        bits: AtomicU32::new(0),
-        codec: Mutex::new(String::new()),
         paused: AtomicBool::new(false),
         playing: AtomicBool::new(true),
         done: AtomicBool::new(false),
         device: Mutex::new(String::new()),
         bands: Mutex::new(vec![0.0; N_BANDS]),
         samples: Mutex::new(Vec::new()),
-        eq: Mutex::new(EqParams::default()),
-        #[cfg(feature = "pro")]
-        param_eq: Mutex::new(crate::pro::param_eq::ParamEqParams::default()),
-        eq_mode: Mutex::new(EqMode::default()),
         dsp_input: Mutex::new(dsp_input),
-        vol: AtomicU32::new(1.0f32.to_bits()),
+        vol: AtomicU32::new(settings.vol_gain.to_bits()),
         rg_gain: AtomicU32::new(1.0f32.to_bits()),
-        next_src: Mutex::new(None),
         seg_starts: Mutex::new(vec![0]),
+        seg_meta: Mutex::new(Vec::new()),
+        opened: AtomicBool::new(false),
+        stopped: AtomicBool::new(false),
+        end: Mutex::new(EndReason::None),
+        handover: Mutex::new(None),
+        continuer,
     });
     (shared, dsp_output)
 }
 
 fn start_session(
     engine: &Engine,
+    continuer: Arc<dyn Continuer>,
 ) -> (
     Arc<Shared>,
     mpsc::Receiver<Cmd>,
     triple_buffer::Output<DspSnapshot>,
 ) {
     stop_current(engine);
-    let (shared, dsp_output) = new_shared();
+    let (shared, dsp_output) = new_shared(&engine.settings.lock().unwrap(), continuer);
     *engine.shared.0.lock().unwrap() = Some(shared.clone());
     let (tx, rx) = mpsc::channel();
     *engine.cmd.lock().unwrap() = Some(tx);
@@ -1130,6 +1398,7 @@ fn stub() -> EngineStatus {
         bits: 0,
         codec: String::new(),
         seg: 0,
+        uid: String::new(),
     }
 }
 
@@ -1141,33 +1410,103 @@ fn stub() -> EngineStatus {
 // re-exposes each one under its original command name so the IPC surface is identical.
 
 impl Engine {
+    /// Start a session for the player: its own continuer, the item's gain, and a start
+    /// position.
+    pub(crate) fn start_player_session(
+        &self,
+        uid: String,
+        first: First,
+        start_ms: u64,
+        rg_db: Option<f64>,
+        continuer: Arc<dyn Continuer>,
+    ) {
+        let (shared, rx, dsp_out) = start_session(self, continuer);
+        shared.rg_gain.store(
+            rg_db_to_linear(rg_db.map(|d| d as f32)).to_bits(),
+            Ordering::Relaxed,
+        );
+        let dev = self.device_pref.lock().unwrap().clone();
+        std::thread::spawn(move || decode_and_play(first, uid, start_ms, shared, rx, dev, dsp_out));
+    }
+
+    /// A session for an item nothing could resolve. It exists and never opens, so the
+    /// player reports it on its next tick exactly like a file that would not open.
+    pub(crate) fn start_dead_session(&self, uid: String) {
+        let (shared, _rx, _dsp_out) = start_session(self, Arc::new(NoNext));
+        shared.seg_meta.lock().unwrap().push(SegMeta {
+            uid,
+            ..SegMeta::default()
+        });
+        shared.playing.store(false, Ordering::SeqCst);
+    }
+
+    /// The source the live session opened for its successor, if it left one.
+    pub(crate) fn take_handover(&self) -> Option<(String, OpenSource)> {
+        self.shared
+            .0
+            .lock()
+            .unwrap()
+            .as_ref()
+            .and_then(|sh| sh.handover.lock().unwrap().take())
+    }
+
+    pub(crate) fn weak(&self) -> Weak<Inner> {
+        Arc::downgrade(&self.inner)
+    }
+
+    pub(crate) fn from_inner(inner: Arc<Inner>) -> Engine {
+        Engine { inner }
+    }
+
     /// Play a local file.
     pub fn play(&self, path: String) -> EngineStatus {
-        let (shared, rx, dsp_out) = start_session(self);
+        let (shared, rx, dsp_out) = start_session(self, Arc::new(NoNext));
         let dev = self.device_pref.lock().unwrap().clone();
-        std::thread::spawn(move || decode_and_play(Source::File(path), shared, rx, dev, dsp_out));
+        std::thread::spawn(move || {
+            decode_and_play(
+                First::Source(Source::File(path)),
+                String::new(),
+                0,
+                shared,
+                rx,
+                dev,
+                dsp_out,
+            )
+        });
         stub()
     }
 
     /// Play a remote URL (Navidrome stream) — downloaded + decoded natively (bit-perfect).
     pub fn play_url(&self, url: String) -> EngineStatus {
-        let (shared, rx, dsp_out) = start_session(self);
+        let (shared, rx, dsp_out) = start_session(self, Arc::new(NoNext));
         let dev = self.device_pref.lock().unwrap().clone();
-        std::thread::spawn(move || decode_and_play(Source::Url(url), shared, rx, dev, dsp_out));
+        std::thread::spawn(move || {
+            decode_and_play(
+                First::Source(Source::Url(url)),
+                String::new(),
+                0,
+                shared,
+                rx,
+                dev,
+                dsp_out,
+            )
+        });
         stub()
     }
 
     /// Play a cached offline track by Subsonic track ID (Pro only).
     #[cfg(feature = "pro")]
     pub fn play_cached(&self, track_id: String, plain_len: u64) -> EngineStatus {
-        let (shared, rx, dsp_out) = start_session(self);
+        let (shared, rx, dsp_out) = start_session(self, Arc::new(NoNext));
         let dev = self.device_pref.lock().unwrap().clone();
         std::thread::spawn(move || {
             decode_and_play(
-                Source::Cached {
+                First::Source(Source::Cached {
                     track_id,
                     plain_len,
-                },
+                }),
+                String::new(),
+                0,
                 shared,
                 rx,
                 dev,
@@ -1184,11 +1523,17 @@ impl Engine {
 
     /// Pause playback.
     pub fn pause(&self) {
+        if let Some(sh) = self.shared.0.lock().unwrap().as_ref() {
+            sh.paused.store(true, Ordering::SeqCst);
+        }
         send(self, Cmd::Pause);
     }
 
     /// Resume playback from the current position.
     pub fn resume(&self) {
+        if let Some(sh) = self.shared.0.lock().unwrap().as_ref() {
+            sh.paused.store(false, Ordering::SeqCst);
+        }
         send(self, Cmd::Resume);
     }
 
@@ -1210,43 +1555,28 @@ impl Engine {
     pub fn stop(&self) {
         stop_current(self);
         if let Some(sh) = self.shared.0.lock().unwrap().as_ref() {
+            sh.stopped.store(true, Ordering::SeqCst);
             sh.playing.store(false, Ordering::SeqCst);
         }
     }
 
     /// Update the 10-band graphic EQ parameters.
     pub fn set_eq(&self, enabled: bool, preamp: f64, gains: Vec<f32>) {
-        if let Some(sh) = self.shared.0.lock().unwrap().as_ref() {
-            {
-                let mut e = sh.eq.lock().unwrap();
-                e.enabled = enabled;
-                e.preamp = preamp as f32;
-                for i in 0..10 {
-                    e.gains[i] = gains.get(i).copied().unwrap_or(0.0);
-                }
+        {
+            let mut s = self.settings.lock().unwrap();
+            s.eq.enabled = enabled;
+            s.eq.preamp = preamp as f32;
+            for i in 0..10 {
+                s.eq.gains[i] = gains.get(i).copied().unwrap_or(0.0);
             }
-            let snapshot = DspSnapshot {
-                mode: *sh.eq_mode.lock().unwrap(),
-                graphic: sh.eq.lock().unwrap().clone(),
-                #[cfg(feature = "pro")]
-                parametric: sh.param_eq.lock().unwrap().clone(),
-            };
-            sh.dsp_input.lock().unwrap().write(snapshot);
         }
+        self.publish_dsp();
     }
 
     /// Switch which EQ mode is routed to the DSP path.
     pub fn set_eq_mode(&self, mode: EqMode) {
-        if let Some(sh) = self.shared.0.lock().unwrap().as_ref() {
-            *sh.eq_mode.lock().unwrap() = mode;
-            let snapshot = DspSnapshot {
-                mode,
-                graphic: sh.eq.lock().unwrap().clone(),
-                #[cfg(feature = "pro")]
-                parametric: sh.param_eq.lock().unwrap().clone(),
-            };
-            sh.dsp_input.lock().unwrap().write(snapshot);
-        }
+        self.settings.lock().unwrap().eq_mode = mode;
+        self.publish_dsp();
     }
 
     /// Set the parametric EQ configuration (Pro only).
@@ -1261,37 +1591,40 @@ impl Engine {
         preamp: f64,
         bands: Vec<crate::pro::param_eq::ParamBand>,
     ) {
-        if let Some(sh) = self.shared.0.lock().unwrap().as_ref() {
+        {
+            let mut s = self.settings.lock().unwrap();
+            let p = &mut s.param_eq;
+            p.enabled = enabled;
+            p.preamp = preamp as f32;
+            p.bands = [None; crate::pro::param_eq::MAX_PARAM_BANDS];
+            let count = bands.len().min(crate::pro::param_eq::MAX_PARAM_BANDS);
+            for (i, b) in bands
+                .into_iter()
+                .take(crate::pro::param_eq::MAX_PARAM_BANDS)
+                .enumerate()
             {
-                let mut p = sh.param_eq.lock().unwrap();
-                p.enabled = enabled;
-                p.preamp = preamp as f32;
-                p.bands = [None; crate::pro::param_eq::MAX_PARAM_BANDS];
-                let count = bands.len().min(crate::pro::param_eq::MAX_PARAM_BANDS);
-                for (i, b) in bands
-                    .into_iter()
-                    .take(crate::pro::param_eq::MAX_PARAM_BANDS)
-                    .enumerate()
-                {
-                    p.bands[i] = Some(b);
-                }
-                p.count = count;
+                p.bands[i] = Some(b);
             }
-            let snapshot = DspSnapshot {
-                mode: *sh.eq_mode.lock().unwrap(),
-                graphic: sh.eq.lock().unwrap().clone(),
-                parametric: sh.param_eq.lock().unwrap().clone(),
-            };
-            sh.dsp_input.lock().unwrap().write(snapshot);
+            p.count = count;
         }
+        self.publish_dsp();
     }
 
     /// Set playback volume from the dial position (0..1).
     pub fn set_volume(&self, vol: f64) {
+        let v = vol.clamp(0.0, 1.0) as f32;
+        let gain = v * v;
+        self.settings.lock().unwrap().vol_gain = gain;
         if let Some(sh) = self.shared.0.lock().unwrap().as_ref() {
-            let v = vol.clamp(0.0, 1.0) as f32;
-            let gain = v * v;
             sh.vol.store(gain.to_bits(), Ordering::Relaxed);
+        }
+    }
+
+    /// Hand the current DSP settings to the live session's audio callback.
+    fn publish_dsp(&self) {
+        let dsp = self.settings.lock().unwrap().dsp();
+        if let Some(sh) = self.shared.0.lock().unwrap().as_ref() {
+            sh.dsp_input.lock().unwrap().write(dsp);
         }
     }
 
@@ -1303,50 +1636,19 @@ impl Engine {
         }
     }
 
-    /// Queue the next track for gapless continuation (free build: file + URL only).
-    #[cfg(not(feature = "pro"))]
-    pub fn enqueue(&self, path: Option<String>, url: Option<String>) {
-        if let Some(sh) = self.shared.0.lock().unwrap().as_ref() {
-            let src = match (path, url) {
-                (Some(p), _) if !p.is_empty() => Some(Source::File(p)),
-                (_, Some(u)) if !u.is_empty() => Some(Source::Url(u)),
-                _ => None,
-            };
-            *sh.next_src.lock().unwrap() = src;
-        }
-    }
-
-    /// Queue the next track for gapless continuation (Pro build: file + URL + cached).
-    #[cfg(feature = "pro")]
-    pub fn enqueue(
-        &self,
-        path: Option<String>,
-        url: Option<String>,
-        track_id: Option<String>,
-        plain_len: Option<u64>,
-    ) {
-        if let Some(sh) = self.shared.0.lock().unwrap().as_ref() {
-            let src = match (path, url, track_id, plain_len) {
-                (Some(p), _, _, _) if !p.is_empty() => Some(Source::File(p)),
-                (_, Some(u), _, _) if !u.is_empty() => Some(Source::Url(u)),
-                (_, _, Some(id), Some(pl)) if !id.is_empty() => Some(Source::Cached {
-                    track_id: id,
-                    plain_len: pl,
-                }),
-                _ => None,
-            };
-            *sh.next_src.lock().unwrap() = src;
-        }
-    }
-
     /// Store the current track metadata for the mini player to read.
     pub fn set_now_playing(&self, np: NowPlaying) {
         *self.now.lock().unwrap() = np;
     }
 
     /// Read the current track metadata (used by the mini-player window).
+    ///
+    /// When the player has an item, its title, artist, cover and position win over what
+    /// the main window last set: the player may have moved on while that window slept.
     pub fn now_playing(&self) -> NowPlaying {
-        self.now.lock().unwrap().clone()
+        let mut np = self.now.lock().unwrap().clone();
+        self.player.fill_now_playing(&mut np);
+        np
     }
 
     /// Return the latest 32-band spectrum magnitudes (0.0–1.0, log-spaced).
@@ -1360,46 +1662,85 @@ impl Engine {
 
     /// Return an [`EngineStatus`] snapshot for the currently-active session.
     pub fn status(&self) -> Option<EngineStatus> {
+        self.shared.0.lock().unwrap().as_deref().map(status_of)
+    }
+
+    /// The live session as the player sees it. A stopped session counts as none.
+    pub fn session_view(&self) -> SessionView {
         let guard = self.shared.0.lock().unwrap();
-        let sh = guard.as_ref()?;
-        let rate = sh.rate.load(Ordering::SeqCst).max(1);
-        let ch = sh.channels.load(Ordering::SeqCst).max(1);
-        let pos = sh.pos.load(Ordering::SeqCst);
-        let total = sh.total.load(Ordering::SeqCst);
-        let playing = sh.playing.load(Ordering::SeqCst) && !sh.paused.load(Ordering::SeqCst);
-        let device = sh.device.lock().unwrap().clone();
-        let codec = sh.codec.lock().unwrap().clone();
-        let src_rate = sh.src_rate.load(Ordering::SeqCst);
-        let dev_rate = sh.dev_rate.load(Ordering::SeqCst);
-        let bits = sh.bits.load(Ordering::SeqCst);
-
-        let starts = sh.seg_starts.lock().unwrap().clone();
-        let seg = segment_at(&starts, pos);
-        let track_start = starts[seg];
-        let track_total = match starts.get(seg + 1) {
-            Some(&next_start) => next_start.saturating_sub(track_start),
-            None => total.saturating_sub(track_start),
+        let Some(sh) = guard.as_deref() else {
+            return SessionView::default();
         };
-        let pos_in = pos.saturating_sub(track_start) as u64;
-        let denom = rate as u64 * ch as u64;
-        // Decoded-so-far point within the current track (the "buffered" extent on the scrubber).
-        let buffered = sh.samples.lock().unwrap().len();
-        let buffered_in = buffered.saturating_sub(track_start).min(track_total) as u64;
+        if sh.stopped.load(Ordering::SeqCst) {
+            return SessionView::default();
+        }
+        let st = status_of(sh);
+        // Bound first: a guard taken in the tail expression would outlive `guard`.
+        let end = sh.end.lock().unwrap().clone();
+        SessionView {
+            exists: true,
+            opened: sh.opened.load(Ordering::SeqCst),
+            playing: sh.playing.load(Ordering::SeqCst),
+            paused: sh.paused.load(Ordering::SeqCst),
+            uid: st.uid,
+            pos_ms: st.pos_ms,
+            dur_ms: st.dur_ms,
+            end,
+        }
+    }
 
-        Some(EngineStatus {
-            playing,
-            pos_ms: pos_in * 1000 / denom,
-            dur_ms: track_total as u64 * 1000 / denom,
-            buffered_ms: buffered_in * 1000 / denom,
-            rate,
-            channels: ch,
-            device,
-            src_rate,
-            dev_rate,
-            bits,
-            codec,
-            seg: seg as u32,
-        })
+    /// Ask the live session to drop decoded audio after the playing item and ask again
+    /// what follows it.
+    pub fn rearm(&self) {
+        send(self, Cmd::Rearm);
+    }
+}
+
+/// Status of one session. The stream facts (source rate, bits, codec, uid) are the
+/// playing item's, not the last decoded one's: with look-ahead buffered they differ.
+fn status_of(sh: &Shared) -> EngineStatus {
+    let rate = sh.rate.load(Ordering::SeqCst).max(1);
+    let ch = sh.channels.load(Ordering::SeqCst).max(1);
+    let pos = sh.pos.load(Ordering::SeqCst);
+    let total = sh.total.load(Ordering::SeqCst);
+    let playing = sh.playing.load(Ordering::SeqCst) && !sh.paused.load(Ordering::SeqCst);
+    let device = sh.device.lock().unwrap().clone();
+    let dev_rate = sh.dev_rate.load(Ordering::SeqCst);
+
+    let starts = sh.seg_starts.lock().unwrap().clone();
+    let seg = segment_at(&starts, pos);
+    let track_start = starts[seg];
+    let track_total = match starts.get(seg + 1) {
+        Some(&next_start) => next_start.saturating_sub(track_start),
+        None => total.saturating_sub(track_start),
+    };
+    let pos_in = pos.saturating_sub(track_start) as u64;
+    let denom = rate as u64 * ch as u64;
+    // Decoded-so-far point within the current track (the "buffered" extent on the scrubber).
+    let buffered = sh.samples.lock().unwrap().len();
+    let buffered_in = buffered.saturating_sub(track_start).min(track_total) as u64;
+    let meta = sh
+        .seg_meta
+        .lock()
+        .unwrap()
+        .get(seg)
+        .cloned()
+        .unwrap_or_default();
+
+    EngineStatus {
+        playing,
+        pos_ms: pos_in * 1000 / denom,
+        dur_ms: track_total as u64 * 1000 / denom,
+        buffered_ms: buffered_in * 1000 / denom,
+        rate,
+        channels: ch,
+        device,
+        src_rate: meta.src_rate,
+        dev_rate,
+        bits: meta.bits,
+        codec: meta.codec,
+        seg: seg as u32,
+        uid: meta.uid,
     }
 }
 
@@ -1756,5 +2097,125 @@ mod tests {
             curve[0],
             curve[200]
         );
+    }
+
+    #[test]
+    fn settings_chosen_before_any_session_are_kept() {
+        let engine = Engine::default();
+        engine.set_volume(0.5);
+        engine.set_eq(true, 2.0, vec![1.0; 10]);
+        let s = engine.settings.lock().unwrap();
+        assert_eq!(s.vol_gain, 0.25);
+        assert_eq!(s.eq.preamp, 2.0);
+        assert_eq!(s.eq.gains, [1.0; 10]);
+    }
+
+    #[test]
+    fn a_new_session_starts_with_the_settings_already_chosen() {
+        let mut gains = [0.0f32; 10];
+        gains[3] = 4.5;
+        let settings = Settings {
+            vol_gain: 0.25,
+            eq: EqParams {
+                gains,
+                ..EqParams::default()
+            },
+            ..Settings::default()
+        };
+        let (shared, mut out) = new_shared(&settings, Arc::new(NoNext));
+        assert_eq!(f32::from_bits(shared.vol.load(Ordering::SeqCst)), 0.25);
+        assert_eq!(out.read().graphic.gains[3], 4.5);
+    }
+
+    /// A 44.1 kHz stereo session with the given segments, buffer length and playhead.
+    fn session(starts: &[usize], metas: &[(&str, u32)], len: usize, pos: usize) -> Arc<Shared> {
+        let (sh, _out) = new_shared(&Settings::default(), Arc::new(NoNext));
+        sh.rate.store(44_100, Ordering::SeqCst);
+        sh.channels.store(2, Ordering::SeqCst);
+        *sh.seg_starts.lock().unwrap() = starts.to_vec();
+        *sh.seg_meta.lock().unwrap() = metas
+            .iter()
+            .map(|(uid, bits)| SegMeta {
+                uid: (*uid).to_string(),
+                src_rate: 44_100,
+                bits: *bits,
+                codec: "flac".into(),
+            })
+            .collect();
+        sh.samples.lock().unwrap().resize(len, 0.0);
+        sh.total.store(len, Ordering::SeqCst);
+        sh.pos.store(pos, Ordering::SeqCst);
+        sh
+    }
+
+    #[test]
+    fn the_decoder_joins_another_item_only_from_the_last_decoded_one() {
+        assert!(may_join(&[0], 10));
+        assert!(!may_join(&[0, 100], 50));
+        assert!(may_join(&[0, 100], 100));
+    }
+
+    #[test]
+    fn a_cut_keeps_everything_up_to_the_end_of_the_playing_item() {
+        assert_eq!(lookahead_cut(&[0, 100, 200], 150), Some((200, 2)));
+        assert_eq!(lookahead_cut(&[0, 100, 200], 50), Some((100, 1)));
+        assert_eq!(lookahead_cut(&[0, 100], 150), None);
+    }
+
+    #[test]
+    fn status_reports_the_playing_item_not_the_last_decoded_one() {
+        // Two seconds of a, two of b; the playhead is half a second into b.
+        let sh = session(
+            &[0, 176_400],
+            &[("a", 16), ("b", 24)],
+            352_800,
+            176_400 + 44_100,
+        );
+        let st = status_of(&sh);
+        assert_eq!((st.uid.as_str(), st.bits, st.seg), ("b", 24, 1));
+        assert_eq!((st.pos_ms, st.dur_ms), (500, 2_000));
+        // From inside a, a's facts, though b is already decoded.
+        sh.pos.store(1_000, Ordering::SeqCst);
+        let st = status_of(&sh);
+        assert_eq!((st.uid.as_str(), st.bits), ("a", 16));
+    }
+
+    #[test]
+    fn rearm_cuts_the_lookahead_and_reopens_the_question() {
+        let sh = session(&[0, 100, 200], &[("a", 16), ("b", 16), ("c", 16)], 300, 150);
+        assert_eq!(rearm(&sh), Rearmed::Lookahead);
+        assert_eq!(sh.samples.lock().unwrap().len(), 200);
+        assert_eq!(*sh.seg_starts.lock().unwrap(), vec![0, 100]);
+        assert_eq!(sh.seg_meta.lock().unwrap().len(), 2);
+        assert_eq!(sh.total.load(Ordering::SeqCst), 200);
+    }
+
+    #[test]
+    fn rearm_reopens_an_answer_that_ended_the_session() {
+        let sh = session(&[0], &[("a", 16)], 300, 250);
+        sh.done.store(true, Ordering::SeqCst);
+        sh.playing.store(false, Ordering::SeqCst);
+        *sh.end.lock().unwrap() = EndReason::QueueEnd;
+        assert_eq!(rearm(&sh), Rearmed::Answer);
+        assert!(!sh.done.load(Ordering::SeqCst));
+        assert!(sh.playing.load(Ordering::SeqCst));
+        assert_eq!(*sh.end.lock().unwrap(), EndReason::None);
+    }
+
+    #[test]
+    fn rearm_before_the_decoder_has_asked_changes_nothing() {
+        let sh = session(&[0], &[("a", 16)], 300, 250);
+        assert_eq!(rearm(&sh), Rearmed::Nothing);
+        assert_eq!(sh.samples.lock().unwrap().len(), 300);
+    }
+
+    #[test]
+    fn a_stopped_session_is_no_session_to_the_player() {
+        let engine = Engine::default();
+        let (sh, _out) = new_shared(&Settings::default(), Arc::new(NoNext));
+        *engine.shared.0.lock().unwrap() = Some(sh);
+        assert!(engine.session_view().exists);
+        engine.stop();
+        assert!(!engine.session_view().exists);
     }
 }

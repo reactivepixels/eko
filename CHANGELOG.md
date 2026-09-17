@@ -10,6 +10,28 @@ The project is pre-1.0 — the API and feature set are still settling.
 
 Everything below reflects what has been built and verified to compile and run.
 
+## [0.4.38] - 2026-09-17
+
+### Fixed
+- **Playback no longer stops when EKO is in the background.** With the window hidden or
+  minimised, EKO stopped at the end of each track and only carried on once you brought it back.
+  The next track now starts on time whatever the window is doing, and ReplayGain, scrobbling,
+  the sleep timer and the lock-screen card keep up with it.
+- **The mini player moves on to the next track.** In mini-player mode, playback stopped at the
+  end of every track.
+- **Changing tracks with an output device selected no longer leaves the previous track
+  playing.** With a specific output chosen, such as a DAC, every track change kept the old track
+  running underneath the new one, and pause couldn't stop it.
+- **Media keys and Control Center respond straight away** while the main window is hidden.
+
+### Changed
+- **Removing the track that's playing lets it finish,** then playback continues with the track
+  that followed it. It used to jump back to the top of the queue.
+- **The sleep timer's "End of track" stops at the end of the track** and leaves the next one
+  ready, so pressing Play carries on from there.
+- **Tracks reached through a gapless transition are scrobbled.** Previously only the first track
+  of an uninterrupted run was.
+
 ## [0.4.37] — 2026-08-24
 
 ### Fixed

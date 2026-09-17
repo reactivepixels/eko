@@ -3,6 +3,7 @@ mod broadcast;
 mod commands;
 #[cfg(target_os = "macos")]
 mod media;
+mod player;
 mod stream;
 
 // Pro source no longer lives in this crate at all. Licensing (`pro::license`),
@@ -496,51 +497,6 @@ fn secret_delete(app: tauri::AppHandle, key: String) -> Result<(), String> {
     Ok(())
 }
 
-/// Push current-track metadata to the OS "Now Playing" card. No-op off macOS.
-#[tauri::command]
-fn media_metadata(
-    app: tauri::AppHandle,
-    title: String,
-    artist: String,
-    album: String,
-    cover_url: Option<String>,
-    duration: Option<f64>,
-) {
-    #[cfg(target_os = "macos")]
-    media::set_metadata(&app, title, artist, album, cover_url, duration);
-    #[cfg(not(target_os = "macos"))]
-    let _ = (app, title, artist, album, cover_url, duration);
-}
-
-/// Push the OS "Now Playing" play/pause state + elapsed position. No-op off macOS.
-#[tauri::command]
-fn media_playback(app: tauri::AppHandle, playing: bool, elapsed: f64) {
-    #[cfg(target_os = "macos")]
-    media::set_playback(&app, playing, elapsed);
-    #[cfg(not(target_os = "macos"))]
-    let _ = (app, playing, elapsed);
-}
-
-/// Clear the OS "Now Playing" card. No-op off macOS.
-#[tauri::command]
-fn media_stopped(app: tauri::AppHandle) {
-    #[cfg(target_os = "macos")]
-    media::set_stopped(&app);
-    #[cfg(not(target_os = "macos"))]
-    let _ = app;
-}
-
-/// Post a macOS distributed notification (`com.reactivepixels.eko.playbackState`) so a
-/// companion app can react to play/pause/stop/track-change — mirrors Spotify's
-/// `com.spotify.client.PlaybackStateChanged` shape. No-op off macOS.
-#[tauri::command]
-fn broadcast_playback(state: String, name: String, artist: String) {
-    #[cfg(target_os = "macos")]
-    broadcast::post(&state, &name, &artist);
-    #[cfg(not(target_os = "macos"))]
-    let _ = (state, name, artist);
-}
-
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     #[allow(unused_mut)]
@@ -675,6 +631,15 @@ pub fn run() {
                 }
             });
 
+            // Engine-owned playback: how queued items become sources, and who hears about
+            // track changes. The resolver looks the offline cache up per item, so it does
+            // not matter that the cache is managed further down.
+            {
+                let engine = h.state::<eko_core::engine::Engine>();
+                engine.set_resolver(std::sync::Arc::new(player::AppResolver::new(h.clone())));
+                engine.set_observer(std::sync::Arc::new(player::AppObserver::new(h.clone())));
+            }
+
             // System "Now Playing" + hardware media keys (macOS). Must be set up on the
             // main thread, which `setup` runs on.
             #[cfg(target_os = "macos")]
@@ -714,19 +679,33 @@ pub fn run() {
             commands::engine::engine_set_eq_mode,
             commands::engine::engine_set_volume,
             commands::engine::engine_set_replaygain,
-            commands::engine::engine_enqueue,
             commands::engine::engine_set_now_playing,
             commands::engine::engine_now_playing,
             commands::engine::engine_list_devices,
             commands::engine::engine_set_device,
+            commands::player::engine_poll,
+            commands::player::queue_sync,
+            commands::player::queue_restore,
+            commands::player::queue_clear,
+            commands::player::player_play,
+            commands::player::player_next,
+            commands::player::player_prev,
+            commands::player::player_toggle,
+            commands::player::player_pause,
+            commands::player::player_resume,
+            commands::player::player_stop,
+            commands::player::player_seek,
+            commands::player::player_set_modes,
+            commands::player::player_set_replaygain,
+            commands::player::player_set_scrobble,
+            commands::player::player_sleep_after_track,
+            commands::player::player_sleep_in,
+            commands::player::player_cancel_sleep,
+            commands::player::player_restart,
             // ── The bit-perfect seal (free — ONE derivation for the GUI and the CLI) ──
             commands::signal::signal_path,
             commands::signal::signal_replaygain,
             set_stream_origin,
-            media_metadata,
-            media_playback,
-            media_stopped,
-            broadcast_playback,
             // ── Keychain commands (free — multi-server credential storage) ──
             secret_set,
             secret_get,

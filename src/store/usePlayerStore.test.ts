@@ -54,18 +54,20 @@ function fakeDerive(args: unknown): unknown {
 const invoke = vi.fn(async (cmd: string, args?: unknown): Promise<unknown> => {
   if (cmd === "signal_path") return fakeDerive(args);
   // Rust owns the ReplayGain decision; the store must consume it, not compute one.
-  if (cmd === "signal_replaygain") return { engineDb: null, sealDb: null };
+  if (cmd === "player_set_replaygain") return { engineDb: null, sealDb: null };
   return null;
 });
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: (...a: unknown[]) => invoke(...(a as [string, unknown])),
 }));
 
-import { usePlayerStore } from "./usePlayerStore";
+import { applyPoll, usePlayerStore } from "./usePlayerStore";
+import type { PlayerSnapshot, QueueItem } from "../audio/nativeEngine";
 import type { Track } from "../types";
 
 const track = (id: string, path: string): Track => ({
   id,
+  qid: `q-${id}`,
   path,
   title: id,
   artist: "A",
@@ -130,8 +132,7 @@ describe("the seal's inputs on a track change", () => {
 
   it("keeps it dropped after playAt's DSP re-syncs have all run", async () => {
     await usePlayerStore.getState().playAt(1);
-    // syncEq / syncEqMode / syncParamEq / syncVol / applyReplayGain have now each fired a
-    // refresh. Let their promises settle — none may resurrect the previous stream info.
+    // Let every in-flight promise settle. None may resurrect the previous stream info.
     await Promise.resolve();
     await Promise.resolve();
     expect(usePlayerStore.getState().engineInfo).toBeNull();
@@ -155,7 +156,7 @@ describe("the seal's inputs on a track change", () => {
 
   it("still pushes the new track to the engine (the clear is not a no-play)", async () => {
     await usePlayerStore.getState().playAt(1);
-    expect(invoke).toHaveBeenCalled();
+    expect(invoke).toHaveBeenCalledWith("player_play", { uid: "q-two" });
     expect(usePlayerStore.getState().currentIndex).toBe(1);
     expect(usePlayerStore.getState().engineActive).toBe(true);
   });
@@ -184,7 +185,7 @@ describe("the seal while a derivation is in flight", () => {
   const pendingForever = () =>
     invoke.mockImplementation(async (cmd: string) => {
       if (cmd === "signal_path") return new Promise(() => {});
-      if (cmd === "signal_replaygain") return { engineDb: null, sealDb: null };
+      if (cmd === "player_set_replaygain") return { engineDb: null, sealDb: null };
       return null;
     });
 
@@ -192,7 +193,7 @@ describe("the seal while a derivation is in flight", () => {
   const respondNormally = () =>
     invoke.mockImplementation(async (cmd: string, args?: unknown) => {
       if (cmd === "signal_path") return fakeDerive(args);
-      if (cmd === "signal_replaygain") return { engineDb: null, sealDb: null };
+      if (cmd === "player_set_replaygain") return { engineDb: null, sealDb: null };
       return null;
     });
 
@@ -353,21 +354,19 @@ describe("ReplayGain is decided in Rust, not in the store", () => {
     });
   });
 
-  it("forwards the track's four tags and the mode, and derives nothing itself", async () => {
+  it("sends only the mode: the engine already holds the track's tags from the queue", async () => {
     usePlayerStore.getState().setReplayGainMode("album");
     await Promise.resolve();
-    const call = invoke.mock.calls.find(([cmd]) => cmd === "signal_replaygain");
-    expect(call, "the store must ask Rust for the ReplayGain decision").toBeDefined();
-    expect(call?.[1]).toEqual({
-      tags: { trackGain: -6.5, trackPeak: 0.9, albumGain: -4.25, albumPeak: 0.95 },
-      mode: "album",
-    });
+    const call = invoke.mock.calls.find(([cmd]) => cmd === "player_set_replaygain");
+    expect(call, "the store must ask the engine for the ReplayGain decision").toBeDefined();
+    expect(call?.[1]).toEqual({ mode: "album" });
+    expect(invoke.mock.calls.some(([cmd]) => cmd === "signal_replaygain")).toBe(false);
   });
 
   it("reports the seal dB Rust returned, not the engine dB", async () => {
     // A negligible correction: real enough for the engine, inaudible for the seal.
     invoke.mockImplementation(async (cmd: string) =>
-      cmd === "signal_replaygain" ? { engineDb: 0.004, sealDb: null } : null,
+      cmd === "player_set_replaygain" ? { engineDb: 0.004, sealDb: null } : null,
     );
     usePlayerStore.getState().setReplayGainMode("track");
     await Promise.resolve();
@@ -376,7 +375,7 @@ describe("ReplayGain is decided in Rust, not in the store", () => {
 
     // And a real one is reported.
     invoke.mockImplementation(async (cmd: string) =>
-      cmd === "signal_replaygain" ? { engineDb: -6.5, sealDb: -6.5 } : null,
+      cmd === "player_set_replaygain" ? { engineDb: -6.5, sealDb: -6.5 } : null,
     );
     usePlayerStore.getState().setReplayGainMode("album");
     await Promise.resolve();
@@ -384,15 +383,14 @@ describe("ReplayGain is decided in Rust, not in the store", () => {
     expect(usePlayerStore.getState().rgAppliedDb).toBe(-6.5);
   });
 
-  it("sends the engine the un-dead-banded value Rust chose", async () => {
+  it("leaves applying the gain to the engine when the decision succeeds", async () => {
     invoke.mockImplementation(async (cmd: string) =>
-      cmd === "signal_replaygain" ? { engineDb: 0.004, sealDb: null } : null,
+      cmd === "player_set_replaygain" ? { engineDb: 0.004, sealDb: null } : null,
     );
     usePlayerStore.getState().setReplayGainMode("track");
     await Promise.resolve();
     await Promise.resolve();
-    const call = invoke.mock.calls.find(([cmd]) => cmd === "engine_set_replaygain");
-    expect(call?.[1]).toEqual({ gainDb: 0.004 });
+    expect(invoke.mock.calls.some(([cmd]) => cmd === "engine_set_replaygain")).toBe(false);
   });
 
   /**
@@ -404,7 +402,7 @@ describe("ReplayGain is decided in Rust, not in the store", () => {
   describe("when the decision fails", () => {
     const failRg = () =>
       invoke.mockImplementation(async (cmd: string, args?: unknown) => {
-        if (cmd === "signal_replaygain") throw new Error("ipc down");
+        if (cmd === "player_set_replaygain") throw new Error("ipc down");
         if (cmd === "signal_path") return fakeDerive(args);
         return null;
       });
@@ -440,6 +438,92 @@ describe("ReplayGain is decided in Rust, not in the store", () => {
       usePlayerStore.getState().setReplayGainMode("track");
       for (let i = 0; i < 5; i++) await Promise.resolve();
       expect(usePlayerStore.getState().signalPath).toBeNull();
+    });
+  });
+});
+
+const IDLE_PLAYER: PlayerSnapshot = {
+  uid: null,
+  index: null,
+  active: false,
+  playing: false,
+  error: null,
+  rgEngineDb: null,
+  rgSealDb: null,
+  stopAfterCurrent: false,
+  sleepRemainingMs: null,
+};
+
+/**
+ * The engine owns the queue and moves through it on its own, including while this webview
+ * is hidden and asleep. The store sends it every change and follows what it reports.
+ */
+describe("the engine holds the queue; the store mirrors it", () => {
+  beforeEach(() => {
+    invoke.mockClear();
+    invoke.mockImplementation(async (cmd: string, args?: unknown) => {
+      if (cmd === "signal_path") return fakeDerive(args);
+      if (cmd === "player_set_replaygain") return { engineDb: null, sealDb: null };
+      return null;
+    });
+    // Forget whatever track an earlier suite left the poll following.
+    applyPoll({ status: null, player: IDLE_PLAYER });
+    usePlayerStore.setState({ tracks: [], currentIndex: null, sleepTimer: null });
+  });
+
+  afterEach(() => usePlayerStore.getState().stop());
+
+  it("gives each queued track its own slot id and sends the engine the whole queue", () => {
+    const one = track("one", "/music/one.flac");
+    usePlayerStore.getState().setQueue([one, one], false);
+    const { tracks } = usePlayerStore.getState();
+    expect(tracks[0].qid).toBeTruthy();
+    expect(tracks[0].qid).not.toBe(tracks[1].qid);
+    const call = invoke.mock.calls.find(([cmd]) => cmd === "queue_sync");
+    const items = (call?.[1] as { items: QueueItem[] }).items;
+    expect(items.map((i) => i.uid)).toEqual(tracks.map((t) => t.qid));
+  });
+
+  it("follows the engine to another track and drops the outgoing stream info", () => {
+    usePlayerStore.setState({
+      tracks: [track("one", "/music/one.flac"), track("two", "/music/two.flac")],
+      currentIndex: 0,
+      engineInfo: PREVIOUS_TRACK_INFO,
+      signalPath: { ...BIT_PERFECT_SEAL },
+    });
+    applyPoll({
+      status: null,
+      player: { ...IDLE_PLAYER, uid: "q-two", active: true, playing: true },
+    });
+    const s = usePlayerStore.getState();
+    expect(s.currentIndex).toBe(1);
+    expect(s.engineInfo).toBeNull();
+    expect(s.signalPath).toBeNull();
+    expect(s.isPlaying).toBe(true);
+    expect(s.engineActive).toBe(true);
+  });
+
+  it("takes the seal's ReplayGain from the engine, which applied it", () => {
+    usePlayerStore.setState({ tracks: [track("one", "/music/one.flac")], currentIndex: 0 });
+    applyPoll({ status: null, player: { ...IDLE_PLAYER, uid: "q-one", rgSealDb: -6.5 } });
+    expect(usePlayerStore.getState().rgAppliedDb).toBe(-6.5);
+  });
+
+  it("shows the sleep timer the engine is keeping", () => {
+    usePlayerStore.setState({
+      sleepTimer: { endOfTrack: false, remainingSec: 900, totalSec: 900 },
+    });
+    applyPoll({ status: null, player: { ...IDLE_PLAYER, sleepRemainingMs: 60_500 } });
+    expect(usePlayerStore.getState().sleepTimer).toEqual({
+      endOfTrack: false,
+      remainingSec: 61,
+      totalSec: 900,
+    });
+    applyPoll({ status: null, player: { ...IDLE_PLAYER, stopAfterCurrent: true } });
+    expect(usePlayerStore.getState().sleepTimer).toEqual({
+      endOfTrack: true,
+      remainingSec: null,
+      totalSec: null,
     });
   });
 });

@@ -45,6 +45,8 @@ export type StreamSrcUrl = string & { readonly __endpoint: "stream" };
 // Local tracks have a `path`; Subsonic tracks have a `subsonicId` (streamed instead).
 export interface Track extends TrackMetadata {
   id: string;
+  /** This slot in the play queue. The same song queued twice has two. Set by `withQids`. */
+  qid?: string;
   subsonicId?: string;
   mime?: string;
   coverArt?: string; // Subsonic cover-art id (for now-playing art)
@@ -59,6 +61,8 @@ export interface Track extends TrackMetadata {
   downloadUrl?: DownloadUrl;
   /** Proxied cover URL, **size-agnostic** — size it with `coverAt` from `nativeSubsonic`. */
   coverUrl?: string;
+  /** The server a Subsonic track came from, so the engine can refuse it on another one. */
+  server?: string;
 }
 
 export type RepeatMode = "off" | "all" | "one";

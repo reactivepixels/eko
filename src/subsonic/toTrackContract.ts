@@ -124,11 +124,13 @@ export function describeNormaliserContract(name: string, norm: Normaliser): void
           streamSrcUrl: STREAM_SRC_URL,
           downloadUrl: DOWNLOAD_URL,
           coverUrl: "stream://localhost/?src=enc",
+          server: "https://music.example.com",
         }),
       );
       expect(t.streamSrcUrl).toBe("https://music.example.com/rest/stream?id=song-1");
       expect(t.downloadUrl).toBe("https://music.example.com/rest/download?id=song-1");
       expect(t.coverUrl).toBe("stream://localhost/?src=enc");
+      expect(t.server).toBe("https://music.example.com");
     });
 
     it("leaves them undefined when the payload carries none", () => {
@@ -136,6 +138,7 @@ export function describeNormaliserContract(name: string, norm: Normaliser): void
       expect(t.streamSrcUrl).toBeUndefined();
       expect(t.downloadUrl).toBeUndefined();
       expect(t.coverUrl).toBeUndefined();
+      expect(t.server).toBeUndefined();
     });
   });
 

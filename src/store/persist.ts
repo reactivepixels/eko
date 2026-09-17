@@ -1,6 +1,7 @@
 import { usePlayerStore } from "./usePlayerStore";
 import type { EqMode, ParamBand } from "./usePlayerStore";
 import { useUiStore } from "./useUiStore";
+import { withQids } from "./queueItems";
 import type { ReplayGainMode, Track } from "../types";
 
 const KEY = "eko.state.v1";
@@ -132,7 +133,7 @@ export async function restoreState() {
       const idx = Math.min(Math.max(0, ls.index ?? 0), ls.tracks.length - 1);
       const pos = Math.max(0, ls.positionSec || 0);
       usePlayerStore.setState({
-        tracks: ls.tracks,
+        tracks: withQids(ls.tracks),
         currentIndex: idx,
         currentTime: pos,
         duration: ls.tracks[idx]?.duration || 0,

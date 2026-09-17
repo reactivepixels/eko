@@ -86,6 +86,7 @@ fn fully_populated_sub_song_round_trips_the_exact_key_set() {
         stream_src_url: Some("https://music.example.com/rest/stream?...".into()),
         download_url: Some("https://music.example.com/rest/download?...".into()),
         cover_url: Some("stream://localhost/?src=...".into()),
+        server: Some("https://music.example.com".into()),
     };
 
     let value = serde_json::to_value(&song).unwrap();
@@ -109,6 +110,7 @@ fn fully_populated_sub_song_round_trips_the_exact_key_set() {
         "streamSrcUrl",
         "downloadUrl",
         "coverUrl",
+        "server",
     ]
     .into_iter()
     .collect();
@@ -145,6 +147,7 @@ fn minimal_sub_song_omits_every_absent_optional() {
         stream_src_url: None,
         download_url: None,
         cover_url: None,
+        server: None,
     };
 
     let value = serde_json::to_value(&song).unwrap();

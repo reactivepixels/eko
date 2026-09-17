@@ -949,6 +949,7 @@ fn attaching_urls_to_art_less_items_leaves_cover_url_none() {
         stream_src_url: None,
         download_url: None,
         cover_url: None,
+        server: None,
     };
     urls::attach_song_urls(&cfg(), &mut song);
     assert!(song.cover_url.is_none());
@@ -1010,6 +1011,7 @@ fn mime_maps_every_suffix_in_the_table_case_insensitively() {
         stream_src_url: None,
         download_url: None,
         cover_url: None,
+        server: None,
     };
 
     for (suffix, expected) in [
@@ -1033,4 +1035,42 @@ fn mime_maps_every_suffix_in_the_table_case_insensitively() {
         "audio/flac",
         "an empty contentType is falsy in `if (s.contentType)` and must fall through"
     );
+}
+
+#[test]
+fn an_attached_song_names_its_server_and_the_name_carries_no_credential() {
+    let mut song = SubSong {
+        id: "so-1".into(),
+        title: "T".into(),
+        artist: "A".into(),
+        album: "Al".into(),
+        duration: None,
+        bit_rate: None,
+        sampling_rate: None,
+        channel_count: None,
+        suffix: None,
+        content_type: None,
+        track: None,
+        cover_art: None,
+        replay_gain: None,
+        stream_url: None,
+        stream_src_url: None,
+        download_url: None,
+        cover_url: None,
+        server: None,
+    };
+    urls::attach_song_urls(&cfg(), &mut song);
+    let server = song.server.expect("attach_song_urls stamps the server");
+    assert_eq!(server, urls::server_key(&cfg()));
+    assert_eq!(server, "https://music.example.com");
+    let config = cfg();
+    for secret in [
+        "u=",
+        "t=",
+        "s=",
+        config.username.as_str(),
+        config.password.as_str(),
+    ] {
+        assert!(!server.contains(secret), "{secret:?} in {server}");
+    }
 }

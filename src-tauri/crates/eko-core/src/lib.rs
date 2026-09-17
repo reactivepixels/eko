@@ -6,6 +6,8 @@ pub mod coreaudio;
 pub mod engine;
 pub mod eq_presets;
 pub mod metadata;
+pub mod player;
 #[cfg(feature = "pro")]
 pub mod pro;
+pub mod queue;
 pub mod signal_path;

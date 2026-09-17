@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import type { RepeatMode } from "../types";
 
 export interface EngineStatus {
   playing: boolean;
@@ -13,6 +14,7 @@ export interface EngineStatus {
   bits: number;
   codec: string;
   seg: number; // playing-track index within the current gapless session (0 = first track)
+  uid: string; // queue slot under the playhead ("" for a session the player did not start)
 }
 
 /** Filter type for one parametric EQ band. Mirrors the Rust `ParamBandType` enum. */
@@ -128,13 +130,78 @@ export interface NowPlaying {
   total: number;
 }
 
+/** Where a queued track's audio comes from. Mirrors the Rust `ItemMedia` enum. */
+export type ItemMedia =
+  | { kind: "file"; path: string }
+  | { kind: "remote"; id: string; server: string };
+
+/** One slot in the engine's play queue. Mirrors the Rust `QueueItem` struct. */
+export interface QueueItem {
+  uid: string;
+  media: ItemMedia;
+  title: string;
+  artist: string;
+  album: string;
+  durationMs: number;
+  coverUrl: string;
+  rg: ReplayGainTags;
+}
+
+/** What the engine's player reports. Mirrors the Rust `PlayerSnapshot` struct. */
+export interface PlayerSnapshot {
+  uid: string | null;
+  index: number | null;
+  active: boolean;
+  playing: boolean;
+  error: string | null;
+  rgEngineDb: number | null;
+  rgSealDb: number | null;
+  stopAfterCurrent: boolean;
+  sleepRemainingMs: number | null;
+}
+
+/** One `engine_poll`: the session and the player in a single round trip. */
+export interface Poll {
+  status: EngineStatus | null;
+  player: PlayerSnapshot;
+}
+
+const ms = (n: number) => Math.max(0, Math.round(n));
+
+/**
+ * The engine-owned player. The engine decides what plays next and advances on its own, so
+ * playback carries on while this webview is hidden and throttled. The frontend sends the
+ * queue and the user's intent, and reads everything else from `poll`.
+ */
+export const player = {
+  sync: (items: QueueItem[]) => invoke<PlayerSnapshot>("queue_sync", { items }),
+  restore: (items: QueueItem[], index: number, posMs: number) =>
+    invoke<PlayerSnapshot>("queue_restore", { items, index, posMs: ms(posMs) }),
+  clear: () => invoke<PlayerSnapshot>("queue_clear"),
+  play: (uid: string) => invoke<PlayerSnapshot>("player_play", { uid }),
+  next: () => invoke<PlayerSnapshot>("player_next"),
+  prev: () => invoke<PlayerSnapshot>("player_prev"),
+  toggle: () => invoke<PlayerSnapshot>("player_toggle"),
+  pause: () => invoke<PlayerSnapshot>("player_pause"),
+  resume: () => invoke<PlayerSnapshot>("player_resume"),
+  stop: () => invoke<PlayerSnapshot>("player_stop"),
+  seek: (atMs: number) => invoke<PlayerSnapshot>("player_seek", { ms: ms(atMs) }),
+  setModes: (repeat: RepeatMode, shuffle: boolean) =>
+    invoke<PlayerSnapshot>("player_set_modes", { repeat, shuffle }),
+  setReplayGain: (mode: RgMode) => invoke<ReplayGainDecision>("player_set_replaygain", { mode }),
+  setScrobble: (on: boolean) => invoke<PlayerSnapshot>("player_set_scrobble", { on }),
+  sleepAfterTrack: () => invoke<PlayerSnapshot>("player_sleep_after_track"),
+  sleepIn: (inMs: number) => invoke<PlayerSnapshot>("player_sleep_in", { ms: ms(inMs) }),
+  cancelSleep: () => invoke<PlayerSnapshot>("player_cancel_sleep"),
+  restart: () => invoke<PlayerSnapshot>("player_restart"),
+  poll: () => invoke<Poll>("engine_poll"),
+};
+
 let bandData: number[] = [];
 let bandTimer: ReturnType<typeof setInterval> | null = null;
 
 /** Native bit-perfect playback (local files) — symphonia → cpal in Rust. */
 export const nativeEngine = {
-  play: (path: string) => invoke<EngineStatus>("engine_play", { path }),
-  playUrl: (url: string) => invoke<EngineStatus>("engine_play_url", { url }),
   pause: () => invoke("engine_pause"),
   resume: () => invoke("engine_resume"),
   seek: (secs: number) => invoke("engine_seek", { secs }),
@@ -160,17 +227,6 @@ export const nativeEngine = {
   // ReplayGain (off by default): pass the chosen gain in dB, or null/0 to disable.
   // Any non-zero value takes playback off the bit-perfect path (honestly reflected in the seal).
   setReplayGain: (gainDb: number | null) => invoke("engine_set_replaygain", { gainDb }),
-  // Queue the next track for gapless continuation (same-rate → no seam). null/null/null clears it.
-  enqueue: (
-    path: string | null,
-    url: string | null,
-    trackId?: string | null,
-    plainLen?: number | null,
-  ) =>
-    invoke("engine_enqueue", { path, url, trackId: trackId ?? null, plainLen: plainLen ?? null }),
-  // Play a cached offline track (bit-perfect: EncryptedFileSource → symphonia, same path as local).
-  playCached: (trackId: string, plainLen: number) =>
-    invoke<EngineStatus>("engine_play_cached", { trackId, plainLen }),
   setNowPlaying: (np: NowPlaying) => invoke("engine_set_now_playing", { np }),
   nowPlaying: () => invoke<NowPlaying>("engine_now_playing"),
   listDevices: () => invoke<string[]>("engine_list_devices"),

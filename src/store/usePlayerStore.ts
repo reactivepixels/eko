@@ -1,62 +1,24 @@
 import { create } from "zustand";
 import { toTrack } from "../audio/loader";
-import { nativeEngine } from "../audio/nativeEngine";
-import type { ParamBand, EqMode, SealInput, SignalPathReport } from "../audio/nativeEngine";
-import { mediaMetadata, mediaPlayback, mediaStopped, broadcastPlayback } from "../audio/media";
-import { coverAt, scrobble } from "../subsonic/nativeSubsonic";
+import { nativeEngine, player } from "../audio/nativeEngine";
+import type {
+  ParamBand,
+  EqMode,
+  PlayerSnapshot,
+  Poll,
+  SealInput,
+  SignalPathReport,
+} from "../audio/nativeEngine";
+import { coverAt } from "../subsonic/nativeSubsonic";
 import { EQ_BAND_COUNT, EQ_PRESETS, FLAT_GAINS, type EqPreset } from "../audio/constants";
-import { offlineEntry, useOfflineStore } from "@pro";
 import type { ReplayGainMode, RepeatMode, Track } from "../types";
+import { toQueueItem, withQids } from "./queueItems";
 
-// ── Scrobble threshold (Last.fm convention) ────────────────────────────────
-// A track is scrobbled after 50% of its duration has played, OR 4 minutes —
-// whichever comes first — but only once per track load.
-export const SCROBBLE_MIN_SECS = 30; // don't scrobble very short clips
-export const SCROBBLE_MAX_SECS = 4 * 60; // 4 min cap
-
-/** Return the elapsed-seconds threshold at which to fire the "submission" scrobble. */
-export function scrobbleThreshold(durationSec: number): number {
-  if (durationSec <= 0) return Infinity;
-  return Math.min(durationSec * 0.5, SCROBBLE_MAX_SECS);
-}
-
-// ── Sleep-timer state (module-level, not persisted) ────────────────────────
+// ── Sleep timer ─────────────────────────────────────────────────────────────
+// The engine keeps the timer (so it fires with this window asleep); the store only shows it.
 /** Preset durations offered in the UI (minutes), plus the sentinel -1 = end-of-track. */
 export const SLEEP_PRESETS = [15, 30, 45, 60] as const;
 export type SleepPreset = (typeof SLEEP_PRESETS)[number] | -1; // -1 = end of track
-
-interface SleepTimer {
-  /** Wall-clock ms when the timer was started. */
-  startedAt: number;
-  /** Total duration in ms (Infinity for end-of-track mode). */
-  durationMs: number;
-  /** Whether this is "end of track" mode (pause when the current track finishes). */
-  endOfTrack: boolean;
-}
-
-// Active sleep timer and the interval that drives the countdown display.
-let _sleepTimer: SleepTimer | null = null;
-let _sleepInterval: ReturnType<typeof setInterval> | null = null;
-
-function clearSleepTimer() {
-  if (_sleepInterval) {
-    clearInterval(_sleepInterval);
-    _sleepInterval = null;
-  }
-  _sleepTimer = null;
-  usePlayerStore.setState({ sleepTimer: null });
-}
-
-/** Remaining ms on the sleep timer, or null if inactive. */
-export function sleepTimerRemaining(): number | null {
-  if (!_sleepTimer || _sleepTimer.endOfTrack) return null;
-  const remaining = _sleepTimer.durationMs - (Date.now() - _sleepTimer.startedAt);
-  return Math.max(0, remaining);
-}
-
-// ── Scrobble tracking (module-level, reset on each track) ─────────────────
-let _scrobbleId: string | null = null; // id of the track being tracked
-let _submissionSent = false;
 
 export type { ParamBand, EqMode };
 
@@ -78,14 +40,18 @@ let pollGen = 0;
 // engine seeks — so the poll must not fight the drag, and we don't flood IPC.
 let scrubbing = false;
 let lastSeekSent = 0;
-// Gapless: which queue index we've already armed the next track for (avoid re-enqueuing
-// every poll). Reset on a fresh session and after each gapless advance.
-let enqueuedFor: number | null = null;
-// Gapless session integrity: set to true when the queue is mutated mid-session (reorder,
-// removeTrack, playNext, setQueue without immediate playAt). While dirty the poll skips
-// the seg-advance and enqueue-next blocks and clears any armed next-source. Cleared by
-// playAt (a fresh session) and clearPlaylist.
-let sessionDirty = false;
+// The queue slot the poll last saw playing. A different one means the engine changed track
+// by itself (a gapless seam, auto-advance, a media key, the mini player), so the seal's
+// inputs are stale.
+let lastUid: string | null = null;
+let lastError: string | null = null;
+// Bumped whenever the store sends the engine something. A poll already in flight describes
+// the engine from before that, so its answer is dropped rather than folded in over the
+// store's own, newer state.
+let intentGen = 0;
+function intent() {
+  intentGen++;
+}
 // Seek convergence: after a seek/click, hold the optimistic position until the engine's
 // reported time catches up — otherwise a stale status poll snaps the thumb back to the old
 // spot for a frame. Cleared on convergence or when the guard window lapses.
@@ -108,31 +74,42 @@ function startNativePoll() {
   const gen = ++pollGen;
   posTimer = setInterval(async () => {
     if (scrubbing) return;
-    const st = await nativeEngine.status().catch(() => null);
-    // Bail if this interval was cancelled while we were awaiting.
-    if (gen !== pollGen) return;
-    if (!st) return;
+    const at = intentGen;
+    const poll = await player.poll().catch(() => null);
+    // Bail if this interval was cancelled, or the store told the engine something since.
+    if (gen !== pollGen || at !== intentGen || !poll) return;
+    applyPoll(poll);
+  }, 120);
+}
 
-    // Gapless advance: the engine reports the playing-track index within the session
-    // (st.seg). When it moves past 0, advance the UI to that track WITHOUT restarting —
-    // and the boundary is therefore never seen as "ended".
-    // Skip when sessionDirty (queue mutated mid-session — wrong track would be shown).
-    const s0 = usePlayerStore.getState();
-    if (!sessionDirty) {
-      const wantIndex = s0.sessionStartIndex + (st.seg ?? 0);
-      if (st.seg > 0 && wantIndex !== s0.currentIndex && wantIndex < s0.tracks.length) {
-        usePlayerStore.setState({ currentIndex: wantIndex });
-        enqueuedFor = null; // can arm the following track now
-        pushNowPlaying();
-        pushPlayback();
-        applyReplayGain();
-      }
-    }
+/**
+ * Fold one engine poll into the store. The engine decides what is playing; this only
+ * reports it. Exported for `usePlayerStore.test.ts`.
+ */
+export function applyPoll({ status: st, player: pl }: Poll) {
+  const s0 = usePlayerStore.getState();
 
-    const ended = st.durMs > 0 && st.posMs >= st.durMs - 350 && !st.playing;
+  if (pl.uid !== lastUid) {
+    lastUid = pl.uid;
+    const idx = pl.uid == null ? -1 : s0.tracks.findIndex((t) => t.qid === pl.uid);
+    usePlayerStore.setState({
+      currentIndex: idx >= 0 ? idx : pl.uid == null ? null : s0.currentIndex,
+      // The outgoing track's stream info now describes the wrong track. Drop it, exactly as
+      // `playAt` does, so no seal can be derived from it.
+      engineInfo: null,
+      rgAppliedDb: pl.rgSealDb,
+    });
+    clearSignalPath();
+    pushNowPlaying();
+  } else if (pl.rgSealDb !== s0.rgAppliedDb) {
+    usePlayerStore.setState({ rgAppliedDb: pl.rgSealDb });
+    refreshSignalPath();
+  }
+
+  if (st && pl.active) {
+    const engTime = st.posMs / 1000;
     // Hold the clicked/seeked position until the engine's reported time converges to it, so a
     // stale poll never snaps the thumb back. The guard lapses after ~1s as a safety net.
-    const engTime = st.posMs / 1000;
     let acceptTime = true;
     if (seekTarget != null && Date.now() < seekGuardUntil) {
       if (Math.abs(engTime - seekTarget) < 0.4) seekTarget = null;
@@ -142,85 +119,9 @@ function startNativePoll() {
       ...(acceptTime ? { currentTime: engTime } : {}),
       duration: st.durMs / 1000,
       buffered: st.bufferedMs / 1000,
-      isPlaying: st.playing,
     });
 
-    // ── Scrobble: submission at the play threshold ──────────────────────────
-    // Fire once per track when elapsed time crosses the threshold (50% or 4 min).
-    const scrobbleState = usePlayerStore.getState();
-    if (
-      scrobbleState.scrobbleEnabled &&
-      _scrobbleId !== null &&
-      !_submissionSent &&
-      st.playing &&
-      st.posMs > 0 &&
-      st.durMs > 0
-    ) {
-      const threshold = scrobbleThreshold(st.durMs / 1000);
-      if (engTime >= threshold && st.durMs / 1000 >= SCROBBLE_MIN_SECS) {
-        _submissionSent = true;
-        void scrobble(_scrobbleId, true);
-      }
-    }
-
-    // ── Sleep timer: wall-clock countdown ──────────────────────────────────
-    if (_sleepTimer && !_sleepTimer.endOfTrack) {
-      const remaining = Math.max(0, _sleepTimer.durationMs - (Date.now() - _sleepTimer.startedAt));
-      usePlayerStore.setState({
-        sleepTimer: {
-          endOfTrack: false,
-          remainingSec: Math.ceil(remaining / 1000),
-          totalSec: Math.round(_sleepTimer.durationMs / 1000),
-        },
-      });
-      if (remaining <= 0 && st.playing) {
-        clearSleepTimer();
-        void nativeEngine.pause();
-        usePlayerStore.setState({ isPlaying: false });
-        pushPlayback();
-      }
-    }
-
-    // Arm the next sequential track for gapless continuation ~12s before the current ends
-    // (once per track; only when playing straight through — not shuffle / repeat-one).
-    // Skip when sessionDirty and clear any previously armed next-source.
-    const cur = usePlayerStore.getState();
-    if (sessionDirty) {
-      void nativeEngine.enqueue(null, null);
-    } else {
-      // Arm the next sequential track EARLY — as soon as this track is playing — not near
-      // its end. The native decoder races ahead of playback and reaches end-of-decode within
-      // a second or two of a local track; the gapless continuation only fires if the next
-      // source is already queued at that moment. (Server streams decode at ~1× as
-      // they download, so this is also harmless there.) Once consumed the engine clears it;
-      // we re-arm when the displayed track advances (enqueuedFor !== currentIndex).
-      const sequential = !cur.shuffle && cur.repeat !== "one";
-      const nextIdx = cur.currentIndex != null ? cur.currentIndex + 1 : -1;
-      if (
-        sequential &&
-        nextIdx > 0 &&
-        nextIdx < cur.tracks.length &&
-        enqueuedFor !== cur.currentIndex &&
-        st.durMs > 0
-      ) {
-        const nt = cur.tracks[nextIdx];
-        enqueuedFor = cur.currentIndex;
-        if (nt.subsonicId) {
-          const cached = offlineEntry(useOfflineStore.getState().entries, nt.subsonicId);
-          if (cached) {
-            void nativeEngine.enqueue(null, null, cached.trackId, cached.bytes);
-          } else {
-            // Pre-signed by Rust when the payload was built — the frontend can no longer
-            // mint it from the id. A track without one arms nothing, which costs the
-            // gapless seam and nothing else.
-            void nativeEngine.enqueue(null, nt.streamSrcUrl ?? null);
-          }
-        } else {
-          void nativeEngine.enqueue(nt.path, null);
-        }
-      }
-    }
-    // Signal-path info changes only per track — only write (and re-render) when it does.
+    // Signal-path info changes only per track. Only write (and re-render) when it does.
     const prev = usePlayerStore.getState().engineInfo;
     const infoChanged =
       !prev ||
@@ -244,33 +145,43 @@ function startNativePoll() {
         },
       });
     }
-    // Re-derive the seal (in Rust) on the same per-track edge — a new rate or device can
-    // start or stop a resample. Also derive whenever the seal is missing while the engine
-    // is reporting: `playAt` drops it because `engineInfo` is the PREVIOUS track's until
-    // this poll lands, and a new track with identical rate/codec/device would otherwise
-    // never trigger the edge above. Self-terminating — it stops as soon as one lands.
+    // Re-derive the seal (in Rust) on the per-track edge, and whenever it is missing while
+    // the engine is reporting. Self-terminating: it stops once one lands.
     if (infoChanged || usePlayerStore.getState().signalPath == null) refreshSignalPath();
-    if (ended) {
-      stopNativePoll();
-      // Sleep timer "end of track": pause instead of advancing.
-      if (_sleepTimer?.endOfTrack) {
-        clearSleepTimer();
-        usePlayerStore.setState({ isPlaying: false });
-        pushPlayback();
-        return;
-      }
-      void usePlayerStore.getState().next();
-    }
-  }, 120);
+  }
+
+  usePlayerStore.setState({
+    isPlaying: pl.playing,
+    engineActive: pl.active,
+    sleepTimer: sleepDisplay(pl, s0.sleepTimer),
+  });
+  if (pl.active && !s0.engineActive) nativeEngine.startBands();
+  if (!pl.active && s0.engineActive) {
+    nativeEngine.stopBands();
+    clearSignalPath();
+  }
+  if (pl.error !== lastError) {
+    lastError = pl.error;
+    // The store has no error surface yet. Say it where it can be found.
+    if (pl.error) console.error(`EKO: ${pl.error}`);
+  }
+}
+
+/** The sleep timer as the transport shows it, from what the engine is keeping. */
+function sleepDisplay(
+  pl: PlayerSnapshot,
+  prev: PlayerState["sleepTimer"],
+): PlayerState["sleepTimer"] {
+  if (pl.stopAfterCurrent) return { endOfTrack: true, remainingSec: null, totalSec: null };
+  if (pl.sleepRemainingMs == null) return null;
+  const remainingSec = Math.ceil(pl.sleepRemainingMs / 1000);
+  return { endOfTrack: false, remainingSec, totalSec: prev?.totalSec ?? remainingSec };
 }
 
 interface PlayerState {
   // Playlist
   tracks: Track[];
   currentIndex: number | null;
-  // Queue index the current engine session began on; gapless continuations advance the
-  // displayed track as `sessionStartIndex + engineSeg` without restarting the session.
-  sessionStartIndex: number;
 
   // Transport
   isPlaying: boolean;
@@ -327,6 +238,9 @@ interface PlayerState {
 
   // --- actions ---
   init: () => void;
+  /** Push everything the engine keeps for itself (queue, modes, gain mode, scrobbling,
+   *  DSP), once the last run's state has been restored. */
+  resyncEngine: () => void;
   addPaths: (paths: string[], autoplay?: boolean) => Promise<void>;
   removeTrack: (id: string) => void;
   clearPlaylist: () => void;
@@ -540,61 +454,48 @@ function syncEqMode() {
 }
 
 /**
- * Apply ReplayGain for the current track to the engine and record the dB the seal should
- * report.
+ * Set the ReplayGain mode in the engine, and record the dB the seal should report.
  *
- * BOTH numbers come from Rust (`eko_core::signal_path::replaygain_decision`) — the
- * peak-limited value the engine receives, and that value with the ±0.01 dB dead-band
- * applied for the seal. Neither is computed here, and neither may be: the dead-band is the
- * single boundary that decides whether EKO claims bit-perfect, so a TypeScript-only copy
- * would let the desktop app and the terminal client disagree about the same track. (This
- * used to be `rgGainDbFor` plus an inline `Math.abs(db) > 0.01`, both frontend-only.)
+ * BOTH numbers come from Rust (`eko_core::signal_path::replaygain_decision`), decided in the
+ * engine from the playing track's tags, which it already holds from the queue. Neither is
+ * computed here, and neither may be: the dead-band is the boundary that decides whether EKO
+ * claims bit-perfect. The engine applies the gain itself, on every track, including those it
+ * reaches while this window sleeps.
  *
- * Async, so `rgGen` guards against an out-of-order reply reporting a gain for a track that
- * is no longer playing.
+ * Async, so `rgGen` guards against an out-of-order reply.
  */
 let rgGen = 0;
 function applyReplayGain() {
   // This one refreshes the seal only in its `.then()`, so without this the cached verdict
   // would survive the WHOLE round trip after the ReplayGain picker moved.
   unconfirmSeal();
-  const s = usePlayerStore.getState();
-  const track = s.currentIndex != null ? s.tracks[s.currentIndex] : undefined;
+  intent();
   const gen = ++rgGen;
-  void nativeEngine
-    .replaygain(
-      {
-        trackGain: track?.rgTrackGain ?? null,
-        trackPeak: track?.rgTrackPeak ?? null,
-        albumGain: track?.rgAlbumGain ?? null,
-        albumPeak: track?.rgAlbumPeak ?? null,
-      },
-      s.replayGainMode,
-    )
-    .then(({ engineDb, sealDb }) => {
+  void player
+    .setReplayGain(usePlayerStore.getState().replayGainMode)
+    .then(({ sealDb }) => {
       if (gen !== rgGen) return;
-      void nativeEngine.setReplayGain(engineDb);
       usePlayerStore.setState({ rgAppliedDb: sealDb });
       refreshSignalPath();
     })
     .catch(() => {
       if (gen !== rgGen) return;
-      // Could not decide the gain. "No ReplayGain" is NOT a safe fallback here: it is
-      // itself an assertion, and the strongest one this product makes. A previous
-      // successful decision may have already pushed a real gain to the engine, so
-      // reporting null would leave the seal claiming BIT-PERFECT over gain-adjusted audio.
+      // Could not decide the gain. "No ReplayGain" is NOT a safe fallback: it is itself an
+      // assertion, and the strongest one this product makes, and the engine may already be
+      // applying a real gain.
       //
-      // So do both: clear the gain in the engine so it matches what we can honestly
-      // claim, and DROP the seal rather than derive one. `clearSignalPath` also bumps
-      // `sealGen`, so no in-flight derivation can land after this.
+      // So do both: clear the gain in the engine so it matches what we can honestly claim,
+      // and DROP the seal rather than derive one. `clearSignalPath` also bumps `sealGen`, so
+      // no in-flight derivation can land after this.
       void nativeEngine.setReplayGain(null);
       usePlayerStore.setState({ rgAppliedDb: null });
       clearSignalPath();
     });
 }
 
-/** Push current-track metadata into the engine so the mini player can read it directly
- *  from Rust (live even when the main window is hidden + throttled). */
+/** Push current-track metadata into the engine for the mini player. When the engine has a
+ *  queue item it overrides title, artist, cover and position with its own, so this mainly
+ *  carries the theme. The lock-screen card is updated from Rust on every track change. */
 function pushNowPlaying() {
   const s = usePlayerStore.getState();
   const t = s.currentIndex != null ? s.tracks[s.currentIndex] : null;
@@ -613,28 +514,6 @@ function pushNowPlaying() {
     index: s.currentIndex ?? -1,
     total: s.tracks.length,
   });
-  // Mirror to the OS now-playing card (lock screen / Control Center). Server cover art is a
-  // URL the OS can fetch; local embedded art has no URL, so it's omitted.
-  if (t) {
-    mediaMetadata({
-      title: t.title ?? "Unknown",
-      artist: t.artist ?? "",
-      album: t.album ?? "",
-      coverUrl: coverAt(t.coverUrl, 512) ?? undefined,
-      duration: t.duration,
-    });
-  }
-}
-
-/** Push the current play/pause state + elapsed position to the OS now-playing card, and
- *  broadcast it (+ the current track) to companion apps via `broadcastPlayback`. Only
- *  needs calling on transitions — macOS extrapolates the running clock itself, and
- *  `broadcastPlayback` itself skips redundant re-pushes of the same state/track. */
-function pushPlayback() {
-  const s = usePlayerStore.getState();
-  mediaPlayback(s.isPlaying, s.currentTime);
-  const t = s.currentIndex != null ? s.tracks[s.currentIndex] : null;
-  broadcastPlayback(s.isPlaying ? "Playing" : "Paused", t?.title ?? "", t?.artist ?? "");
 }
 
 /** Push the current volume (dial 0..1) into the native engine, throttled to ~20/sec so a
@@ -663,10 +542,16 @@ function syncVol() {
   }, 50);
 }
 
+/** Hand the engine the whole queue. It owns what plays next, and this is how it hears about
+ *  every change to the list. */
+function syncQueue() {
+  intent();
+  void player.sync(usePlayerStore.getState().tracks.map(toQueueItem));
+}
+
 export const usePlayerStore = create<PlayerState>((set, get) => ({
   tracks: [],
   currentIndex: null,
-  sessionStartIndex: 0,
   isPlaying: false,
   currentTime: 0,
   duration: 0,
@@ -696,17 +581,38 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   init: () => {
     if (storeInitialized) return;
     storeInitialized = true;
-    // Playback state is driven by the native engine poll; nothing to wire here but the
-    // initial EQ push (a no-op until a track starts a session).
+    // The engine keeps DSP settings across sessions, so they can be pushed before any play.
     syncEq();
     syncEqMode();
     syncParamEq();
+    // Always polling: the engine can start, move on or stop by itself (a media key, the
+    // mini player, the end of the queue), and the transport has to follow.
+    startNativePoll();
+  },
+
+  resyncEngine: () => {
+    const s = get();
+    intent();
+    void player.setModes(s.repeat, s.shuffle);
+    void player.setScrobble(s.scrobbleEnabled);
+    syncEq();
+    syncEqMode();
+    syncParamEq();
+    syncVol();
+    applyReplayGain();
+    const items = s.tracks.map(toQueueItem);
+    if (s.currentIndex != null && items.length > 0) {
+      void player.restore(items, s.currentIndex, (s.pendingResumeSec ?? 0) * 1000);
+    } else {
+      void player.sync(items);
+    }
   },
 
   addPaths: async (paths, autoplay = true) => {
-    const newTracks = await Promise.all(paths.map((p) => toTrack(p)));
+    const newTracks = withQids(await Promise.all(paths.map((p) => toTrack(p))));
     const wasEmpty = get().tracks.length === 0;
     set((s) => ({ tracks: [...s.tracks, ...newTracks] }));
+    syncQueue();
     // Auto-select the first added track if nothing is loaded yet.
     if (autoplay && wasEmpty && newTracks.length > 0) {
       await get().playAt(0);
@@ -725,33 +631,25 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       }
       return { tracks, currentIndex };
     });
-    sessionDirty = true;
+    syncQueue();
   },
 
   clearPlaylist: () => {
-    const { currentIndex, tracks } = get();
-    const t = currentIndex != null ? tracks[currentIndex] : null;
-    void nativeEngine.stop();
+    intent();
+    void player.clear();
     nativeEngine.stopBands();
-    stopNativePoll();
-    enqueuedFor = null;
-    sessionDirty = false;
-    _scrobbleId = null;
-    _submissionSent = false;
-    clearSleepTimer();
+    lastUid = null;
     set({
       tracks: [],
       currentIndex: null,
-      sessionStartIndex: 0,
       isPlaying: false,
       currentTime: 0,
       duration: 0,
       buffered: 0,
       engineActive: false,
+      sleepTimer: null,
     });
     clearSignalPath();
-    mediaStopped();
-    broadcastPlayback("Stopped", t?.title ?? "", t?.artist ?? "");
   },
 
   reorder: (from, to) => {
@@ -767,110 +665,42 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         currentIndex += 1;
       return { tracks, currentIndex };
     });
-    sessionDirty = true;
+    syncQueue();
   },
 
   playAt: async (index) => {
     const { tracks, currentIndex: prevIndex, pendingResumeSec } = get();
     const track = tracks[index];
-    if (!track) return;
-    // Resume only applies to the exact track that was restored; any other play clears it.
+    if (!track?.qid) return;
+    // The engine resumes a restored track itself; this only shows where it will start.
     const resumeSec = pendingResumeSec != null && index === prevIndex ? pendingResumeSec : null;
-    // A manual play starts a fresh engine session at this index; re-arm gapless from here.
-    enqueuedFor = null;
-    sessionDirty = false;
+    intent();
+    lastUid = track.qid;
     set({
       currentIndex: index,
-      sessionStartIndex: index,
       duration: track.duration || 0,
       currentTime: resumeSec ?? 0,
       isPlaying: true,
       engineActive: true,
       pendingResumeSec: null,
       // Drop the OUTGOING track's stream info. It is the seal's dominant input, and until
-      // the poll reports the incoming stream it describes the wrong track — a 44.1 kHz
+      // the poll reports the incoming stream it describes the wrong track: a 44.1 kHz
       // source followed by a 96 kHz one the device will resample would go on claiming
       // BIT-PERFECT. Cleared, `derive` returns `active: false` and every consumer renders
-      // nothing until the truth arrives; the poll's `!prev` then makes `infoChanged` true
-      // on the next tick.
-      //
-      // This MUST be cleared here rather than merely blanking the seal via
-      // `clearSignalPath()`: `syncEq/syncEqMode/syncParamEq/syncVol/applyReplayGain` at
-      // the end of this function each trigger a `refreshSignalPath()` in this same
-      // synchronous tick, and any one of them would re-derive from the stale info and
-      // repaint the previous track's verdict — outliving the blank entirely.
+      // nothing until the truth arrives.
       engineInfo: null,
     });
     clearSignalPath();
-    // ── Scrobble: reset per-track state and fire "now playing" ────────────
-    _scrobbleId = track.subsonicId ?? null;
-    _submissionSent = false;
-    if (track.subsonicId && get().scrobbleEnabled) {
-      void scrobble(track.subsonicId, false);
-    }
-
-    // ── Sleep timer: "end of track" mode — cancel on new track (pause already fired) ──
-    // Only cancel if it's the end-of-track variant; fixed-duration timers survive track changes.
-    if (_sleepTimer?.endOfTrack) {
-      clearSleepTimer();
-    }
-
-    // Route: cached offline (EncryptedFileSource, bit-perfect) → local file → server stream.
-    if (track.subsonicId) {
-      const cached = offlineEntry(useOfflineStore.getState().entries, track.subsonicId);
-      if (cached) {
-        // Play from the encrypted local cache — no network, fully bit-perfect.
-        void nativeEngine.playCached(cached.trackId, cached.bytes);
-      } else if (track.streamSrcUrl) {
-        void nativeEngine.playUrl(track.streamSrcUrl);
-      } else {
-        // A server track carries its own pre-signed stream URL; signing needs the
-        // password, which never reaches the frontend now, so there is nothing to
-        // reconstruct from the id. Leave the engine idle rather than open a session that
-        // can never produce audio.
-        //
-        // This is the app's only silent no-play, and it can only happen if a `Track` was
-        // built without carrying `streamSrcUrl` across — i.e. a bug in a `SubSong → Track`
-        // conversion, not anything the user did or can fix. It replaced a path that used
-        // to throw, so log loudly: the store has no error channel and the app has no
-        // toast/banner surface, and inventing one here would be a feature, not a port.
-        // `isPlaying: false` at least keeps the transport honest — the play button pops
-        // back out instead of showing a stuck "playing" state.
-        console.error(
-          "playAt: server track has no streamSrcUrl — not playing.",
-          track.subsonicId,
-          track.title,
-        );
-        void nativeEngine.stop();
-        set({ isPlaying: false, engineActive: false });
-        clearSignalPath();
-      }
-    } else {
-      void nativeEngine.play(track.path);
-    }
-    startNativePoll();
+    void player.play(track.qid);
     nativeEngine.startBands();
-    syncEq();
-    syncEqMode();
-    syncParamEq();
-    syncVol();
-    applyReplayGain();
     pushNowPlaying();
-    pushPlayback();
-    // Restored session: once decode has buffered, seek to where we left off.
-    if (resumeSec != null && resumeSec > 0) {
-      setTimeout(() => void nativeEngine.seek(resumeSec), 500);
-    }
   },
 
   setQueue: (tracks, autoplay = true) => {
-    set({ tracks, currentIndex: null });
+    set({ tracks: withQids(tracks), currentIndex: null });
+    syncQueue();
     if (autoplay && tracks.length > 0) {
       void get().playAt(0);
-    } else {
-      // Queue replaced without an immediate playAt — the current gapless session's
-      // sessionStartIndex and enqueuedFor are now stale.
-      sessionDirty = true;
     }
   },
 
@@ -878,7 +708,8 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   addToQueue: (add) => {
     if (add.length === 0) return;
     const empty = get().tracks.length === 0;
-    set((s) => ({ tracks: [...s.tracks, ...add] }));
+    set((s) => ({ tracks: [...s.tracks, ...withQids(add)] }));
+    syncQueue();
     if (empty) void get().playAt(0);
   },
 
@@ -887,98 +718,46 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     if (add.length === 0) return;
     const { currentIndex, tracks } = get();
     if (tracks.length === 0) {
-      void get().setQueue(add, true);
+      get().setQueue(add, true);
       return;
     }
     const at = currentIndex != null ? currentIndex + 1 : 0;
-    set((s) => ({ tracks: [...s.tracks.slice(0, at), ...add, ...s.tracks.slice(at)] }));
-    sessionDirty = true;
+    const inserted = withQids(add);
+    set((s) => ({ tracks: [...s.tracks.slice(0, at), ...inserted, ...s.tracks.slice(at)] }));
+    syncQueue();
   },
 
   togglePlay: async () => {
-    const { isPlaying, currentIndex, tracks, engineActive } = get();
-    if (currentIndex === null) {
-      // Nothing loaded yet — start the queue if there is one, otherwise no-op.
-      if (tracks.length > 0) await get().playAt(0);
-      return;
-    }
-    if (isPlaying) {
-      void nativeEngine.pause();
-      set({ isPlaying: false });
-      pushPlayback();
-    } else if (!engineActive) {
-      // A restored (resumed) session has a selected track but no live engine session yet —
-      // start it fresh (playAt consumes pendingResumeSec to seek to the saved position).
-      await get().playAt(currentIndex);
-    } else {
-      void nativeEngine.resume();
-      set({ isPlaying: true });
-      pushPlayback();
-    }
+    const { tracks, isPlaying } = get();
+    if (tracks.length === 0) return;
+    intent();
+    set({ isPlaying: !isPlaying });
+    void player.toggle();
   },
 
   stop: () => {
-    const { currentIndex, tracks } = get();
-    const t = currentIndex != null ? tracks[currentIndex] : null;
-    void nativeEngine.stop();
+    intent();
+    void player.stop();
     nativeEngine.stopBands();
-    stopNativePoll();
-    enqueuedFor = null;
     set({ isPlaying: false, currentTime: 0, engineActive: false });
     clearSignalPath();
-    mediaStopped();
-    broadcastPlayback("Stopped", t?.title ?? "", t?.artist ?? "");
   },
 
   next: async () => {
-    const { tracks, currentIndex, repeat, shuffle } = get();
-    if (tracks.length === 0) return;
-    if (repeat === "one" && currentIndex !== null) {
-      await get().playAt(currentIndex);
-      return;
-    }
-    let nextIndex: number;
-    if (shuffle) {
-      if (tracks.length > 1 && currentIndex !== null) {
-        // Exclude the current track so shuffle never repeats back-to-back.
-        let candidate: number;
-        do {
-          candidate = Math.floor(Math.random() * tracks.length);
-        } while (candidate === currentIndex);
-        nextIndex = candidate;
-      } else {
-        nextIndex = Math.floor(Math.random() * tracks.length);
-      }
-    } else if (currentIndex === null) {
-      nextIndex = 0;
-    } else if (currentIndex + 1 < tracks.length) {
-      nextIndex = currentIndex + 1;
-    } else if (repeat === "all") {
-      nextIndex = 0;
-    } else {
-      get().stop();
-      return;
-    }
-    await get().playAt(nextIndex);
+    intent();
+    void player.next();
   },
 
   prev: async () => {
-    const { tracks, currentIndex, currentTime } = get();
-    if (tracks.length === 0 || currentIndex === null) return;
-    // Restart current track if more than 3s in, else go to previous.
-    if (currentTime > 3) {
-      get().seek(0);
-      return;
-    }
-    const prevIndex = currentIndex - 1 >= 0 ? currentIndex - 1 : 0;
-    await get().playAt(prevIndex);
+    intent();
+    void player.prev();
   },
 
   seek: (seconds) => {
+    intent();
     markSeek(seconds);
-    void nativeEngine.seek(seconds);
+    void player.seek(seconds * 1000);
     set({ currentTime: seconds });
-    pushPlayback();
   },
 
   toggleTimeDisplay: () =>
@@ -1000,10 +779,10 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   },
   endScrub: (seconds) => {
     scrubbing = false;
+    intent();
     markSeek(seconds);
     set({ currentTime: seconds });
-    void nativeEngine.seek(seconds);
-    pushPlayback();
+    void player.seek(seconds * 1000);
   },
 
   // User moved the dial → EKO's own software volume in the engine (instant, EKO-only).
@@ -1020,13 +799,12 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     syncVol();
   },
 
-  // Choose the output DAC. Takes effect on the next track; if something is playing we
-  // re-arm the current track on the new device so the switch is immediate.
+  // Choose the output DAC. If something is playing, the engine restarts it on the new device.
   setOutputDevice: (name) => {
     set({ outputDevice: name });
     void nativeEngine.setDevice(name);
-    const s = get();
-    if (s.currentIndex != null && s.isPlaying) void s.playAt(s.currentIndex);
+    intent();
+    void player.restart();
   },
 
   setEqEnabled: (on) => {
@@ -1079,12 +857,20 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     syncParamEq();
   },
 
-  cycleRepeat: () =>
-    set((s) => ({
-      repeat: s.repeat === "off" ? "all" : s.repeat === "all" ? "one" : "off",
-    })),
+  cycleRepeat: () => {
+    const cur = get().repeat;
+    const repeat: RepeatMode = cur === "off" ? "all" : cur === "all" ? "one" : "off";
+    set({ repeat });
+    intent();
+    void player.setModes(repeat, get().shuffle);
+  },
 
-  toggleShuffle: () => set((s) => ({ shuffle: !s.shuffle })),
+  toggleShuffle: () => {
+    const shuffle = !get().shuffle;
+    set({ shuffle });
+    intent();
+    void player.setModes(get().repeat, shuffle);
+  },
 
   // Volume normalisation. Off keeps the bit-perfect path; track/album apply the file's
   // ReplayGain tag (peak-limited) to the current and subsequent tracks.
@@ -1095,33 +881,26 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
 
   setScrobbleEnabled: (on) => {
     set({ scrobbleEnabled: on });
+    void player.setScrobble(on);
   },
 
   startSleepTimer: (preset) => {
-    // Clear any existing timer first.
-    if (_sleepInterval) clearInterval(_sleepInterval);
-    _sleepInterval = null;
-
+    intent();
     if (preset === -1) {
-      // End-of-track mode: no countdown, just set the flag.
-      _sleepTimer = { startedAt: Date.now(), durationMs: Infinity, endOfTrack: true };
+      void player.sleepAfterTrack();
       set({ sleepTimer: { endOfTrack: true, remainingSec: null, totalSec: null } });
     } else {
-      const durationMs = preset * 60 * 1000;
-      _sleepTimer = { startedAt: Date.now(), durationMs, endOfTrack: false };
+      void player.sleepIn(preset * 60 * 1000);
       set({
-        sleepTimer: {
-          endOfTrack: false,
-          remainingSec: preset * 60,
-          totalSec: preset * 60,
-        },
+        sleepTimer: { endOfTrack: false, remainingSec: preset * 60, totalSec: preset * 60 },
       });
-      // The poll loop handles countdown ticks; no separate interval needed.
     }
   },
 
   cancelSleepTimer: () => {
-    clearSleepTimer();
+    intent();
+    void player.cancelSleep();
+    set({ sleepTimer: null });
   },
 }));
 
@@ -1134,8 +913,9 @@ export function pauseMainPoll() {
   nativeEngine.stopBands();
 }
 
-/** Restart the main status poll when leaving compact mode with a track active. */
+/** Restart the main status poll when leaving compact mode. The spectrum feed restarts only
+ *  if a session is live; after that the poll starts and stops it as the engine does. */
 export function resumeMainPoll() {
   startNativePoll();
-  nativeEngine.startBands();
+  if (usePlayerStore.getState().engineActive) nativeEngine.startBands();
 }

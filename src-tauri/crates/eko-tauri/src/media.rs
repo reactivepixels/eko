@@ -4,9 +4,8 @@
 //! Control-Center now-playing card) and `MPRemoteCommandCenter` (the F7/F8/F9 hardware
 //! keys and headphone controls) via the `souvlaki` crate.
 //!
-//! Remote commands are translated into the same `eko:cmd` events the mini player already
-//! emits, so the frontend's existing listener (App.tsx) drives playback — one command
-//! path for the mini window and the OS alike.
+//! Remote commands go straight to the engine's player, not through the webview: the main
+//! window may be hidden and asleep, and a key press has to work anyway.
 //!
 //! Threading: souvlaki's macOS controls are bound to the main thread + its run loop, so
 //! the object is created in `init` (called from Tauri's `setup`, on the main thread) and
@@ -20,7 +19,7 @@ use std::time::Duration;
 use souvlaki::{
     MediaControlEvent, MediaControls, MediaMetadata, MediaPlayback, MediaPosition, PlatformConfig,
 };
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::{AppHandle, Manager};
 
 struct SendControls(MediaControls);
 // Safety: the handle is constructed on the main thread and every access below is funneled
@@ -30,9 +29,9 @@ unsafe impl Send for SendControls {}
 #[derive(Default)]
 pub struct Media(Mutex<Option<SendControls>>);
 
-/// Create the system media controls and wire remote commands → `eko:cmd`. Must run on the
-/// main thread (it is — called from `setup`). A failure here is non-fatal: EKO just runs
-/// without OS now-playing integration.
+/// Create the system media controls and route remote commands to the engine's player.
+/// Must run on the main thread (it is: `setup` calls it). A failure here is non-fatal: EKO
+/// just runs without OS now-playing integration.
 pub fn init(app: &AppHandle) {
     let config = PlatformConfig {
         dbus_name: "eko",
@@ -46,20 +45,31 @@ pub fn init(app: &AppHandle) {
 
     let ah = app.clone();
     let attached = controls.attach(move |event: MediaControlEvent| {
-        let (action, value): (&str, Option<f64>) = match event {
-            MediaControlEvent::Play => ("play", None),
-            MediaControlEvent::Pause => ("pause", None),
-            MediaControlEvent::Toggle => ("toggle", None),
-            MediaControlEvent::Next => ("next", None),
-            MediaControlEvent::Previous => ("prev", None),
-            MediaControlEvent::Stop => ("stop", None),
-            MediaControlEvent::SetPosition(MediaPosition(pos)) => ("seek", Some(pos.as_secs_f64())),
-            _ => return,
-        };
-        let _ = ah.emit(
-            "eko:cmd",
-            serde_json::json!({ "action": action, "value": value }),
-        );
+        let engine = ah.state::<eko_core::engine::Engine>();
+        match event {
+            MediaControlEvent::Play => {
+                engine.player_resume();
+            }
+            MediaControlEvent::Pause => {
+                engine.player_pause();
+            }
+            MediaControlEvent::Toggle => {
+                engine.player_toggle();
+            }
+            MediaControlEvent::Next => {
+                engine.player_next();
+            }
+            MediaControlEvent::Previous => {
+                engine.player_prev();
+            }
+            MediaControlEvent::Stop => {
+                engine.player_stop();
+            }
+            MediaControlEvent::SetPosition(MediaPosition(pos)) => {
+                engine.player_seek(pos.as_millis() as u64);
+            }
+            _ => {}
+        }
     });
     if attached.is_err() {
         return;

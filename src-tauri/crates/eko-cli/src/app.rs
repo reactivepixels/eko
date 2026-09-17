@@ -7215,6 +7215,7 @@ mod tests {
             bits: 24,
             codec: "flac".into(),
             seg: 0,
+            uid: String::new(),
         }
     }
 

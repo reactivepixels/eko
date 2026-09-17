@@ -198,6 +198,12 @@ pub fn download_url(cfg: &Config, id: &str, salt: &str) -> String {
     api_url(cfg, "download", &[("id", id)], salt)
 }
 
+/// Which server a song belongs to, as a play queue stores it: the configured base URL
+/// without a trailing slash. Carries no credential, so it is safe to hold and log.
+pub fn server_key(cfg: &Config) -> String {
+    cfg.base_url.trim_end_matches('/').to_string()
+}
+
 /// Fill in a song's four pre-signed URL fields in place.
 ///
 /// The TypeScript minted these lazily at each call site; here every song leaving
@@ -219,6 +225,7 @@ pub fn attach_song_urls(cfg: &Config, song: &mut SubSong) {
     song.stream_src_url = Some(stream_src_url(cfg, &song.id, &auth::random_salt()));
     song.download_url = Some(download_url(cfg, &song.id, &auth::random_salt()));
     song.cover_url = cover_art_url(cfg, song.cover_art.as_deref(), None, &auth::random_salt());
+    song.server = Some(server_key(cfg));
 }
 
 /// Fill in an album's `cover_url` in place — `None` when it has no `coverArt` id, and

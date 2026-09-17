@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { emit } from "@tauri-apps/api/event";
 import { Marquee } from "./Marquee";
 import { LocalCover } from "./LocalCover";
-import { nativeEngine, type EngineStatus, type NowPlaying } from "../audio/nativeEngine";
+import { nativeEngine, player, type EngineStatus, type NowPlaying } from "../audio/nativeEngine";
 import { ACCENTS, SKINS, type Accent, type Skin } from "../store/useUiStore";
 import "./neu.css";
 
@@ -28,6 +28,7 @@ const ST0: EngineStatus = {
   bits: 0,
   codec: "",
   seg: 0,
+  uid: "",
 };
 
 /** The light/dark mode is shared across windows via localStorage (the engine's NowPlaying
@@ -63,8 +64,8 @@ function readSkin(): Skin {
 /**
  * Frameless always-on-top mini player. Reads playback state DIRECTLY from the Rust
  * engine (so it stays live even when the main window is hidden and its JS timers are
- * throttled by macOS), and drives pause/resume/seek straight into the engine. Only
- * next/prev/expand are sent to the main window, which owns the playlist.
+ * throttled by macOS), and drives pause/resume/seek straight into the engine. Transport
+ * goes straight to the engine; only expand is sent to the main window.
  */
 export function MiniWindow() {
   const [np, setNp] = useState<NowPlaying>(NP0);
@@ -127,19 +128,14 @@ export function MiniWindow() {
   const onUp = (e: React.PointerEvent) => {
     if (scrub == null) return;
     const s = secsAt(e.clientX, e.currentTarget);
-    void nativeEngine.seek(s);
+    void player.seek(s * 1000);
     setSt((p) => ({ ...p, posMs: s * 1000 }));
     setScrub(null);
   };
 
   const toggle = () => {
-    if (st.playing) {
-      void nativeEngine.pause();
-      setSt((p) => ({ ...p, playing: false }));
-    } else {
-      void nativeEngine.resume();
-      setSt((p) => ({ ...p, playing: true }));
-    }
+    void player.toggle();
+    setSt((p) => ({ ...p, playing: !p.playing }));
   };
 
   const hasTrack = np.index >= 0;
@@ -172,7 +168,7 @@ export function MiniWindow() {
           </div>
         </div>
         <div className="cctrls" data-tauri-drag-region="false">
-          <div className="tbtn" title="Previous" onClick={() => cmd("prev")}>
+          <div className="tbtn" title="Previous" onClick={() => void player.prev()}>
             <svg viewBox="0 0 24 24">
               <path d="M7 6h2v12H7zM19 6v12l-9-6z" />
             </svg>
@@ -188,7 +184,7 @@ export function MiniWindow() {
               </svg>
             )}
           </div>
-          <div className="tbtn" title="Next" onClick={() => cmd("next")}>
+          <div className="tbtn" title="Next" onClick={() => void player.next()}>
             <svg viewBox="0 0 24 24">
               <path d="M15 6h2v12h-2zM5 6l9 6-9 6z" />
             </svg>

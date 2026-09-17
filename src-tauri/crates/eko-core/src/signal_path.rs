@@ -1313,6 +1313,7 @@ mod tests {
             bits: 16,
             codec: "mp3".into(),
             seg: 0,
+            uid: String::new(),
         };
         let info = StreamInfo::from(&s);
         assert_eq!(info.rate, 48_000);

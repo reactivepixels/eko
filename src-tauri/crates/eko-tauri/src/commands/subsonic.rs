@@ -62,6 +62,14 @@ use eko_net::{Client, Config};
 pub struct SubsonicClient(Mutex<Option<Arc<Client>>>);
 
 impl SubsonicClient {
+    /// The configured client, if any, for callers outside a command: the player's
+    /// resolver and scrobbles. They run on plain threads (the main thread for sync
+    /// commands, the player's and decoder's threads), never inside the async runtime, so
+    /// they may hold and drop the client. Keep it that way.
+    pub(crate) fn current(&self) -> Option<Arc<Client>> {
+        self.0.lock().unwrap().clone()
+    }
+
     /// A handle to the configured client, or the "not configured" error — the Rust
     /// equivalent of `client.ts:53`'s `throw new Error("Subsonic not configured")`.
     fn handle(&self) -> Result<Arc<Client>, String> {

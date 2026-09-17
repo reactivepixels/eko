@@ -105,6 +105,8 @@ export interface SubSong {
   downloadUrl?: DownloadUrl;
   /** Pre-signed, proxied, and **size-agnostic** — add a size with [`coverAt`]. */
   coverUrl?: string;
+  /** The server that listed this song (its base URL). Carries no credential. */
+  server?: string;
 }
 
 export interface SubPlaylist {

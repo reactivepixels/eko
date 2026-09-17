@@ -18,5 +18,6 @@ pub mod license;
 pub mod metadata;
 #[cfg(feature = "pro")]
 pub mod offline;
+pub mod player;
 pub mod signal;
 pub mod subsonic;

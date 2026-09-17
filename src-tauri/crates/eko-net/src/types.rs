@@ -197,6 +197,11 @@ pub struct SubSong {
     /// Pre-signed, `stream://`-wrapped cover URL.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub cover_url: Option<String>,
+    /// [`crate::urls::server_key`] of the server that listed this song. Carries no
+    /// credential. Lets a play queue hold an id instead of a signed URL and still refuse
+    /// to play it against a different server.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub server: Option<String>,
 }
 
 /// Mirrors `client.ts:119-125`.

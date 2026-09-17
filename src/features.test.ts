@@ -1,56 +1,15 @@
 /**
  * Unit tests for the three free table-stakes features:
  *   #41 Synced lyrics — active-line selection
- *   #42 Scrobble — threshold calculation
+ *   #42 Scrobble (the threshold now lives in Rust: eko_core::player::scrobble_threshold_ms)
  *   #43 Sleep timer — state transitions
  *
  * These are pure-logic tests; no Tauri IPC, no DOM, no network.
  */
 
 import { describe, it, expect } from "vitest";
-import { scrobbleThreshold, SCROBBLE_MAX_SECS, SCROBBLE_MIN_SECS } from "./store/usePlayerStore";
 import { activeLyricLine } from "./lib/lyrics";
 import type { SyncedLyricLine } from "./subsonic/nativeSubsonic";
-
-// ── #42 Scrobble threshold ────────────────────────────────────────────────────
-
-describe("scrobbleThreshold", () => {
-  it("returns 50% of track duration for short tracks", () => {
-    // 2-minute track → threshold at 60 s
-    expect(scrobbleThreshold(120)).toBe(60);
-  });
-
-  it("caps at 4 minutes (240 s) for long tracks", () => {
-    // 20-minute track → threshold capped at 4 min
-    expect(scrobbleThreshold(1200)).toBe(SCROBBLE_MAX_SECS);
-    expect(scrobbleThreshold(1200)).toBe(240);
-  });
-
-  it("returns the 50% point when it is below the 4-minute cap", () => {
-    // Exactly 8 minutes: 50% = 240 s = cap (edge case — should equal cap)
-    expect(scrobbleThreshold(480)).toBe(SCROBBLE_MAX_SECS);
-  });
-
-  it("returns Infinity for zero-duration tracks (nothing to scrobble)", () => {
-    expect(scrobbleThreshold(0)).toBe(Infinity);
-  });
-
-  it("returns Infinity for negative durations (guard)", () => {
-    expect(scrobbleThreshold(-10)).toBe(Infinity);
-  });
-
-  it("SCROBBLE_MIN_SECS constant is 30 s", () => {
-    expect(SCROBBLE_MIN_SECS).toBe(30);
-  });
-
-  it("threshold for a 1-minute track is 30 s (exactly the min-length boundary)", () => {
-    expect(scrobbleThreshold(60)).toBe(30);
-  });
-
-  it("threshold for a 3-minute track is 90 s", () => {
-    expect(scrobbleThreshold(180)).toBe(90);
-  });
-});
 
 // ── #41 Synced lyrics — active-line selection ─────────────────────────────────
 

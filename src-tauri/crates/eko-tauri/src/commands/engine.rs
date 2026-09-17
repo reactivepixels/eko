@@ -157,26 +157,6 @@ pub fn engine_set_replaygain(gain_db: Option<f32>, engine: tauri::State<Engine>)
     engine.set_replaygain(gain_db)
 }
 
-/// Queue the next track for gapless continuation (free build: file + URL only).
-#[cfg(not(feature = "pro"))]
-#[tauri::command]
-pub fn engine_enqueue(path: Option<String>, url: Option<String>, engine: tauri::State<Engine>) {
-    engine.enqueue(path, url)
-}
-
-/// Queue the next track for gapless continuation (Pro build: file + URL + cached).
-#[cfg(feature = "pro")]
-#[tauri::command]
-pub fn engine_enqueue(
-    path: Option<String>,
-    url: Option<String>,
-    track_id: Option<String>,
-    plain_len: Option<u64>,
-    engine: tauri::State<Engine>,
-) {
-    engine.enqueue(path, url, track_id, plain_len)
-}
-
 /// Store the current track metadata for the mini player to read.
 #[tauri::command]
 pub fn engine_set_now_playing(np: NowPlaying, engine: tauri::State<Engine>) {

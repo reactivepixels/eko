@@ -100,6 +100,7 @@ export function toTrack(s: SubSong): Track {
     streamSrcUrl: s.streamSrcUrl,
     downloadUrl: s.downloadUrl,
     coverUrl: s.coverUrl,
+    server: s.server,
     // `||`, NOT `??` — and this is the whole boundary for it.
     //
     // `eko-net` types these as `String` with `#[serde(default)]`, so an untagged track

@@ -3,7 +3,7 @@ members = ["crates/eko-core", "crates/eko-tauri", "crates/eko-net", "crates/eko-
 resolver = "2"
 
 [workspace.package]
-version = "0.4.37"
+version = "0.4.38"
 edition = "2021"
 authors = ["Reactive Pixels"]
 
@@ -12,7 +12,7 @@ authors = ["Reactive Pixels"]
 [workspace.dependencies]
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-cpal = "0.15"
+cpal = "0.16"
 symphonia = { version = "0.5", features = ["all"] }
 rustfft = "6"
 triple_buffer = "9.0.0"

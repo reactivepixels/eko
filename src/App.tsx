@@ -24,6 +24,7 @@ function App() {
     usePlayerStore.getState().init();
     let stopAutosave = () => {};
     restoreState().finally(() => {
+      usePlayerStore.getState().resyncEngine();
       stopAutosave = startAutosave();
     });
 
@@ -177,8 +178,8 @@ function App() {
     if (compact) {
       pauseMainPoll();
     } else {
-      const ps = usePlayerStore.getState();
-      if (ps.isPlaying || ps.engineActive) resumeMainPoll();
+      // The engine may have started, moved on or stopped while the mini player was up.
+      resumeMainPoll();
     }
     void (async () => {
       try {
